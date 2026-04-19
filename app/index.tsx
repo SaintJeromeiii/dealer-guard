@@ -1,8 +1,12 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as ImagePicker from 'expo-image-picker';
 import * as Clipboard from 'expo-clipboard';
+import Constants from 'expo-constants';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
+  Image,
+  Platform,
   SafeAreaView,
   ScrollView,
   Share,
@@ -13,631 +17,71 @@ import {
   View,
 } from 'react-native';
 
-type Screen =
-  | 'home'
-  | 'questions'
-  | 'result'
-  | 'traps'
-  | 'checklist'
-  | 'liveMode'
-  | 'dealReview'
-  | 'financeDefense'
-  | 'tacticDecoder'
-  | 'compareDeals'
-  | 'notes';
-
-type MainTab = 'home' | 'checklist' | 'traps' | 'dealReview' | 'financeDefense' | 'notes';
-
-type NegotiationFlag =
-  | 'paymentShift'
-  | 'todayOnly'
-  | 'managerTrip'
-  | 'bundleAddOn'
-  | 'wontPrint'
-  | 'tradeMix';
-
-type Answers = Record<string, string>;
-type CheckedItems = Record<string, boolean>;
-
-type Question = {
-  id: string;
-  title: string;
-  subtitle: string;
-  options: string[];
-};
-
-type TrapCard = {
-  title: string;
-  danger: string;
-  why: string;
-  response: string;
-};
-
-type ChecklistSection = {
-  title: string;
-  items: string[];
-};
-
-type DealState = {
-  dealershipName: string;
-  vehiclePrice: string;
-  dealerFees: string;
-  feeNames: string;
-  addOns: string;
-  downPayment: string;
-  tradeIn: string;
-  apr: string;
-  months: string;
-};
-
-type SavedDeal = DealState & {
-  id: string;
-  savedAt: string;
-};
-
-type SelectedComparePair = {
-  firstId: string | null;
-  secondId: string | null;
-};
-
-type DealAnalysis = {
-  flaggedFees: Array<(typeof suspiciousFeeRules)[number]>;
-  amountFinanced: number;
-  monthlyPayment: number;
-  totalPaid: number;
-  dealWarnings: string[];
-  dangerScore: number;
-  dealVerdict: 'Fair Deal' | 'Review Carefully' | 'Bad Deal' | 'Walk Away';
-  dealGradeTone: 'good' | 'warn' | 'bad';
-  dealGuidance: string;
-};
-
-type RankedDeal = {
-  deal: SavedDeal;
-  analysis: DealAnalysis;
-  rankScore: number;
-};
-
-type DealComparisonResult = {
-  winner: RankedDeal;
-  runnerUp: RankedDeal | null;
-  ranked: RankedDeal[];
-  reasons: string[];
-};
-
-const STORAGE_KEYS = {
-  answers: 'dealerGuard_answers',
-  checkedItems: 'dealerGuard_checkedItems',
-  notes: 'dealerGuard_notes',
-  deal: 'dealerGuard_deal',
-  savedDeals: 'dealerGuard_savedDeals',
-  negotiationFlags: 'dealerGuard_negotiationFlags',
-};
-
-const questions: Question[] = [
-  {
-    id: 'budget',
-    title: 'What monthly payment feels safe for you?',
-    subtitle: 'Pick a payment that still leaves room in your budget.',
-    options: ['Under $300', '$300-$450', '$450-$600', '$600+', "I don't know yet"],
-  },
-  {
-    id: 'downPayment',
-    title: 'Do you have money saved for a down payment?',
-    subtitle: 'Even a small down payment can reduce risk.',
-    options: ['Yes', 'No', 'Not sure'],
-  },
-  {
-    id: 'credit',
-    title: 'Do you know your credit score range?',
-    subtitle: 'Knowing your score range helps you judge whether the APR is fair.',
-    options: ['Excellent', 'Good', 'Fair', 'Poor', "I don't know"],
-  },
-  {
-    id: 'preapproved',
-    title: 'Have you been pre-approved by a bank or credit union?',
-    subtitle: 'Outside financing gives you leverage.',
-    options: ['Yes', 'No', 'Working on it'],
-  },
-  {
-    id: 'targetPrice',
-    title: 'Do you know the fair market price of the car you want?',
-    subtitle: 'Walking in blind makes it easier to overpay.',
-    options: ['Yes', 'Somewhat', 'No'],
-  },
-  {
-    id: 'tradeIn',
-    title: 'Do you have a trade-in and know its value?',
-    subtitle: 'Trade-in confusion can hide a bad deal.',
-    options: ['No trade-in', 'Yes, and I know its value', "Yes, but I don't know its value"],
-  },
-  {
-    id: 'walkAway',
-    title: 'Do you know your maximum out-the-door price?',
-    subtitle: 'This is your walk-away number.',
-    options: ['Yes', 'No', 'I need help with that'],
-  },
-];
-
-const trapCards: TrapCard[] = [
-  {
-    title: 'Monthly payment trap',
-    danger: 'They focus on your monthly payment instead of total price.',
-    why: 'A lower payment can hide a longer loan, higher interest, or extra fees.',
-    response: 'I want the full out-the-door price first, not just the monthly payment.',
-  },
-  {
-    title: 'Today-only pressure',
-    danger: 'They say the deal is only good right now.',
-    why: 'Urgency is often used to stop comparison shopping and clear thinking.',
-    response: 'If the deal is fair, I can review it carefully and come back.',
-  },
-  {
-    title: 'Add-on packing',
-    danger: 'They slip in warranties, protection packages, or accessories.',
-    why: 'Add-ons can add thousands in markup.',
-    response: 'Please itemize every add-on and remove anything optional.',
-  },
-  {
-    title: 'Trade-in confusion',
-    danger: 'They mix your trade-in, vehicle price, and financing together.',
-    why: 'That makes it harder to see whether you are actually getting a fair deal.',
-    response: "Let's separate the vehicle price, trade-in, and financing one at a time.",
-  },
-  {
-    title: 'Rate markup',
-    danger: 'They present financing as if it is your only option.',
-    why: 'A marked-up APR can cost a lot over time.',
-    response: 'I know my outside financing options. Show me your best rate in writing.',
-  },
-  {
-    title: 'Wear-down tactic',
-    danger: 'They keep you there for hours to wear you down.',
-    why: 'Tired buyers make weaker decisions.',
-    response: "I'm leaving for now. I only make financial decisions when I have time to review them.",
-  },
-];
-
-const checklistSections: ChecklistSection[] = [
-  {
-    title: 'Before you go',
-    items: [
-      'Know your credit score range',
-      'Get pre-approved by a bank or credit union',
-      'Set your max out-the-door budget',
-      'Research fair market value',
-      'Estimate trade-in value',
-      'Get an insurance quote',
-    ],
-  },
-  {
-    title: 'Bring with you',
-    items: [
-      "Driver's license",
-      'Proof of income',
-      'Proof of residence',
-      'Insurance information',
-      'Down payment funds',
-      'Trade-in title or payoff information',
-    ],
-  },
-  {
-    title: 'At the dealership',
-    items: [
-      'Ask for the out-the-door price',
-      'Do not negotiate only on monthly payment',
-      'Review all dealer fees',
-      'Decline unwanted add-ons',
-      'Check loan term and APR',
-      'Get everything in writing',
-      'Leave if you feel pressured',
-    ],
-  },
-  {
-    title: 'Used car checks',
-    items: [
-      'Ask for vehicle history report',
-      'Confirm mileage',
-      'Ask about accidents',
-      'Review warranty details',
-      'Check maintenance history',
-      'Consider independent inspection',
-    ],
-  },
-];
-
-const quickScripts = [
-  'What is the full out-the-door price?',
-  'Please remove all optional add-ons.',
-  'I am not discussing monthly payment until I see the full price.',
-  'Show me the APR, total amount financed, and loan term in writing.',
-  "Let's discuss the trade-in separately from the vehicle price.",
-  "I'm not signing anything today.",
-  'I need time to compare this offer with others.',
-];
-
-const financeOfficeItems = [
-  {
-    title: 'Extended warranty',
-    danger: 'It may be pitched as essential protection or rolled quietly into the payment.',
-    watch: 'Ask for the total price, coverage length, deductible, and whether it is cancellable.',
-    script: 'Do not add any warranty until I see the full contract terms and total cost in writing.',
-  },
-  {
-    title: 'GAP insurance markup',
-    danger: 'GAP can be useful in some deals, but dealerships may heavily mark it up.',
-    watch: 'Compare the dealership price with your insurer or lender before agreeing.',
-    script: 'What is the exact GAP price, and how does it compare with outside options?',
-  },
-  {
-    title: 'Paint or fabric protection',
-    danger: 'These packages are often high-margin add-ons sold as if they are necessary.',
-    watch: 'Ask what is actually applied, what it covers, and whether it is optional.',
-    script: 'Please remove paint and fabric protection unless I specifically approve it.',
-  },
-  {
-    title: 'Nitrogen tires and etching',
-    danger: 'Small-value items can be bundled into a much larger package.',
-    watch: 'If it is optional, remove it. If it is already installed, ask for proof and itemized cost.',
-    script: 'I do not want nitrogen, etching, or accessory add-ons included in this deal.',
-  },
-  {
-    title: 'APR distraction',
-    danger: 'They may keep moving back to payment size instead of rate, total financed, and term.',
-    watch: 'Always review APR, amount financed, total of payments, and term together.',
-    script: 'Show me the APR, amount financed, and total of payments before we discuss anything else.',
-  },
-];
-
-const salesTacticItems = [
-  {
-    line: 'What monthly payment are you trying to stay under?',
-    tactic: 'Payment anchoring',
-    why: 'It shifts your focus away from total price and total cost.',
-    risk: 'You may agree to a longer loan, higher APR, or padded extras without noticing.',
-    script: 'I want to discuss the full out-the-door price first, then financing.',
-  },
-  {
-    line: 'This deal is only good today.',
-    tactic: 'Urgency pressure',
-    why: 'Urgency is used to stop comparison shopping and reduce careful thinking.',
-    risk: 'You may sign before reviewing numbers, fees, and financing clearly.',
-    script: 'If the deal is fair, I can review it carefully and come back.',
-  },
-  {
-    line: 'Someone else is interested in this car.',
-    tactic: 'Scarcity pressure',
-    why: 'Scarcity makes buyers feel they must act fast to avoid losing the car.',
-    risk: 'You may ignore red flags because you feel rushed.',
-    script: 'I understand, but I only move forward after reviewing the numbers carefully.',
-  },
-  {
-    line: 'This protection package is already included.',
-    tactic: 'Bundled add-on pressure',
-    why: 'Optional products are framed like they cannot be removed.',
-    risk: 'You may pay for extras you do not want or need.',
-    script: 'Please itemize that package and remove any optional products.',
-  },
-  {
-    line: 'Let me talk to my manager.',
-    tactic: 'Authority relay',
-    why: 'This can be used to slow you down, wear you down, or make the offer feel final.',
-    risk: 'You may feel pressured to accept a number that still has room to change.',
-    script: 'That is fine. When you come back, please bring the full breakdown in writing.',
-  },
-  {
-    line: 'It only changes the payment by a little bit.',
-    tactic: 'Small-payment framing',
-    why: 'A small monthly change can hide a large increase in total cost.',
-    risk: 'You may agree to expensive extras because they seem small in monthly terms.',
-    script: 'Do not show me the monthly difference. Show me the full cost of that item.',
-  },
-];
-
-const financeOfficeChecklist = [
-  'Ask for every finance product separately itemized',
-  'Confirm which items are optional',
-  'Review APR, amount financed, and total of payments',
-  'Compare GAP with outside pricing',
-  'Review warranty contract before agreeing',
-  'Remove any product you do not clearly want',
-  'Do not sign because you feel tired or rushed',
-];
-
-const negotiationFlagItems: {
-  id: NegotiationFlag;
-  label: string;
-  meaning: string;
-  response: string;
-}[] = [
-  {
-    id: 'paymentShift',
-    label: 'They shifted back to monthly payment',
-    meaning: 'This often means they want to hide total price, term length, or add-ons.',
-    response: 'I want the out-the-door price first, then financing.',
-  },
-  {
-    id: 'todayOnly',
-    label: 'They said the deal is only good today',
-    meaning: 'Urgency pressure is used to stop comparison shopping and careful review.',
-    response: 'If the deal is fair, I can review it and come back.',
-  },
-  {
-    id: 'managerTrip',
-    label: 'They went to talk to the manager again',
-    meaning: 'This can be a wear-down tactic to make you accept a number faster.',
-    response: 'Bring the full printed breakdown when you return.',
-  },
-  {
-    id: 'bundleAddOn',
-    label: 'They bundled in add-ons',
-    meaning: 'Optional products may be getting framed like they are required.',
-    response: 'Itemize each add-on and remove anything optional.',
-  },
-  {
-    id: 'wontPrint',
-    label: 'They will not print the breakdown',
-    meaning: 'Weak transparency is a major warning sign.',
-    response: 'I do not move forward without the numbers in writing.',
-  },
-  {
-    id: 'tradeMix',
-    label: 'They mixed trade-in with the deal',
-    meaning: 'Combining price, trade, and financing makes it harder to see the real deal.',
-    response: 'Let’s separate vehicle price, trade-in, and financing one at a time.',
-  },
-];
-
-const suspiciousFeeRules = [
-  { key: 'doc', label: 'Doc fee', reason: 'Documentation fees can vary and should be reviewed closely.' },
-  { key: 'documentation', label: 'Documentation fee', reason: 'Ask whether the documentation fee is standard and non-negotiable in your state.' },
-  { key: 'dealer prep', label: 'Dealer prep', reason: 'Dealer prep is often vague and may duplicate normal dealer responsibilities.' },
-  { key: 'prep', label: 'Prep fee', reason: 'Prep-related fees should be clearly explained and itemized.' },
-  { key: 'appearance', label: 'Appearance package', reason: 'Appearance packages often bundle low-value items at a high price.' },
-  { key: 'etch', label: 'Etching', reason: 'VIN etching is commonly marked up and may not provide enough value.' },
-  { key: 'nitrogen', label: 'Nitrogen tires', reason: 'Nitrogen tire packages are often unnecessary and overpriced.' },
-  { key: 'market adjustment', label: 'Market adjustment', reason: 'Market adjustments increase price without adding vehicle value.' },
-  { key: 'adm', label: 'ADM', reason: 'Additional dealer markup should be challenged directly.' },
-  { key: 'protection', label: 'Protection package', reason: 'Protection packages are often optional extras sold as if they are required.' },
-  { key: 'paint', label: 'Paint protection', reason: 'Paint protection is often high margin and should be reviewed carefully.' },
-  { key: 'fabric', label: 'Fabric protection', reason: 'Fabric protection may be optional and overpriced at the dealership.' },
-] as const;
-
-function detectSuspiciousFees(rawFeeNames: string) {
-  const text = (rawFeeNames || '').toLowerCase();
-  if (!text.trim()) return [];
-  return suspiciousFeeRules.filter((rule) => text.includes(rule.key));
-}
-
-function scoreAnswers(answers: Answers) {
-  let score = 0;
-  const missing: string[] = [];
-
-  if (answers.budget && answers.budget !== "I don't know yet") score += 1;
-  else missing.push('Set a safe monthly payment range.');
-
-  if (answers.downPayment === 'Yes') score += 1;
-  else missing.push('Decide how much you can put down.');
-
-  if (answers.credit && answers.credit !== "I don't know") score += 1;
-  else missing.push('Check your credit score range before visiting.');
-
-  if (answers.preapproved === 'Yes') score += 2;
-  else missing.push('Get pre-approved to compare financing offers.');
-
-  if (answers.targetPrice === 'Yes' || answers.targetPrice === 'Somewhat') score += 1;
-  else missing.push('Research the fair market value of the vehicle.');
-
-  if (answers.tradeIn === 'No trade-in' || answers.tradeIn === 'Yes, and I know its value') score += 1;
-  else missing.push('Estimate your trade-in value before the visit.');
-
-  if (answers.walkAway === 'Yes') score += 2;
-  else missing.push('Set a maximum out-the-door price.');
-
-  return { score, missing, max: 9 };
-}
-
-function getReadinessLabel(score: number) {
-  if (score >= 8) return 'Strong';
-  if (score >= 5) return 'Almost Ready';
-  return 'Not Ready';
-}
-
-function currency(value: number | string) {
-  const num = Number(value || 0);
-  return num.toLocaleString('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 0,
-  });
-}
-
-function estimateMonthlyPayment(amount: number, apr: number, months: number) {
-  if (!amount || !months) return 0;
-  const monthlyRate = apr / 100 / 12;
-  if (!monthlyRate) return amount / months;
-  return (amount * monthlyRate) / (1 - Math.pow(1 + monthlyRate, -months));
-}
+import AppButton from '@/components/AppButton';
+import Card from '@/components/Card';
+import MainTabButton from '@/components/MainTabButton';
+import ProgressBar from '@/components/ProgressBar';
+import StatusBadge from '@/components/StatusBadge';
+import { checklistSections } from '@/data/checklist';
+import {
+  financeOfficeChecklist,
+  financeOfficeItems,
+  negotiationFlagItems,
+  salesTacticItems,
+  stateOptions,
+} from '@/data/deal-content';
+import { questions } from '@/data/questions';
+import { quickScripts } from '@/data/scripts';
+import { trapCards } from '@/data/traps';
+import { createInitialAppData } from '@/utils/app-state';
+import {
+  buildComparisonInsights,
+  buildComparisonSummary,
+  buildCounterOfferMoves,
+  buildBuyerReport,
+  buildCurrentDealSummary,
+  buildDealAnalysis,
+  buildDealConfidence,
+  buildDealerScorecards,
+  buildDealActionRecommendation,
+  buildHonestyScore,
+  buildLiveCoachingPlan,
+  buildMarketBenchmarkAssessment,
+  buildNegotiationPlan,
+  buildNegotiationPlanSummary,
+  buildOfferTimeline,
+  buildPaperworkAudit,
+  buildPaperworkAuditSummary,
+  buildPressureSummary,
+  buildPromiseSummary,
+  buildSessionPlaybook,
+  buildTradeInAssessment,
+  compareSavedDeals,
+  currency,
+  getAddOnTotal,
+  getFeeTotal,
+  getReadinessLabel,
+  getStateName,
+  importQuoteText,
+  scoreAnswers,
+} from '@/utils/deals';
+import { loadAppData, resetStoredAppData, saveAppData } from '@/utils/storage';
+import type { DealLineItem, MainTab, NegotiationFlag, PromiseRecord, QuoteImportResult, SavedDeal, Screen, SelectedComparePair, Tone } from '@/utils/types';
 
 function makeId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function buildDealAnalysis(deal: DealState, readinessLabel: string): DealAnalysis {
-  const flaggedFees = detectSuspiciousFees(deal.feeNames);
-
-  const amountFinanced = Math.max(
-    0,
-    Number(deal.vehiclePrice || 0) +
-      Number(deal.dealerFees || 0) +
-      Number(deal.addOns || 0) -
-      Number(deal.downPayment || 0) -
-      Number(deal.tradeIn || 0)
-  );
-
-  const monthlyPayment = estimateMonthlyPayment(amountFinanced, Number(deal.apr || 0), Number(deal.months || 0));
-  const totalPaid = monthlyPayment * Number(deal.months || 0);
-
-  const dealWarnings = [
-    Number(deal.addOns || 0) > 1500 ? 'Add-ons look high. Review every extra item carefully.' : null,
-    Number(deal.dealerFees || 0) > 1000 ? 'Dealer fees look high. Ask for a full itemized breakdown.' : null,
-    Number(deal.months || 0) >= 72 ? 'Long loan term. This can hide the real cost of the deal.' : null,
-    Number(deal.apr || 0) >= 8 ? 'APR may be high. Compare outside financing before agreeing.' : null,
-    Number(deal.vehiclePrice || 0) > 0 && Number(deal.addOns || 0) / Math.max(Number(deal.vehiclePrice || 1), 1) > 0.08
-      ? 'Add-ons are a large share of the vehicle price.'
-      : null,
-  ].filter(Boolean) as string[];
-
-  const dangerScore = dealWarnings.length + flaggedFees.length + (readinessLabel === 'Not Ready' ? 1 : 0);
-  const dealVerdict = dangerScore >= 6 ? 'Walk Away' : dangerScore >= 4 ? 'Bad Deal' : dangerScore >= 2 ? 'Review Carefully' : 'Fair Deal';
-  const dealGradeTone: 'good' | 'warn' | 'bad' = dealVerdict === 'Fair Deal' ? 'good' : dealVerdict === 'Review Carefully' ? 'warn' : 'bad';
-
-  const dealGuidance =
-    dealVerdict === 'Fair Deal'
-      ? 'The numbers do not show major warning signs yet. Still review every line item and compare outside financing before signing.'
-      : dealVerdict === 'Review Carefully'
-        ? 'There are enough warning signs to slow down and ask more questions. Review fees, add-ons, and financing terms one by one.'
-        : dealVerdict === 'Bad Deal'
-          ? 'This deal shows multiple signs of being overpriced or padded. Ask for a full printed breakdown and remove optional products before moving forward.'
-          : 'This deal has enough red flags that walking away may be the smartest choice unless the numbers change significantly.';
-
+function createLineItem(): DealLineItem {
   return {
-    flaggedFees,
-    amountFinanced,
-    monthlyPayment,
-    totalPaid,
-    dealWarnings,
-    dangerScore,
-    dealVerdict,
-    dealGradeTone,
-    dealGuidance,
+    id: makeId(),
+    label: '',
+    amount: '',
   };
 }
 
-function buildHonestyScore(analysis: DealAnalysis, readinessLabel: string, activeFlags: NegotiationFlag[]) {
-  let score = 100;
-
-  score -= analysis.flaggedFees.length * 6;
-  score -= analysis.dealWarnings.length * 7;
-  score -= activeFlags.length * 8;
-  if (analysis.dealVerdict === 'Review Carefully') score -= 8;
-  if (analysis.dealVerdict === 'Bad Deal') score -= 18;
-  if (analysis.dealVerdict === 'Walk Away') score -= 28;
-  if (readinessLabel === 'Not Ready') score -= 6;
-
-  score = Math.max(0, Math.min(100, score));
-
-  const label = score >= 80 ? 'Transparent' : score >= 60 ? 'Questionable' : score >= 40 ? 'Aggressive' : 'High Risk';
-  const tone: 'good' | 'warn' | 'bad' = score >= 80 ? 'good' : score >= 60 ? 'warn' : 'bad';
-
-  const notes: string[] = [];
-  if (analysis.flaggedFees.length > 0) notes.push('Suspicious fee patterns detected.');
-  if (analysis.dealWarnings.length > 0) notes.push('Deal structure shows warning signs.');
-  if (activeFlags.length > 0) notes.push('Pressure tactics were reported during negotiation.');
-  if (!notes.length) notes.push('No major transparency issues detected yet.');
-
-  return { score, label, tone, notes };
-}
-
-function compareSavedDeals(deals: SavedDeal[], readinessLabel: string): DealComparisonResult | null {
-  if (!deals.length) return null;
-
-  const ranked: RankedDeal[] = deals
-    .map((deal) => {
-      const analysis = buildDealAnalysis(deal, readinessLabel);
-      const rankScore = analysis.dangerScore * 100000 + analysis.totalPaid;
-      return { deal, analysis, rankScore };
-    })
-    .sort((a, b) => a.rankScore - b.rankScore);
-
-  const winner = ranked[0];
-  const runnerUp = ranked[1] || null;
-  const reasons: string[] = [];
-
-  if (runnerUp) {
-    if (winner.analysis.dangerScore < runnerUp.analysis.dangerScore) {
-      reasons.push(`fewer warning signs (${winner.analysis.dangerScore} vs ${runnerUp.analysis.dangerScore})`);
-    }
-    if (winner.analysis.totalPaid < runnerUp.analysis.totalPaid) {
-      reasons.push(`lower estimated total paid (${currency(winner.analysis.totalPaid)} vs ${currency(runnerUp.analysis.totalPaid)})`);
-    }
-    if (winner.analysis.monthlyPayment < runnerUp.analysis.monthlyPayment) {
-      reasons.push(`lower estimated monthly payment (${currency(winner.analysis.monthlyPayment)} vs ${currency(runnerUp.analysis.monthlyPayment)})`);
-    }
-  }
-
-  return { winner, runnerUp, ranked, reasons };
-}
-
-function ProgressBar({ value }: { value: number }) {
-  return (
-    <View style={styles.progressTrack}>
-      <View style={[styles.progressFill, { width: `${Math.max(0, Math.min(100, value))}%` }]} />
-    </View>
-  );
-}
-
-function AppButton({
-  label,
-  onPress,
-  variant = 'primary',
-  disabled = false,
-}: {
-  label: string;
-  onPress: () => void;
-  variant?: 'primary' | 'secondary' | 'danger';
-  disabled?: boolean;
-}) {
-  return (
-    <TouchableOpacity
-      activeOpacity={0.85}
-      disabled={disabled}
-      onPress={onPress}
-      style={[
-        styles.button,
-        variant === 'primary' && styles.buttonPrimary,
-        variant === 'secondary' && styles.buttonSecondary,
-        variant === 'danger' && styles.buttonDanger,
-        disabled && styles.buttonDisabled,
-      ]}
-    >
-      <Text
-        style={
-          variant === 'primary'
-            ? styles.buttonPrimaryText
-            : variant === 'danger'
-              ? styles.buttonDangerText
-              : styles.buttonSecondaryText
-        }
-      >
-        {label}
-      </Text>
-    </TouchableOpacity>
-  );
-}
-
-function Card({ children }: { children: React.ReactNode }) {
-  return <View style={styles.card}>{children}</View>;
-}
-
-function MainTabButton({
-  label,
-  active,
-  onPress,
-}: {
-  label: string;
-  active: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.85} style={[styles.tabButton, active && styles.tabButtonActive]}>
-      <Text style={active ? styles.tabButtonTextActive : styles.tabButtonText}>{label}</Text>
-    </TouchableOpacity>
-  );
-}
-
-function StatusBadge({ label, tone }: { label: string; tone: 'good' | 'warn' | 'bad' }) {
-  return <Text style={[styles.statusBadge, tone === 'good' ? styles.badgeGood : tone === 'warn' ? styles.badgeWarn : styles.badgeBad]}>{label}</Text>;
+function createSeriesId() {
+  return `series-${makeId()}`;
 }
 
 function DealInput({
@@ -646,214 +90,452 @@ function DealInput({
   onChangeText,
   placeholder,
   numeric = true,
+  multiline = false,
 }: {
   label: string;
   value: string;
   onChangeText: (text: string) => void;
   placeholder: string;
   numeric?: boolean;
+  multiline?: boolean;
 }) {
   return (
     <View style={styles.inputWrap}>
       <Text style={styles.inputLabel}>{label}</Text>
       <TextInput
-        style={styles.input}
+        style={[styles.input, multiline && styles.inputMultiline]}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
         placeholderTextColor="#94a3b8"
         keyboardType={numeric ? 'numeric' : 'default'}
+        multiline={multiline}
+        textAlignVertical={multiline ? 'top' : 'center'}
       />
+    </View>
+  );
+}
+
+function ScoreBreakdown({
+  items,
+}: {
+  items: { label: string; reason: string; tone: Tone; effect?: number; delta?: number }[];
+}) {
+  return (
+    <View style={styles.stackGapSmall}>
+      {items.map((item) => (
+        <View key={`${item.label}-${item.reason}`} style={styles.breakdownRow}>
+          <View style={[styles.breakdownDot, item.tone === 'good' ? styles.dotGood : item.tone === 'warn' ? styles.dotWarn : styles.dotBad]} />
+          <View style={styles.flexOne}>
+            <Text style={styles.breakdownTitle}>
+              {item.label}
+              {typeof item.effect === 'number' ? ` (+${item.effect})` : ''}
+              {typeof item.delta === 'number' ? ` (${item.delta})` : ''}
+            </Text>
+            <Text style={styles.detailText}>{item.reason}</Text>
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function LineItemEditor({
+  title,
+  items,
+  onChange,
+  onAdd,
+  onRemove,
+}: {
+  title: string;
+  items: DealLineItem[];
+  onChange: (id: string, key: 'label' | 'amount', value: string) => void;
+  onAdd: () => void;
+  onRemove: (id: string) => void;
+}) {
+  return (
+    <View style={styles.stackGapSmall}>
+      <View style={styles.rowBetween}>
+        <Text style={styles.subheading}>{title}</Text>
+        <TouchableOpacity onPress={onAdd} activeOpacity={0.85}>
+          <Text style={styles.linkText}>Add line</Text>
+        </TouchableOpacity>
+      </View>
+      {items.length === 0 ? (
+        <Text style={styles.detailText}>No line items yet. Add each fee or add-on separately so the compare screen can show what changed.</Text>
+      ) : (
+        items.map((item, index) => (
+          <View key={item.id} style={styles.lineItemCard}>
+            <DealInput
+              label={`${title} ${index + 1} label`}
+              value={item.label}
+              onChangeText={(text) => onChange(item.id, 'label', text)}
+              placeholder="Doc fee"
+              numeric={false}
+            />
+            <DealInput
+              label={`${title} ${index + 1} amount`}
+              value={item.amount}
+              onChangeText={(text) => onChange(item.id, 'amount', text)}
+              placeholder="499"
+            />
+            <TouchableOpacity onPress={() => onRemove(item.id)} activeOpacity={0.85}>
+              <Text style={styles.removeText}>Remove line</Text>
+            </TouchableOpacity>
+          </View>
+        ))
+      )}
     </View>
   );
 }
 
 export default function App() {
   const [mainTab, setMainTab] = useState<MainTab>('home');
-  const [selectedComparePair, setSelectedComparePair] = useState<SelectedComparePair>({ firstId: null, secondId: null });
-  const [selectedTacticIndex, setSelectedTacticIndex] = useState(0);
   const [screen, setScreen] = useState<Screen>('home');
   const [questionIndex, setQuestionIndex] = useState(0);
-  const [answers, setAnswers] = useState<Answers>({});
-  const [checkedItems, setCheckedItems] = useState<CheckedItems>({});
-  const [notes, setNotes] = useState('');
-  const [negotiationFlags, setNegotiationFlags] = useState<NegotiationFlag[]>([]);
-  const [savedDeals, setSavedDeals] = useState<SavedDeal[]>([]);
-  const [deal, setDeal] = useState<DealState>({
-    dealershipName: '',
-    vehiclePrice: '',
-    dealerFees: '',
-    feeNames: '',
-    addOns: '',
-    downPayment: '',
-    tradeIn: '',
-    apr: '',
-    months: '60',
-  });
-
-  const currentQuestion = questions[questionIndex];
-  const selectedTactic = salesTacticItems[selectedTacticIndex];
-  const readiness = useMemo(() => scoreAnswers(answers), [answers]);
-  const readinessLabel = getReadinessLabel(readiness.score);
-
-  const checklistCount = checklistSections.flatMap((section) => section.items).length;
-  const completedCount = Object.values(checkedItems).filter(Boolean).length;
-  const checklistProgress = checklistCount ? Math.round((completedCount / checklistCount) * 100) : 0;
-
-  const dealAnalysis = useMemo(() => buildDealAnalysis(deal, readinessLabel), [deal, readinessLabel]);
-  const dealComparison = useMemo(() => compareSavedDeals(savedDeals, readinessLabel), [savedDeals, readinessLabel]);
-  const honestyScore = useMemo(() => buildHonestyScore(dealAnalysis, readinessLabel, negotiationFlags), [dealAnalysis, readinessLabel, negotiationFlags]);
-
-  const selectedDealsForCompare = useMemo(() => {
-    const byId = new Map(savedDeals.map((d) => [d.id, d]));
-    const first = selectedComparePair.firstId ? byId.get(selectedComparePair.firstId) || null : null;
-    const second = selectedComparePair.secondId ? byId.get(selectedComparePair.secondId) || null : null;
-    return { first, second };
-  }, [savedDeals, selectedComparePair]);
-
-  const manualCompareAnalyses = useMemo(() => {
-    return {
-      first: selectedDealsForCompare.first ? buildDealAnalysis(selectedDealsForCompare.first, readinessLabel) : null,
-      second: selectedDealsForCompare.second ? buildDealAnalysis(selectedDealsForCompare.second, readinessLabel) : null,
-    };
-  }, [selectedDealsForCompare, readinessLabel]);
-
-  const {
-    flaggedFees,
-    amountFinanced,
-    monthlyPayment,
-    totalPaid,
-    dealWarnings,
-    dealVerdict,
-    dealGradeTone,
-    dealGuidance,
-  } = dealAnalysis;
-
-  const winnerComparison = dealComparison?.winner ?? null;
-  const comparisonReasons = dealComparison?.reasons ?? [];
+  const [selectedComparePair, setSelectedComparePair] = useState<SelectedComparePair>({ firstId: null, secondId: null });
+  const [selectedTacticIndex, setSelectedTacticIndex] = useState(0);
+  const [appData, setAppData] = useState(createInitialAppData());
+  const [loaded, setLoaded] = useState(false);
+  const [isRunningPhotoOcr, setIsRunningPhotoOcr] = useState(false);
+  const [pendingImport, setPendingImport] = useState<QuoteImportResult | null>(null);
+  const [editableImportFields, setEditableImportFields] = useState<Record<string, string>>({});
+  const [editableFeeItems, setEditableFeeItems] = useState<DealLineItem[]>([]);
+  const [editableAddOnItems, setEditableAddOnItems] = useState<DealLineItem[]>([]);
+  const [loadedDealId, setLoadedDealId] = useState<string | null>(null);
+  const [promiseDraft, setPromiseDraft] = useState('');
 
   useEffect(() => {
-    loadStoredData();
+    let active = true;
+
+    loadAppData()
+      .then((data) => {
+        if (active) setAppData(data);
+      })
+      .finally(() => {
+        if (active) setLoaded(true);
+      });
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {
-    saveData(STORAGE_KEYS.answers, answers);
-  }, [answers]);
+    if (!loaded) return;
+    saveAppData(appData).catch(() => {
+      console.log('Save error');
+    });
+  }, [appData, loaded]);
 
-  useEffect(() => {
-    saveData(STORAGE_KEYS.checkedItems, checkedItems);
-  }, [checkedItems]);
+  const currentQuestion = questions[questionIndex];
+  const selectedTactic = salesTacticItems[selectedTacticIndex];
+  const readiness = useMemo(() => scoreAnswers(appData.answers), [appData.answers]);
+  const readinessLabel = getReadinessLabel(readiness.score);
+  const checklistCount = checklistSections.flatMap((section) => section.items).length;
+  const completedCount = Object.values(appData.checkedItems).filter(Boolean).length;
+  const checklistProgress = checklistCount ? Math.round((completedCount / checklistCount) * 100) : 0;
+  const dealAnalysis = useMemo(() => buildDealAnalysis(appData.deal, readinessLabel), [appData.deal, readinessLabel]);
+  const dealConfidence = useMemo(() => buildDealConfidence(appData.deal), [appData.deal]);
+  const negotiationPlan = useMemo(() => buildNegotiationPlan(appData.deal, dealAnalysis), [appData.deal, dealAnalysis]);
+  const actionRecommendation = useMemo(
+    () => buildDealActionRecommendation(appData.deal, dealAnalysis, negotiationPlan),
+    [appData.deal, dealAnalysis, negotiationPlan]
+  );
+  const tradeInAssessment = useMemo(() => buildTradeInAssessment(appData.deal), [appData.deal]);
+  const marketBenchmarkAssessment = useMemo(
+    () => buildMarketBenchmarkAssessment(appData.deal, dealAnalysis),
+    [appData.deal, dealAnalysis]
+  );
+  const paperworkAudit = useMemo(() => buildPaperworkAudit(appData.deal), [appData.deal]);
+  const pressureSummary = useMemo(
+    () => buildPressureSummary(appData.pressureIncidents, appData.negotiationFlags, appData.deal.dealershipName),
+    [appData.deal.dealershipName, appData.negotiationFlags, appData.pressureIncidents]
+  );
+  const promiseSummary = useMemo(
+    () => buildPromiseSummary(appData.promises, appData.deal.dealershipName),
+    [appData.deal.dealershipName, appData.promises]
+  );
+  const honestyScore = useMemo(
+    () => buildHonestyScore(dealAnalysis, readinessLabel, appData.negotiationFlags),
+    [appData.negotiationFlags, dealAnalysis, readinessLabel]
+  );
+  const liveCoachingPlan = useMemo(
+    () => buildLiveCoachingPlan(selectedTactic, dealAnalysis, appData.negotiationFlags),
+    [selectedTactic, dealAnalysis, appData.negotiationFlags]
+  );
+  const sessionPlaybook = useMemo(
+    () =>
+      buildSessionPlaybook(
+        dealAnalysis,
+        liveCoachingPlan,
+        actionRecommendation,
+        negotiationPlan,
+        marketBenchmarkAssessment,
+        tradeInAssessment,
+        paperworkAudit
+      ),
+    [actionRecommendation, dealAnalysis, liveCoachingPlan, marketBenchmarkAssessment, negotiationPlan, paperworkAudit, tradeInAssessment]
+  );
+  const comparison = useMemo(() => compareSavedDeals(appData.savedDeals, readinessLabel), [appData.savedDeals, readinessLabel]);
+  const dealerScorecards = useMemo(
+    () => buildDealerScorecards(appData.savedDeals, appData.pressureIncidents, appData.promises, readinessLabel),
+    [appData.pressureIncidents, appData.promises, appData.savedDeals, readinessLabel]
+  );
+  const activeSeriesId = useMemo(() => {
+    if (loadedDealId) {
+      return appData.savedDeals.find((deal) => deal.id === loadedDealId)?.seriesId ?? null;
+    }
 
-  useEffect(() => {
-    saveData(STORAGE_KEYS.notes, notes);
-  }, [notes]);
+    const normalizedDealer = appData.deal.dealershipName.trim().toLowerCase();
+    if (!normalizedDealer) return null;
+    return appData.savedDeals.find((deal) => deal.dealershipName.trim().toLowerCase() === normalizedDealer)?.seriesId ?? null;
+  }, [appData.deal.dealershipName, appData.savedDeals, loadedDealId]);
+  const offerTimeline = useMemo(
+    () => (activeSeriesId ? buildOfferTimeline(appData.savedDeals, activeSeriesId, readinessLabel) : []),
+    [activeSeriesId, appData.savedDeals, readinessLabel]
+  );
 
-  useEffect(() => {
-    saveData(STORAGE_KEYS.deal, deal);
-  }, [deal]);
+  const selectedDealsForCompare = useMemo(() => {
+    const byId = new Map(appData.savedDeals.map((deal) => [deal.id, deal]));
+    return {
+      first: selectedComparePair.firstId ? byId.get(selectedComparePair.firstId) ?? null : null,
+      second: selectedComparePair.secondId ? byId.get(selectedComparePair.secondId) ?? null : null,
+    };
+  }, [appData.savedDeals, selectedComparePair]);
 
-  useEffect(() => {
-    saveData(STORAGE_KEYS.savedDeals, savedDeals);
-  }, [savedDeals]);
+  const manualCompareAnalyses = useMemo(
+    () => ({
+      first: selectedDealsForCompare.first ? buildDealAnalysis(selectedDealsForCompare.first, readinessLabel) : null,
+      second: selectedDealsForCompare.second ? buildDealAnalysis(selectedDealsForCompare.second, readinessLabel) : null,
+    }),
+    [selectedDealsForCompare, readinessLabel]
+  );
+  const manualComparisonInsights = useMemo(() => {
+    if (!selectedDealsForCompare.first || !selectedDealsForCompare.second || !manualCompareAnalyses.first || !manualCompareAnalyses.second) return [];
+    return buildComparisonInsights(
+      selectedDealsForCompare.first,
+      selectedDealsForCompare.second,
+      manualCompareAnalyses.first,
+      manualCompareAnalyses.second
+    );
+  }, [selectedDealsForCompare, manualCompareAnalyses]);
+  const manualCounterMoves = useMemo(() => {
+    if (!selectedDealsForCompare.first || !selectedDealsForCompare.second || !manualCompareAnalyses.first || !manualCompareAnalyses.second) return [];
+    const leftRank = manualCompareAnalyses.first.dangerScore * 100000 + manualCompareAnalyses.first.totalPaid;
+    const rightRank = manualCompareAnalyses.second.dangerScore * 100000 + manualCompareAnalyses.second.totalPaid;
+    return leftRank <= rightRank
+      ? buildCounterOfferMoves(selectedDealsForCompare.second, selectedDealsForCompare.first, manualCompareAnalyses.second, manualCompareAnalyses.first)
+      : buildCounterOfferMoves(selectedDealsForCompare.first, selectedDealsForCompare.second, manualCompareAnalyses.first, manualCompareAnalyses.second);
+  }, [selectedDealsForCompare, manualCompareAnalyses]);
 
-  useEffect(() => {
-    saveData(STORAGE_KEYS.negotiationFlags, negotiationFlags);
-  }, [negotiationFlags]);
+  function updateDeal<K extends keyof typeof appData.deal>(key: K, value: (typeof appData.deal)[K]) {
+    setAppData((prev) => ({
+      ...prev,
+      deal: { ...prev.deal, [key]: value },
+    }));
+  }
 
-  async function loadStoredData() {
+  function queueQuoteImport(rawText: string, sourceLabel = 'pasted quote text') {
+    const result = importQuoteText(rawText);
+    setAppData((prev) => ({
+      ...prev,
+      deal: {
+        ...prev.deal,
+        importedQuoteText: rawText,
+        importReviewNotes: result.reviewNotes,
+      },
+    }));
+    setPendingImport(result);
+    setEditableImportFields(
+      Object.fromEntries(result.fieldReviews.map((item) => [item.field, item.value]))
+    );
+    setEditableFeeItems(result.feeItemReviews.map((item) => ({ id: item.id, label: item.label, amount: item.amount })));
+    setEditableAddOnItems(result.addOnItemReviews.map((item) => ({ id: item.id, label: item.label, amount: item.amount })));
+
+    if (!result.matchedFields.length) {
+      Alert.alert('Import review', result.reviewNotes.join('\n'));
+      return;
+    }
+
+    Alert.alert('Import ready for review', `Detected ${result.matchedFields.join(', ')} from ${sourceLabel}. Review and apply the extracted fields below.`);
+  }
+
+  function importQuoteIntoDeal() {
+    queueQuoteImport(appData.deal.importedQuoteText);
+  }
+
+  function applyPendingImport() {
+    if (!pendingImport) return;
+
+    const editedParsedDeal = {
+      ...pendingImport.parsedDeal,
+      vehiclePrice: editableImportFields['Vehicle price'] ?? pendingImport.parsedDeal.vehiclePrice,
+      apr: editableImportFields['APR'] ?? pendingImport.parsedDeal.apr,
+      months: editableImportFields['Term'] ?? pendingImport.parsedDeal.months,
+      downPayment: editableImportFields['Down payment'] ?? pendingImport.parsedDeal.downPayment,
+      tradeIn: editableImportFields['Trade-in'] ?? pendingImport.parsedDeal.tradeIn,
+      feeItems: editableFeeItems,
+      addOnItems: editableAddOnItems,
+      feeNames: editableFeeItems.map((item) => item.label.trim()).filter(Boolean).join(', '),
+    };
+
+    const updatedReviewNotes = pendingImport.reviewNotes.some((note) => note.includes('Manually confirmed'))
+      ? pendingImport.reviewNotes
+      : [...pendingImport.reviewNotes, 'Manually confirmed fields were applied from the OCR review step.'];
+
+    setAppData((prev) => ({
+      ...prev,
+      deal: {
+        ...prev.deal,
+        ...editedParsedDeal,
+        importReviewNotes: updatedReviewNotes,
+      },
+    }));
+    setPendingImport(null);
+    setEditableImportFields({});
+    setEditableFeeItems([]);
+    setEditableAddOnItems([]);
+    Alert.alert('Import applied', 'The reviewed OCR fields were applied to the deal.');
+  }
+
+  function dismissPendingImport() {
+    setPendingImport(null);
+    setEditableImportFields({});
+    setEditableFeeItems([]);
+    setEditableAddOnItems([]);
+  }
+
+  function updateEditableImportField(field: string, value: string) {
+    setEditableImportFields((prev) => ({ ...prev, [field]: value }));
+  }
+
+  function updateEditableLineItem(section: 'fee' | 'addon', id: string, key: 'label' | 'amount', value: string) {
+    const setter = section === 'fee' ? setEditableFeeItems : setEditableAddOnItems;
+    setter((prev) => prev.map((item) => (item.id === id ? { ...item, [key]: value } : item)));
+  }
+
+  function addEditableLineItem(section: 'fee' | 'addon') {
+    const setter = section === 'fee' ? setEditableFeeItems : setEditableAddOnItems;
+    setter((prev) => [...prev, createLineItem()]);
+  }
+
+  function removeEditableLineItem(section: 'fee' | 'addon', id: string) {
+    const setter = section === 'fee' ? setEditableFeeItems : setEditableAddOnItems;
+    setter((prev) => prev.filter((item) => item.id !== id));
+  }
+
+  function getLineItemReview(section: 'fee' | 'addon', id: string) {
+    const reviews = section === 'fee' ? pendingImport?.feeItemReviews : pendingImport?.addOnItemReviews;
+    return reviews?.find((item) => item.id === id) ?? null;
+  }
+
+  async function pickQuotePhoto() {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Permission required', 'Photo library access is required to choose a quote image.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: false,
+      quality: 1,
+    });
+
+    if (result.canceled || !result.assets?.[0]?.uri) return;
+
+    updateDeal('importedPhotoUri', result.assets[0].uri);
+    setAppData((prev) => ({
+      ...prev,
+      deal: {
+        ...prev.deal,
+        importedPhotoUri: result.assets[0].uri,
+        importReviewNotes: [
+          Platform.OS === 'web'
+            ? 'Photo selected. Run OCR to extract text from the image.'
+            : 'Photo selected. OCR is not supported in Expo Go on native yet, so use the pasted text importer or run this flow on web.',
+        ],
+      },
+    }));
+  }
+
+  async function runPhotoOcrImport() {
+    if (!appData.deal.importedPhotoUri) {
+      Alert.alert('No photo selected', 'Choose a photo first, then run OCR.');
+      return;
+    }
+
+    setIsRunningPhotoOcr(true);
+
     try {
-      const [savedAnswers, savedCheckedItems, savedNotes, savedDeal, savedDealsRaw, savedNegotiationFlags] = await Promise.all([
-        AsyncStorage.getItem(STORAGE_KEYS.answers),
-        AsyncStorage.getItem(STORAGE_KEYS.checkedItems),
-        AsyncStorage.getItem(STORAGE_KEYS.notes),
-        AsyncStorage.getItem(STORAGE_KEYS.deal),
-        AsyncStorage.getItem(STORAGE_KEYS.savedDeals),
-        AsyncStorage.getItem(STORAGE_KEYS.negotiationFlags),
-      ]);
+      let text = '';
 
-      if (savedAnswers) setAnswers(JSON.parse(savedAnswers));
-      if (savedCheckedItems) setCheckedItems(JSON.parse(savedCheckedItems));
-      if (savedNotes) setNotes(JSON.parse(savedNotes));
-      if (savedDeal) {
-        const parsedDeal = JSON.parse(savedDeal);
-        setDeal((prev) => ({ ...prev, ...parsedDeal, dealershipName: parsedDeal.dealershipName || '' }));
+      if (Platform.OS === 'web') {
+        const { recognize } = await import('tesseract.js');
+        const result = await recognize(appData.deal.importedPhotoUri, 'eng');
+        text = result.data.text?.trim() ?? '';
+      } else {
+        if (Constants.appOwnership === 'expo') {
+          Alert.alert(
+            'Development build required',
+            'Native photo OCR needs a rebuilt development client. Expo Go can preview the photo, but ML Kit OCR only works after creating and opening a development build.'
+          );
+          return;
+        }
+
+        const { default: TextRecognition } = await import('@react-native-ml-kit/text-recognition');
+        const result = await TextRecognition.recognize(appData.deal.importedPhotoUri);
+        text = result?.text?.trim?.() ?? '';
       }
-      if (savedDealsRaw) setSavedDeals(JSON.parse(savedDealsRaw));
-      if (savedNegotiationFlags) setNegotiationFlags(JSON.parse(savedNegotiationFlags));
+
+      if (!text) {
+        Alert.alert('OCR review', 'No readable text was extracted from that image. Try a clearer crop with higher contrast.');
+        return;
+      }
+
+      queueQuoteImport(text, Platform.OS === 'web' ? 'photo OCR' : 'native photo OCR');
     } catch (error) {
-      console.log('Load error:', error);
+      console.log(error);
+      Alert.alert(
+        'OCR failed',
+        Platform.OS === 'web'
+          ? 'Could not read text from that photo right now. Try the pasted text importer or another image.'
+          : 'Could not run native OCR from that photo. Make sure you are using a rebuilt development build, then try another image.'
+      );
+    } finally {
+      setIsRunningPhotoOcr(false);
     }
   }
 
-  async function saveData(key: string, value: unknown) {
-    try {
-      await AsyncStorage.setItem(key, JSON.stringify(value));
-    } catch (error) {
-      console.log('Save error:', error);
-    }
+  function updateDealLineItem(section: 'feeItems' | 'addOnItems', id: string, key: 'label' | 'amount', value: string) {
+    setAppData((prev) => ({
+      ...prev,
+      deal: {
+        ...prev.deal,
+        [section]: prev.deal[section].map((item) => (item.id === id ? { ...item, [key]: value } : item)),
+      },
+    }));
   }
 
-  async function resetApp() {
-    try {
-      await Promise.all([
-        AsyncStorage.removeItem(STORAGE_KEYS.answers),
-        AsyncStorage.removeItem(STORAGE_KEYS.checkedItems),
-        AsyncStorage.removeItem(STORAGE_KEYS.notes),
-        AsyncStorage.removeItem(STORAGE_KEYS.deal),
-        AsyncStorage.removeItem(STORAGE_KEYS.savedDeals),
-        AsyncStorage.removeItem(STORAGE_KEYS.negotiationFlags),
-      ]);
-      setAnswers({});
-      setCheckedItems({});
-      setNotes('');
-      setNegotiationFlags([]);
-      setSavedDeals([]);
-      setSelectedComparePair({ firstId: null, secondId: null });
-      setDeal({
-        dealershipName: '',
-        vehiclePrice: '',
-        dealerFees: '',
-        feeNames: '',
-        addOns: '',
-        downPayment: '',
-        tradeIn: '',
-        apr: '',
-        months: '60',
-      });
-      setQuestionIndex(0);
-      setScreen('home');
-      setMainTab('home');
-    } catch (error) {
-      console.log('Reset error:', error);
-    }
+  function addDealLineItem(section: 'feeItems' | 'addOnItems') {
+    setAppData((prev) => ({
+      ...prev,
+      deal: {
+        ...prev.deal,
+        [section]: [...prev.deal[section], createLineItem()],
+      },
+    }));
   }
 
-  function confirmReset() {
-    Alert.alert('Reset app data?', 'This will clear answers, notes, checklist progress, deal numbers, saved comparisons, and negotiation flags.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Reset', style: 'destructive', onPress: resetApp },
-    ]);
-  }
-
-  function selectAnswer(value: string) {
-    setAnswers((prev) => ({ ...prev, [currentQuestion.id]: value }));
-  }
-
-  function goNext() {
-    if (questionIndex < questions.length - 1) {
-      setQuestionIndex((prev) => prev + 1);
-    } else {
-      setScreen('result');
-    }
-  }
-
-  function goBack() {
-    if (questionIndex > 0) {
-      setQuestionIndex((prev) => prev - 1);
-    } else {
-      setScreen('home');
-      setMainTab('home');
-    }
+  function removeDealLineItem(section: 'feeItems' | 'addOnItems', id: string) {
+    setAppData((prev) => ({
+      ...prev,
+      deal: {
+        ...prev.deal,
+        [section]: prev.deal[section].filter((item) => item.id !== id),
+      },
+    }));
   }
 
   function goHomeTab(tab: MainTab) {
@@ -861,40 +543,181 @@ export default function App() {
     setScreen(tab === 'home' ? 'home' : tab);
   }
 
+  function startQuestionFlow() {
+    setQuestionIndex(0);
+    setMainTab('home');
+    setScreen('questions');
+  }
+
+  function selectAnswer(value: string) {
+    setAppData((prev) => ({
+      ...prev,
+      answers: { ...prev.answers, [currentQuestion.id]: value },
+    }));
+  }
+
   function toggleCheck(item: string) {
-    setCheckedItems((prev) => ({ ...prev, [item]: !prev[item] }));
+    setAppData((prev) => ({
+      ...prev,
+      checkedItems: { ...prev.checkedItems, [item]: !prev.checkedItems[item] },
+    }));
   }
 
   function toggleNegotiationFlag(flag: NegotiationFlag) {
-    setNegotiationFlags((prev) => (prev.includes(flag) ? prev.filter((item) => item !== flag) : [...prev, flag]));
+    setAppData((prev) => ({
+      ...prev,
+      negotiationFlags: prev.negotiationFlags.includes(flag)
+        ? prev.negotiationFlags.filter((item) => item !== flag)
+        : [...prev.negotiationFlags, flag],
+      pressureIncidents: prev.negotiationFlags.includes(flag)
+        ? prev.pressureIncidents
+        : [
+            {
+              id: makeId(),
+              flag,
+              dealershipName: prev.deal.dealershipName.trim() || 'Unnamed dealership',
+              notedAt: new Date().toISOString(),
+            },
+            ...prev.pressureIncidents,
+          ].slice(0, 50),
+    }));
+  }
+
+  function addPromiseRecord() {
+    const text = promiseDraft.trim();
+    if (!text) {
+      Alert.alert('Add a promise first', 'Type the salesperson promise before saving it.');
+      return;
+    }
+
+    const newPromise: PromiseRecord = {
+      id: makeId(),
+      dealershipName: appData.deal.dealershipName.trim() || 'Unnamed dealership',
+      text,
+      status: 'open',
+      notedAt: new Date().toISOString(),
+      resolvedAt: null,
+    };
+
+    setAppData((prev) => ({
+      ...prev,
+      promises: [newPromise, ...prev.promises].slice(0, 100),
+    }));
+    setPromiseDraft('');
+  }
+
+  function updatePromiseStatus(id: string, status: PromiseRecord['status']) {
+    setAppData((prev) => ({
+      ...prev,
+      promises: prev.promises.map((promise) =>
+        promise.id === id
+          ? {
+              ...promise,
+              status,
+              resolvedAt: status === 'open' ? null : new Date().toISOString(),
+            }
+          : promise
+      ),
+    }));
+  }
+
+  function goNext() {
+    if (questionIndex < questions.length - 1) {
+      setQuestionIndex((prev) => prev + 1);
+      return;
+    }
+    setScreen('result');
+  }
+
+  function goBack() {
+    if (questionIndex > 0) {
+      setQuestionIndex((prev) => prev - 1);
+      return;
+    }
+    setScreen('home');
+  }
+
+  async function copyText(label: string, text: string) {
+    try {
+      await Clipboard.setStringAsync(text);
+      Alert.alert('Copied', `${label} copied to your clipboard.`);
+    } catch {
+      Alert.alert('Copy failed', `Could not copy ${label.toLowerCase()} right now.`);
+    }
+  }
+
+  async function shareText(title: string, message: string) {
+    try {
+      await Share.share({ title, message });
+    } catch {
+      Alert.alert('Share failed', 'Could not open the share sheet right now.');
+    }
   }
 
   function saveCurrentDeal() {
-    if (!deal.vehiclePrice && !deal.dealerFees && !deal.addOns && !deal.apr) {
+    if (
+      !appData.deal.vehiclePrice &&
+      !appData.deal.dealerFees &&
+      !appData.deal.addOns &&
+      !appData.deal.apr &&
+      appData.deal.feeItems.length === 0 &&
+      appData.deal.addOnItems.length === 0
+    ) {
       Alert.alert('Nothing to save', 'Enter deal details first, then save the offer for comparison.');
       return;
     }
 
+    const loadedDeal = loadedDealId ? appData.savedDeals.find((item) => item.id === loadedDealId) ?? null : null;
+    const normalizedDealer = appData.deal.dealershipName.trim().toLowerCase();
+    const matchingSeries = normalizedDealer
+      ? appData.savedDeals.find((item) => item.dealershipName.trim().toLowerCase() === normalizedDealer)
+      : null;
+    const seriesId = loadedDeal?.seriesId ?? matchingSeries?.seriesId ?? createSeriesId();
+    const priorRevisions = appData.savedDeals.filter((item) => item.seriesId === seriesId);
+    const revisionNumber = priorRevisions.length > 0 ? Math.max(...priorRevisions.map((item) => item.revisionNumber || 1)) + 1 : 1;
+
     const newDeal: SavedDeal = {
-      ...deal,
+      ...appData.deal,
       id: makeId(),
       savedAt: new Date().toISOString(),
+      dealershipName: appData.deal.dealershipName.trim() || `Saved offer ${appData.savedDeals.length + 1}`,
+      seriesId,
+      revisionNumber,
+      basedOnDealId: loadedDeal?.id ?? priorRevisions[0]?.id ?? null,
     };
-    setSavedDeals((prev) => [newDeal, ...prev].slice(0, 6));
-    Alert.alert('Deal saved', 'This offer is now available in Compare dealership offers.');
+
+    setAppData((prev) => ({
+      ...prev,
+      savedDeals: [newDeal, ...prev.savedDeals].slice(0, 10),
+    }));
+    setLoadedDealId(newDeal.id);
+
+    Alert.alert(
+      'Deal saved',
+      revisionNumber > 1 ? `Saved as revision ${revisionNumber} for this dealership timeline.` : 'This offer is now available in Compare dealership offers.'
+    );
   }
 
   function loadSavedDeal(id: string) {
-    const found = savedDeals.find((item) => item.id === id);
+    const found = appData.savedDeals.find((item) => item.id === id);
     if (!found) return;
-    const { id: _id, savedAt: _savedAt, ...rest } = found;
-    setDeal(rest);
+
+    const { id: _id, savedAt: _savedAt, seriesId: _seriesId, revisionNumber: _revisionNumber, basedOnDealId: _basedOnDealId, ...rest } = found;
+    setAppData((prev) => ({
+      ...prev,
+      deal: rest,
+    }));
+    setLoadedDealId(id);
     setMainTab('dealReview');
     setScreen('dealReview');
   }
 
   function deleteSavedDeal(id: string) {
-    setSavedDeals((prev) => prev.filter((item) => item.id !== id));
+    setAppData((prev) => ({
+      ...prev,
+      savedDeals: prev.savedDeals.filter((item) => item.id !== id),
+    }));
+    setLoadedDealId((prev) => (prev === id ? null : prev));
     setSelectedComparePair((prev) => ({
       firstId: prev.firstId === id ? null : prev.firstId,
       secondId: prev.secondId === id ? null : prev.secondId,
@@ -904,132 +727,95 @@ export default function App() {
   function toggleComparePick(slot: 'firstId' | 'secondId', id: string) {
     setSelectedComparePair((prev) => {
       const currentValue = prev[slot];
-      if (currentValue === id) {
-        return { ...prev, [slot]: null };
-      }
-
+      if (currentValue === id) return { ...prev, [slot]: null };
       const otherSlot = slot === 'firstId' ? 'secondId' : 'firstId';
-      if (prev[otherSlot] === id) {
-        return prev;
-      }
-
+      if (prev[otherSlot] === id) return prev;
       return { ...prev, [slot]: id };
     });
   }
 
-  function buildComparisonSummary(): string {
-    const firstDeal = selectedDealsForCompare.first;
-    const secondDeal = selectedDealsForCompare.second;
-    const firstAnalysis = manualCompareAnalyses.first;
-    const secondAnalysis = manualCompareAnalyses.second;
-
-    if (!firstDeal || !secondDeal || !firstAnalysis || !secondAnalysis) {
-      return 'Select two saved offers in Compare dealership offers to generate a comparison summary.';
-    }
-
-    const winnerName =
-      firstAnalysis.dangerScore < secondAnalysis.dangerScore
-        ? firstDeal.dealershipName || 'Offer 1'
-        : firstAnalysis.dangerScore > secondAnalysis.dangerScore
-          ? secondDeal.dealershipName || 'Offer 2'
-          : firstAnalysis.totalPaid <= secondAnalysis.totalPaid
-            ? firstDeal.dealershipName || 'Offer 1'
-            : secondDeal.dealershipName || 'Offer 2';
-
-    return [
-      'Dealer Guard comparison summary',
-      '',
-      `${firstDeal.dealershipName || 'Offer 1'}`,
-      `- Verdict: ${firstAnalysis.dealVerdict}`,
-      `- Amount financed: ${currency(firstAnalysis.amountFinanced)}`,
-      `- Monthly payment: ${currency(firstAnalysis.monthlyPayment)}`,
-      `- Total paid: ${currency(firstAnalysis.totalPaid)}`,
-      `- Warning count: ${firstAnalysis.dealWarnings.length + firstAnalysis.flaggedFees.length}`,
-      '',
-      `${secondDeal.dealershipName || 'Offer 2'}`,
-      `- Verdict: ${secondAnalysis.dealVerdict}`,
-      `- Amount financed: ${currency(secondAnalysis.amountFinanced)}`,
-      `- Monthly payment: ${currency(secondAnalysis.monthlyPayment)}`,
-      `- Total paid: ${currency(secondAnalysis.totalPaid)}`,
-      `- Warning count: ${secondAnalysis.dealWarnings.length + secondAnalysis.flaggedFees.length}`,
-      '',
-      `Current winner: ${winnerName}`,
-    ].join('
-');
+  function confirmReset() {
+    Alert.alert(
+      'Reset app data?',
+      'This will clear answers, notes, saved offers, checklist progress, and negotiation flags.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reset',
+          style: 'destructive',
+          onPress: async () => {
+            await resetStoredAppData();
+            setAppData(createInitialAppData());
+            setMainTab('home');
+            setScreen('home');
+            setQuestionIndex(0);
+            setLoadedDealId(null);
+            setSelectedComparePair({ firstId: null, secondId: null });
+          },
+        },
+      ]
+    );
   }
 
-  async function copyComparisonSummary() {
-    const firstDeal = selectedDealsForCompare.first;
-    const secondDeal = selectedDealsForCompare.second;
-    const firstAnalysis = manualCompareAnalyses.first;
-    const secondAnalysis = manualCompareAnalyses.second;
-
-    if (!firstDeal || !secondDeal || !firstAnalysis || !secondAnalysis) {
-      Alert.alert('Select two offers', 'Choose one offer for Left and one offer for Right before copying the comparison summary.');
-      return;
-    }
-
-    const summary = buildComparisonSummary();
-    try {
-      await Clipboard.setStringAsync(summary);
-      Alert.alert('Copied', 'Comparison summary copied to your clipboard.');
-    } catch (error) {
-      Alert.alert('Copy failed', 'Could not copy the comparison summary right now.');
-    }
+  if (!loaded) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.loadingWrap}>
+          <ActivityIndicator size="large" color="#0f172a" />
+          <Text style={styles.heroText}>Loading your saved dealership prep data...</Text>
+        </View>
+      </SafeAreaView>
+    );
   }
 
-  async function shareComparisonSummary() {
-    const firstDeal = selectedDealsForCompare.first;
-    const secondDeal = selectedDealsForCompare.second;
-    const firstAnalysis = manualCompareAnalyses.first;
-    const secondAnalysis = manualCompareAnalyses.second;
-
-    if (!firstDeal || !secondDeal || !firstAnalysis || !secondAnalysis) {
-      Alert.alert('Select two offers', 'Choose one offer for Left and one offer for Right before sharing the comparison summary.');
-      return;
-    }
-
-    const summary = buildComparisonSummary();
-    try {
-      await Share.share({
-        message: summary,
-        title: 'Dealer Guard comparison summary',
-      });
-    } catch (error) {
-      Alert.alert('Share failed', 'Could not open the share sheet right now.');
-    }
-  }
-
-  async function copyScript(script: string) {
-    try {
-      await Clipboard.setStringAsync(script);
-      Alert.alert('Copied', 'Script copied to your clipboard.');
-    } catch (error) {
-      Alert.alert('Copy failed', 'Could not copy that script right now.');
-    }
-  }
+  const currentDealSummary = buildCurrentDealSummary(appData.deal, dealAnalysis);
+  const negotiationPlanSummary = buildNegotiationPlanSummary(appData.deal, dealAnalysis, negotiationPlan);
+  const paperworkAuditSummary = paperworkAudit ? buildPaperworkAuditSummary(appData.deal, paperworkAudit) : '';
+  const buyerReport = buildBuyerReport(
+    appData.deal,
+    dealAnalysis,
+    dealConfidence,
+    actionRecommendation,
+    negotiationPlan,
+    marketBenchmarkAssessment,
+    tradeInAssessment,
+    paperworkAudit
+  );
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container}>
         <View style={styles.header}>
-          <View>
+          <View style={styles.flexOne}>
             <Text style={styles.eyebrow}>DEALER GUARD</Text>
             <Text style={styles.headerTitle}>Car buyer protection</Text>
+            <Text style={styles.headerSubtitle}>Prep, review, compare, and keep pressure tactics from steering the deal.</Text>
           </View>
-          <TouchableOpacity onPress={confirmReset} style={styles.resetPill}>
+          <TouchableOpacity onPress={confirmReset} style={styles.resetPill} activeOpacity={0.85}>
             <Text style={styles.resetPillText}>Reset</Text>
           </TouchableOpacity>
         </View>
 
-        <View style={styles.tabBar}>
-          <MainTabButton label="Home" active={mainTab === 'home'} onPress={() => goHomeTab('home')} />
-          <MainTabButton label="Checklist" active={mainTab === 'checklist'} onPress={() => goHomeTab('checklist')} />
-          <MainTabButton label="Traps" active={mainTab === 'traps'} onPress={() => goHomeTab('traps')} />
-          <MainTabButton label="Deal" active={mainTab === 'dealReview'} onPress={() => goHomeTab('dealReview')} />
-          <MainTabButton label="Finance" active={mainTab === 'financeDefense'} onPress={() => goHomeTab('financeDefense')} />
-          <MainTabButton label="Notes" active={mainTab === 'notes'} onPress={() => goHomeTab('notes')} />
-        </View>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabBar}>
+          <View style={styles.tabSlot}>
+            <MainTabButton label="Home" active={mainTab === 'home'} onPress={() => goHomeTab('home')} />
+          </View>
+          <View style={styles.tabSlot}>
+            <MainTabButton label="Checklist" active={mainTab === 'checklist'} onPress={() => goHomeTab('checklist')} />
+          </View>
+          <View style={styles.tabSlot}>
+            <MainTabButton label="Traps" active={mainTab === 'traps'} onPress={() => goHomeTab('traps')} />
+          </View>
+          <View style={styles.tabSlot}>
+            <MainTabButton label="Deal" active={mainTab === 'dealReview'} onPress={() => goHomeTab('dealReview')} />
+          </View>
+          <View style={styles.tabSlot}>
+            <MainTabButton label="Finance" active={mainTab === 'financeDefense'} onPress={() => goHomeTab('financeDefense')} />
+          </View>
+          <View style={styles.tabSlot}>
+            <MainTabButton label="Notes" active={mainTab === 'notes'} onPress={() => goHomeTab('notes')} />
+          </View>
+        </ScrollView>
 
         {screen === 'home' && (
           <>
@@ -1038,28 +824,20 @@ export default function App() {
                 label={readinessLabel === 'Strong' ? 'Ready to negotiate' : readinessLabel === 'Almost Ready' ? 'Some weak spots' : 'At risk'}
                 tone={readinessLabel === 'Strong' ? 'good' : readinessLabel === 'Almost Ready' ? 'warn' : 'bad'}
               />
-              <Text style={styles.heroTitle}>Don’t get played at the dealership</Text>
+              <Text style={styles.heroTitle}>Don&apos;t get played at the dealership</Text>
               <Text style={styles.heroText}>
                 Prepare before you walk in, spot pressure tactics, and review whether a deal actually makes sense.
               </Text>
 
               <View style={styles.heroWarningBox}>
-                <Text style={styles.heroWarningTitle}>What this app protects against</Text>
-                <Text style={styles.heroWarningText}>• Monthly payment tricks</Text>
-                <Text style={styles.heroWarningText}>• Hidden add-ons and padded fees</Text>
-                <Text style={styles.heroWarningText}>• Trade-in confusion</Text>
-                <Text style={styles.heroWarningText}>• Pressure to sign too fast</Text>
+                <Text style={styles.heroWarningTitle}>What this version adds</Text>
+                <Text style={styles.heroWarningText}>• Offer scoring now explains why the score moved.</Text>
+                <Text style={styles.heroWarningText}>• Saved offers carry state context and offer notes.</Text>
+                <Text style={styles.heroWarningText}>• Comparisons are backed by tested domain logic.</Text>
               </View>
 
               <View style={styles.stackGap}>
-                <AppButton
-                  label="Start readiness check"
-                  onPress={() => {
-                    setQuestionIndex(0);
-                    setScreen('questions');
-                    setMainTab('home');
-                  }}
-                />
+                <AppButton label="Start readiness check" onPress={startQuestionFlow} />
                 <AppButton label="Open live dealership mode" variant="secondary" onPress={() => setScreen('liveMode')} />
               </View>
             </Card>
@@ -1077,7 +855,7 @@ export default function App() {
 
               <TouchableOpacity style={styles.menuCard} onPress={() => setScreen('dealReview')} activeOpacity={0.85}>
                 <Text style={styles.menuTitle}>Deal review</Text>
-                <Text style={styles.menuDesc}>Break down vehicle price, fees, APR, and add-ons.</Text>
+                <Text style={styles.menuDesc}>Break down vehicle price, fees, APR, add-ons, notes, and local state context.</Text>
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.menuCard} onPress={() => setScreen('financeDefense')} activeOpacity={0.85}>
@@ -1092,12 +870,7 @@ export default function App() {
 
               <TouchableOpacity style={styles.menuCard} onPress={() => setScreen('compareDeals')} activeOpacity={0.85}>
                 <Text style={styles.menuTitle}>Compare dealership offers</Text>
-                <Text style={styles.menuDesc}>Save multiple offers and compare total cost, monthly payment, and risk side by side.</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.menuCard} onPress={() => setScreen('notes')} activeOpacity={0.85}>
-                <Text style={styles.menuTitle}>Notes</Text>
-                <Text style={styles.menuDesc}>Track quotes, names, promises, and what felt off.</Text>
+                <Text style={styles.menuDesc}>Save multiple offers and compare total cost, monthly payment, notes, and risk side by side.</Text>
               </TouchableOpacity>
             </View>
           </>
@@ -1117,7 +890,7 @@ export default function App() {
 
             <View style={styles.stackGap}>
               {currentQuestion.options.map((option) => {
-                const active = answers[currentQuestion.id] === option;
+                const active = appData.answers[currentQuestion.id] === option;
                 return (
                   <TouchableOpacity
                     key={option}
@@ -1136,11 +909,7 @@ export default function App() {
                 <AppButton label="Back" variant="secondary" onPress={goBack} />
               </View>
               <View style={styles.flexOne}>
-                <AppButton
-                  label={questionIndex === questions.length - 1 ? 'See result' : 'Next'}
-                  onPress={goNext}
-                  disabled={!answers[currentQuestion.id]}
-                />
+                <AppButton label={questionIndex === questions.length - 1 ? 'See result' : 'Next'} onPress={goNext} disabled={!appData.answers[currentQuestion.id]} />
               </View>
             </View>
           </Card>
@@ -1156,19 +925,11 @@ export default function App() {
               <Text style={styles.heroText}>Score: {readiness.score} / {readiness.max}</Text>
               <ProgressBar value={(readiness.score / readiness.max) * 100} />
 
-              <View style={styles.infoBox}>
-                <Text style={styles.infoBoxText}>
-                  {readinessLabel === 'Strong' && 'You are in a good position to compare offers and catch bad tactics. Stay focused on total price, APR, and add-ons.'}
-                  {readinessLabel === 'Almost Ready' && 'You are close, but you still have a few weak spots a salesperson can use against you. Tighten those up before you go.'}
-                  {readinessLabel === 'Not Ready' && 'Right now you are more exposed to pressure tactics, confusing numbers, and overpriced financing. Prep first, then visit.'}
-                </Text>
-              </View>
-
               <Text style={styles.subheading}>What to fix first</Text>
-              <View style={styles.stackGap}>
+              <View style={styles.stackGapSmall}>
                 {readiness.missing.map((item) => (
                   <View key={item} style={styles.warningRow}>
-                    <Text style={styles.warningBullet}>⚠</Text>
+                    <Text style={styles.warningBullet}>•</Text>
                     <Text style={styles.warningText}>{item}</Text>
                   </View>
                 ))}
@@ -1177,7 +938,6 @@ export default function App() {
 
             <View style={styles.stackGap}>
               <AppButton label="Checklist" onPress={() => setScreen('checklist')} />
-              <AppButton label="Trap library" variant="secondary" onPress={() => setScreen('traps')} />
               <AppButton label="Deal review" variant="secondary" onPress={() => setScreen('dealReview')} />
               <AppButton label="Home" variant="secondary" onPress={() => setScreen('home')} />
             </View>
@@ -1206,7 +966,8 @@ export default function App() {
                   </Text>
                   <View style={styles.scriptBox}>
                     <Text style={styles.detailText}>
-                      <Text style={styles.bold}>What to say: </Text>“{trap.response}”
+                      <Text style={styles.bold}>What to say: </Text>
+                      &ldquo;{trap.response}&rdquo;
                     </Text>
                   </View>
                 </Card>
@@ -1220,7 +981,9 @@ export default function App() {
             <View style={styles.rowBetween}>
               <View>
                 <Text style={styles.screenTitle}>Dealership checklist</Text>
-                <Text style={styles.sectionLabel}>{completedCount} of {checklistCount} completed</Text>
+                <Text style={styles.sectionLabel}>
+                  {completedCount} of {checklistCount} completed
+                </Text>
               </View>
               <TouchableOpacity onPress={() => setScreen('home')}>
                 <Text style={styles.linkText}>Home</Text>
@@ -1234,7 +997,7 @@ export default function App() {
                   <Text style={styles.menuTitle}>{section.title}</Text>
                   <View style={styles.stackGapSmall}>
                     {section.items.map((item) => {
-                      const checked = !!checkedItems[item];
+                      const checked = !!appData.checkedItems[item];
                       return (
                         <TouchableOpacity
                           key={item}
@@ -1255,100 +1018,137 @@ export default function App() {
         )}
 
         {screen === 'liveMode' && (
-          <>
-            <Card>
-              <View style={styles.rowBetween}>
-                <Text style={styles.screenTitle}>Live dealership mode</Text>
-                <StatusBadge label={dealVerdict} tone={dealGradeTone} />
-              </View>
-              <Text style={styles.heroText}>Keep your guard up while you're sitting at the lot.</Text>
+          <Card>
+            <View style={styles.rowBetween}>
+              <Text style={styles.screenTitle}>Live dealership mode</Text>
+              <StatusBadge label={dealAnalysis.dealVerdict} tone={dealAnalysis.dealGradeTone} />
+            </View>
+            <Text style={styles.heroText}>Keep your guard up while you&apos;re sitting at the lot.</Text>
 
               <View style={styles.statsRow}>
                 <View style={styles.statCard}>
                   <Text style={styles.statLabel}>Readiness</Text>
                   <Text style={styles.statValue}>{readinessLabel}</Text>
                 </View>
-                <View style={styles.statCard}>
-                  <Text style={styles.statLabel}>Checklist done</Text>
-                  <Text style={styles.statValue}>{checklistProgress}%</Text>
-                </View>
+              <View style={styles.statCard}>
+                <Text style={styles.statLabel}>Checklist done</Text>
+                <Text style={styles.statValue}>{checklistProgress}%</Text>
               </View>
+            </View>
 
-              <Card>
-                <View style={styles.rowBetween}>
-                  <Text style={styles.menuTitle}>Dealer honesty score</Text>
-                  <StatusBadge label={`${honestyScore.score}/100`} tone={honestyScore.tone} />
-                </View>
-                <Text style={styles.detailText}>{honestyScore.label}</Text>
-                <ProgressBar value={honestyScore.score} />
-                <View style={styles.stackGapSmall}>
-                  {honestyScore.notes.map((note) => (
-                    <Text key={note} style={styles.detailText}>• {note}</Text>
-                  ))}
-                </View>
-              </Card>
-
-              <View style={styles.dangerPanel}>
-                <Text style={styles.dangerPanelTitle}>Dealership red flags</Text>
-                <Text style={styles.dangerPanelText}>• They dodge the out-the-door price.</Text>
-                <Text style={styles.dangerPanelText}>• They keep steering back to monthly payment.</Text>
-                <Text style={styles.dangerPanelText}>• They say you must sign today.</Text>
-                <Text style={styles.dangerPanelText}>• They refuse to separate trade-in and financing.</Text>
+            <Card>
+              <View style={styles.rowBetween}>
+                <Text style={styles.menuTitle}>Dealer honesty score</Text>
+                <StatusBadge label={`${honestyScore.score}/100`} tone={honestyScore.tone} />
               </View>
-
-              <View style={styles.infoBox}>
-                <Text style={styles.infoBoxText}>• Do not negotiate from monthly payment alone.</Text>
-                <Text style={styles.infoBoxText}>• Ask for the out-the-door price in writing.</Text>
-                <Text style={styles.infoBoxText}>• Separate price, trade-in, and financing.</Text>
-                <Text style={styles.infoBoxText}>• Leave if you feel rushed or confused.</Text>
-              </View>
-
-              <Card>
-                <Text style={styles.menuTitle}>Negotiation red flag button</Text>
-                <Text style={styles.detailText}>Tap what just happened. Dealer Guard will track pressure tactics and raise the honesty warning level.</Text>
-                <View style={styles.stackGapSmall}>
-                  {negotiationFlagItems.map((item) => {
-                    const active = negotiationFlags.includes(item.id);
-                    return (
-                      <TouchableOpacity
-                        key={item.id}
-                        activeOpacity={0.85}
-                        onPress={() => toggleNegotiationFlag(item.id)}
-                        style={[styles.optionButton, active && styles.optionButtonActive]}
-                      >
-                        <Text style={active ? styles.optionTextActive : styles.optionText}>{item.label}</Text>
-                        <Text style={active ? styles.optionTextActive : styles.detailText}>{item.meaning}</Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-                {negotiationFlags.length > 0 && (
-                  <View style={styles.gradePanel}>
-                    <Text style={styles.bold}>Suggested response</Text>
-                    {negotiationFlagItems
-                      .filter((item) => negotiationFlags.includes(item.id))
-                      .map((item) => (
-                        <TouchableOpacity key={item.id} onPress={() => copyScript(item.response)} activeOpacity={0.85} style={styles.scriptTile}>
-                          <Text style={styles.detailText}>“{item.response}”</Text>
-                          <Text style={styles.copyHint}>Tap to copy</Text>
-                        </TouchableOpacity>
-                      ))}
-                  </View>
-                )}
-              </Card>
-
-              <Text style={styles.subheading}>Tap-to-copy scripts</Text>
+              <Text style={styles.detailText}>{honestyScore.label}</Text>
+              <ProgressBar value={honestyScore.score} />
               <View style={styles.stackGapSmall}>
-                {quickScripts.map((script) => (
-                  <TouchableOpacity key={script} activeOpacity={0.85} onPress={() => copyScript(script)} style={styles.scriptTile}>
-                    <Text style={styles.detailText}>“{script}”</Text>
-                    <Text style={styles.copyHint}>Tap to copy</Text>
-                  </TouchableOpacity>
+                {honestyScore.notes.map((note) => (
+                  <Text key={note} style={styles.detailText}>
+                    • {note}
+                  </Text>
                 ))}
               </View>
             </Card>
-            <AppButton label="Back home" variant="secondary" onPress={() => setScreen('home')} />
-          </>
+
+            <Card>
+              <Text style={styles.menuTitle}>Why the honesty score moved</Text>
+              <ScoreBreakdown items={honestyScore.breakdown.map((item) => ({ ...item, tone: item.delta >= 0 ? 'good' : Math.abs(item.delta) >= 10 ? 'bad' : 'warn' }))} />
+            </Card>
+
+            <Card>
+              <Text style={styles.menuTitle}>Dealer pressure log</Text>
+              <Text style={styles.detailText}>{pressureSummary.headline}</Text>
+              <View style={styles.stackGapSmall}>
+                {pressureSummary.notes.map((note) => (
+                  <Text key={note} style={styles.detailText}>
+                    • {note}
+                  </Text>
+                ))}
+              </View>
+              <Text style={styles.subheading}>Recent incidents</Text>
+              <View style={styles.stackGapSmall}>
+                {pressureSummary.recent.length > 0 ? (
+                  pressureSummary.recent.map((incident) => (
+                    <View key={incident.id} style={styles.infoBox}>
+                      <Text style={styles.bold}>{incident.dealershipName}</Text>
+                      <Text style={styles.infoBoxText}>{incident.flag}</Text>
+                      <Text style={styles.infoBoxText}>{new Date(incident.notedAt).toLocaleString()}</Text>
+                    </View>
+                  ))
+                ) : (
+                  <Text style={styles.detailText}>No incidents logged yet. Tap the tactics below when they happen and the session record will build automatically.</Text>
+                )}
+              </View>
+            </Card>
+
+            <Card>
+              <Text style={styles.menuTitle}>Live coaching</Text>
+              <Text style={styles.detailText}>{liveCoachingPlan.headline}</Text>
+              <View style={styles.scriptBox}>
+                <Text style={styles.detailText}>
+                  <Text style={styles.bold}>Say this now: </Text>
+                  {liveCoachingPlan.immediateScript}
+                </Text>
+              </View>
+              <Text style={styles.subheading}>Ask next</Text>
+              <View style={styles.stackGapSmall}>
+                {liveCoachingPlan.nextQuestions.map((question) => (
+                  <Text key={question} style={styles.detailText}>
+                    • {question}
+                  </Text>
+                ))}
+              </View>
+              <Text style={styles.subheading}>Walk away if</Text>
+              <View style={styles.stackGapSmall}>
+                {liveCoachingPlan.walkAwayTriggers.map((trigger) => (
+                  <Text key={trigger} style={styles.warningText}>
+                    • {trigger}
+                  </Text>
+                ))}
+              </View>
+            </Card>
+
+            <Card>
+              <Text style={styles.menuTitle}>Session playbook</Text>
+              <Text style={styles.detailText}>{sessionPlaybook.headline}</Text>
+              <View style={styles.stackGapSmall}>
+                {sessionPlaybook.steps.map((step, index) => (
+                  <View key={`${step.title}-${index}`} style={styles.infoBox}>
+                    <Text style={styles.bold}>
+                      Step {index + 1}: {step.title}
+                    </Text>
+                    <Text style={styles.infoBoxText}>{step.detail}</Text>
+                  </View>
+                ))}
+              </View>
+            </Card>
+
+            <Card>
+              <Text style={styles.menuTitle}>Pressure tactic tracker</Text>
+              <View style={styles.stackGapSmall}>
+                {negotiationFlagItems.map((flag) => {
+                  const active = appData.negotiationFlags.includes(flag.id);
+                  return (
+                    <TouchableOpacity
+                      key={flag.id}
+                      activeOpacity={0.85}
+                      onPress={() => toggleNegotiationFlag(flag.id)}
+                      style={[styles.flagCard, active && styles.flagCardActive]}
+                    >
+                      <Text style={active ? styles.menuTitleActive : styles.menuTitle}>{flag.label}</Text>
+                      <Text style={active ? styles.detailTextActive : styles.detailText}>{flag.meaning}</Text>
+                      <Text style={active ? styles.detailTextActive : styles.detailText}>
+                        <Text style={styles.bold}>Response: </Text>
+                        {flag.response}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </Card>
+          </Card>
         )}
 
         {screen === 'dealReview' && (
@@ -1361,150 +1161,553 @@ export default function App() {
             </View>
 
             <Card>
-              <DealInput
-                label="Dealership name"
-                value={deal.dealershipName}
-                onChangeText={(text) => setDeal((prev) => ({ ...prev, dealershipName: text }))}
-                placeholder="Metro Honda"
-                numeric={false}
-              />
-              <DealInput
-                label="Vehicle price"
-                value={deal.vehiclePrice}
-                onChangeText={(text) => setDeal((prev) => ({ ...prev, vehiclePrice: text }))}
-                placeholder="25000"
-              />
-              <DealInput
-                label="Dealer fees"
-                value={deal.dealerFees}
-                onChangeText={(text) => setDeal((prev) => ({ ...prev, dealerFees: text }))}
-                placeholder="1200"
-              />
-              <View style={styles.inputWrap}>
-                <Text style={styles.inputLabel}>Fee names or package names</Text>
-                <TextInput
-                  style={styles.input}
-                  value={deal.feeNames}
-                  onChangeText={(text) => setDeal((prev) => ({ ...prev, feeNames: text }))}
-                  placeholder="doc fee, dealer prep, etching, appearance package"
-                  placeholderTextColor="#94a3b8"
-                />
+              <Text style={styles.menuTitle}>Paste quote text</Text>
+              <Text style={styles.heroText}>Paste a worksheet, text message, or email quote. Dealer Guard will try to pull out price, APR, term, trade, and fee/add-on lines.</Text>
+              <View style={styles.infoBox}>
+                <Text style={styles.bold}>Best results</Text>
+                <Text style={styles.infoBoxText}>Use a flat, printed quote with strong lighting and a tight crop. Handwritten notes can work, but they usually need review and manual correction.</Text>
+                <Text style={styles.infoBoxText}>If a handwritten worksheet misses key fields, import what it can, then add the missing numbers in the confirmation step before applying.</Text>
               </View>
+              <View style={styles.infoBox}>
+                <Text style={styles.bold}>Capture tips</Text>
+                <Text style={styles.infoBoxText}>Try to keep labels explicit: `Price`, `APR`, `Term`, `Down payment` or `DP`, and `Trade` are the easiest for OCR to recover.</Text>
+                <Text style={styles.infoBoxText}>Printed buyer orders, emailed worksheets, and texted screenshots will usually beat handwriting for accuracy.</Text>
+              </View>
+              <TextInput
+                style={styles.notesInput}
+                value={appData.deal.importedQuoteText}
+                onChangeText={(text) => updateDeal('importedQuoteText', text)}
+                placeholder="Example:\nDealer: Metro Auto\nSelling price: $25,995\nDoc fee: $499\nProtection package: $1,295\nAPR: 8.9%\nTerm: 72 months\nTrade allowance: $6,000"
+                placeholderTextColor="#94a3b8"
+                multiline
+                textAlignVertical="top"
+              />
+              <View style={styles.doubleButtons}>
+                <View style={styles.flexOne}>
+                  <AppButton label="Import quote" onPress={importQuoteIntoDeal} />
+                </View>
+                <View style={styles.flexOne}>
+                  <AppButton label="Clear pasted text" variant="secondary" onPress={() => updateDeal('importedQuoteText', '')} />
+                </View>
+              </View>
+              <View style={styles.doubleButtons}>
+                <View style={styles.flexOne}>
+                  <AppButton label="Choose quote photo" variant="secondary" onPress={() => void pickQuotePhoto()} />
+                </View>
+                <View style={styles.flexOne}>
+                  <AppButton
+                    label={isRunningPhotoOcr ? 'Reading photo...' : 'Run OCR from photo'}
+                    onPress={() => void runPhotoOcrImport()}
+                    disabled={isRunningPhotoOcr || !appData.deal.importedPhotoUri}
+                  />
+                </View>
+              </View>
+              {appData.deal.importedPhotoUri ? (
+                <View style={styles.stackGapSmall}>
+                  <Image source={{ uri: appData.deal.importedPhotoUri }} style={styles.quotePreview} resizeMode="cover" />
+                  <Text style={styles.detailText}>
+                    {Platform.OS === 'web'
+                      ? 'Selected photo is ready for OCR.'
+                      : Constants.appOwnership === 'expo'
+                        ? 'Selected photo preview is saved. To run OCR on your phone, open this app in a rebuilt development build instead of Expo Go.'
+                        : 'Selected photo is ready for native ML Kit OCR in this development build.'}
+                  </Text>
+                </View>
+              ) : null}
+              {appData.deal.importReviewNotes.length > 0 && (
+                <>
+                  <Text style={styles.subheading}>Import review</Text>
+                  <View style={styles.stackGapSmall}>
+                    {appData.deal.importReviewNotes.map((note) => (
+                      <Text key={note} style={styles.detailText}>
+                        • {note}
+                      </Text>
+                    ))}
+                  </View>
+                </>
+              )}
+            </Card>
+
+            {pendingImport && pendingImport.matchedFields.length > 0 && (
+              <Card>
+                <Text style={styles.menuTitle}>Confirm extracted values</Text>
+                <Text style={styles.heroText}>Review these OCR results before applying them to the deal. Medium-confidence fields were cleaned up from likely OCR mistakes.</Text>
+                {pendingImport.missingFields.length > 0 && (
+                  <View style={styles.infoBox}>
+                    <Text style={styles.bold}>Still missing</Text>
+                    <Text style={styles.infoBoxText}>{pendingImport.missingFields.join(', ')}</Text>
+                    <Text style={styles.infoBoxText}>If the image was handwritten or low contrast, fill these manually after applying the imported draft.</Text>
+                  </View>
+                )}
+                <View style={styles.stackGapSmall}>
+                  {pendingImport.fieldReviews.map((item) => (
+                    <View key={`${item.field}-${item.value}`} style={styles.infoBox}>
+                      <DealInput
+                        label={`${item.field} (${item.confidence === 'high' ? 'high confidence' : 'needs review'})`}
+                        value={editableImportFields[item.field] ?? item.value}
+                        onChangeText={(text) => updateEditableImportField(item.field, text)}
+                        placeholder={item.field}
+                        numeric={item.field !== 'Dealership name'}
+                      />
+                      <Text style={styles.infoBoxText}>
+                        Confidence: {item.confidence === 'high' ? 'High' : 'Needs review'}
+                      </Text>
+                      <Text style={styles.infoBoxText}>{item.note}</Text>
+                    </View>
+                  ))}
+                </View>
+                <View style={styles.stackGap}>
+                  <Text style={styles.subheading}>Review extracted fee lines</Text>
+                  {editableFeeItems.length === 0 ? (
+                    <Text style={styles.detailText}>No fee lines were detected automatically.</Text>
+                  ) : (
+                    editableFeeItems.map((item) => (
+                      <View key={item.id} style={styles.infoBox}>
+                        <DealInput label="Fee label" value={item.label} onChangeText={(text) => updateEditableLineItem('fee', item.id, 'label', text)} placeholder="Doc fee" numeric={false} />
+                        <DealInput label="Fee amount" value={item.amount} onChangeText={(text) => updateEditableLineItem('fee', item.id, 'amount', text)} placeholder="499" />
+                        {getLineItemReview('fee', item.id) ? (
+                          <>
+                            <Text style={styles.infoBoxText}>
+                              Confidence: {getLineItemReview('fee', item.id)?.confidence === 'high' ? 'High' : 'Needs review'}
+                            </Text>
+                            <Text style={styles.infoBoxText}>{getLineItemReview('fee', item.id)?.note}</Text>
+                          </>
+                        ) : (
+                          <Text style={styles.infoBoxText}>Added manually during review.</Text>
+                        )}
+                        <TouchableOpacity onPress={() => removeEditableLineItem('fee', item.id)} activeOpacity={0.85}>
+                          <Text style={styles.removeText}>Remove fee line</Text>
+                        </TouchableOpacity>
+                      </View>
+                    ))
+                  )}
+                  <TouchableOpacity onPress={() => addEditableLineItem('fee')} activeOpacity={0.85}>
+                    <Text style={styles.linkText}>Add fee line</Text>
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.stackGap}>
+                  <Text style={styles.subheading}>Review extracted add-on lines</Text>
+                  {editableAddOnItems.length === 0 ? (
+                    <Text style={styles.detailText}>No add-on lines were detected automatically.</Text>
+                  ) : (
+                    editableAddOnItems.map((item) => (
+                      <View key={item.id} style={styles.infoBox}>
+                        <DealInput label="Add-on label" value={item.label} onChangeText={(text) => updateEditableLineItem('addon', item.id, 'label', text)} placeholder="Protection package" numeric={false} />
+                        <DealInput label="Add-on amount" value={item.amount} onChangeText={(text) => updateEditableLineItem('addon', item.id, 'amount', text)} placeholder="1295" />
+                        {getLineItemReview('addon', item.id) ? (
+                          <>
+                            <Text style={styles.infoBoxText}>
+                              Confidence: {getLineItemReview('addon', item.id)?.confidence === 'high' ? 'High' : 'Needs review'}
+                            </Text>
+                            <Text style={styles.infoBoxText}>{getLineItemReview('addon', item.id)?.note}</Text>
+                          </>
+                        ) : (
+                          <Text style={styles.infoBoxText}>Added manually during review.</Text>
+                        )}
+                        <TouchableOpacity onPress={() => removeEditableLineItem('addon', item.id)} activeOpacity={0.85}>
+                          <Text style={styles.removeText}>Remove add-on line</Text>
+                        </TouchableOpacity>
+                      </View>
+                    ))
+                  )}
+                  <TouchableOpacity onPress={() => addEditableLineItem('addon')} activeOpacity={0.85}>
+                    <Text style={styles.linkText}>Add add-on line</Text>
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.doubleButtons}>
+                  <View style={styles.flexOne}>
+                    <AppButton label="Apply extracted values" onPress={applyPendingImport} />
+                  </View>
+                  <View style={styles.flexOne}>
+                    <AppButton
+                      label="Dismiss review"
+                      variant="secondary"
+                      onPress={dismissPendingImport}
+                    />
+                  </View>
+                </View>
+              </Card>
+            )}
+
+            <Card>
+              <Text style={styles.menuTitle}>Offer details</Text>
+              <DealInput label="Dealership name" value={appData.deal.dealershipName} onChangeText={(text) => updateDeal('dealershipName', text)} placeholder="Example Auto Group" numeric={false} />
+
+              <Text style={styles.inputLabel}>State context</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.stateChipRow}>
+                {stateOptions.map((option) => {
+                  const active = appData.deal.buyerStateCode === option.code;
+                  return (
+                    <TouchableOpacity
+                      key={option.code || 'none'}
+                      activeOpacity={0.85}
+                      onPress={() => updateDeal('buyerStateCode', option.code)}
+                      style={[styles.stateChip, active && styles.stateChipActive]}
+                    >
+                      <Text style={active ? styles.stateChipTextActive : styles.stateChipText}>{option.name}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+              <Text style={styles.detailText}>{dealAnalysis.stateContext}</Text>
+
+              <DealInput label="Vehicle price" value={appData.deal.vehiclePrice} onChangeText={(text) => updateDeal('vehiclePrice', text)} placeholder="25000" />
               <DealInput
-                label="Add-ons"
-                value={deal.addOns}
-                onChangeText={(text) => setDeal((prev) => ({ ...prev, addOns: text }))}
-                placeholder="1800"
+                label="Researched market price"
+                value={appData.deal.marketVehiclePrice}
+                onChangeText={(text) => updateDeal('marketVehiclePrice', text)}
+                placeholder="23500"
               />
               <DealInput
-                label="Down payment"
-                value={deal.downPayment}
-                onChangeText={(text) => setDeal((prev) => ({ ...prev, downPayment: text }))}
-                placeholder="3000"
+                label="Target total paid"
+                value={appData.deal.targetTotalPaid}
+                onChangeText={(text) => updateDeal('targetTotalPaid', text)}
+                placeholder="28500"
+              />
+              <DealInput label="Dealer fees total (fallback)" value={appData.deal.dealerFees} onChangeText={(text) => updateDeal('dealerFees', text)} placeholder="995" />
+              <DealInput label="Fee labels or line items" value={appData.deal.feeNames} onChangeText={(text) => updateDeal('feeNames', text)} placeholder="Doc fee, dealer prep, etching" numeric={false} />
+              <LineItemEditor
+                title="Fee line"
+                items={appData.deal.feeItems}
+                onChange={(id, key, value) => updateDealLineItem('feeItems', id, key, value)}
+                onAdd={() => addDealLineItem('feeItems')}
+                onRemove={(id) => removeDealLineItem('feeItems', id)}
+              />
+              <Text style={styles.detailText}>Structured fee total: {currency(getFeeTotal(appData.deal))}</Text>
+              <DealInput label="Add-ons total (fallback)" value={appData.deal.addOns} onChangeText={(text) => updateDeal('addOns', text)} placeholder="0" />
+              <LineItemEditor
+                title="Add-on line"
+                items={appData.deal.addOnItems}
+                onChange={(id, key, value) => updateDealLineItem('addOnItems', id, key, value)}
+                onAdd={() => addDealLineItem('addOnItems')}
+                onRemove={(id) => removeDealLineItem('addOnItems', id)}
+              />
+              <Text style={styles.detailText}>Structured add-on total: {currency(getAddOnTotal(appData.deal))}</Text>
+              <DealInput label="Down payment" value={appData.deal.downPayment} onChangeText={(text) => updateDeal('downPayment', text)} placeholder="3000" />
+              <DealInput label="Trade-in value" value={appData.deal.tradeIn} onChangeText={(text) => updateDeal('tradeIn', text)} placeholder="4000" />
+              <DealInput
+                label="Outside trade benchmark"
+                value={appData.deal.tradeReferenceValue}
+                onChangeText={(text) => updateDeal('tradeReferenceValue', text)}
+                placeholder="6500"
               />
               <DealInput
-                label="Trade-in value"
-                value={deal.tradeIn}
-                onChangeText={(text) => setDeal((prev) => ({ ...prev, tradeIn: text }))}
-                placeholder="5000"
+                label="Trade payoff balance"
+                value={appData.deal.tradePayoff}
+                onChangeText={(text) => updateDeal('tradePayoff', text)}
+                placeholder="5200"
               />
+              <DealInput label="APR" value={appData.deal.apr} onChangeText={(text) => updateDeal('apr', text)} placeholder="6.9" />
+              <DealInput label="Loan term in months" value={appData.deal.months} onChangeText={(text) => updateDeal('months', text)} placeholder="60" />
               <DealInput
-                label="APR %"
-                value={deal.apr}
-                onChangeText={(text) => setDeal((prev) => ({ ...prev, apr: text }))}
-                placeholder="7.9"
-              />
-              <DealInput
-                label="Loan term (months)"
-                value={deal.months}
-                onChangeText={(text) => setDeal((prev) => ({ ...prev, months: text }))}
-                placeholder="60"
+                label="Offer-specific notes"
+                value={appData.deal.offerNotes}
+                onChangeText={(text) => updateDeal('offerNotes', text)}
+                placeholder="Manager special, hidden package, promised to remove etching tomorrow."
+                numeric={false}
+                multiline
               />
             </Card>
 
             <Card>
-              <View style={styles.rowBetween}>
-                <Text style={styles.menuTitle}>Deal snapshot</Text>
-                <StatusBadge label={dealVerdict} tone={dealGradeTone} />
-              </View>
-              <Text style={styles.detailText}>{dealGuidance}</Text>
-              <View style={styles.rowBetween}>
-                <Text style={styles.detailText}>Dealer honesty score</Text>
-                <StatusBadge label={`${honestyScore.score}/100 ${honestyScore.label}`} tone={honestyScore.tone} />
-              </View>
-              <View style={styles.snapshotRow}>
-                <Text style={styles.detailText}>Estimated amount financed</Text>
-                <Text style={styles.bold}>{currency(amountFinanced)}</Text>
-              </View>
-              <View style={styles.snapshotRow}>
-                <Text style={styles.detailText}>Estimated monthly payment</Text>
-                <Text style={styles.bold}>{currency(monthlyPayment)}</Text>
-              </View>
-              <View style={styles.snapshotRow}>
-                <Text style={styles.detailText}>Estimated total paid</Text>
-                <Text style={styles.bold}>{currency(totalPaid)}</Text>
-              </View>
-            </Card>
+              <Text style={styles.menuTitle}>Final paperwork audit</Text>
+              <Text style={styles.detailText}>Before signing, enter the numbers from the buyer&apos;s order or finance contract here. Dealer Guard will compare them against the reviewed offer and flag late changes.</Text>
+              <DealInput label="Contract vehicle price" value={appData.deal.contractVehiclePrice} onChangeText={(text) => updateDeal('contractVehiclePrice', text)} placeholder="25000" />
+              <DealInput label="Contract fees" value={appData.deal.contractFees} onChangeText={(text) => updateDeal('contractFees', text)} placeholder="995" />
+              <DealInput label="Contract add-ons" value={appData.deal.contractAddOns} onChangeText={(text) => updateDeal('contractAddOns', text)} placeholder="0" />
+              <DealInput label="Contract down payment" value={appData.deal.contractDownPayment} onChangeText={(text) => updateDeal('contractDownPayment', text)} placeholder="3000" />
+              <DealInput label="Contract trade-in" value={appData.deal.contractTradeIn} onChangeText={(text) => updateDeal('contractTradeIn', text)} placeholder="4000" />
+              <DealInput label="Contract APR" value={appData.deal.contractApr} onChangeText={(text) => updateDeal('contractApr', text)} placeholder="6.9" />
+              <DealInput label="Contract term" value={appData.deal.contractMonths} onChangeText={(text) => updateDeal('contractMonths', text)} placeholder="60" />
 
-            <View style={styles.stackGapSmall}>
-              <AppButton label="Save this deal for comparison" variant="secondary" onPress={saveCurrentDeal} />
-
-              <Card>
-                <Text style={styles.menuTitle}>Deal grade</Text>
-                <View style={styles.gradePanel}>
-                  <Text style={styles.gradeTitle}>{dealVerdict}</Text>
-                  <Text style={styles.detailText}>{dealGuidance}</Text>
-                </View>
-              </Card>
-
-              {flaggedFees.length > 0 && (
-                <Card>
-                  <Text style={styles.menuTitle}>Suspicious fee detector</Text>
+              {paperworkAudit ? (
+                <>
+                  <View style={styles.rowBetween}>
+                    <Text style={styles.subheading}>Audit result</Text>
+                    <StatusBadge label={paperworkAudit.readyToSign ? 'Matches offer' : 'Review contract'} tone={paperworkAudit.summaryTone} />
+                  </View>
+                  <Text style={styles.detailText}>{paperworkAudit.headline}</Text>
                   <View style={styles.stackGapSmall}>
-                    {flaggedFees.map((fee) => (
-                      <View key={fee.key} style={styles.warningRowCard}>
-                        <Text style={styles.bold}>{fee.label}</Text>
-                        <Text style={styles.warningText}>{fee.reason}</Text>
+                    {paperworkAudit.items.map((item) => (
+                      <View key={item.label} style={styles.infoBox}>
+                        <Text style={styles.bold}>{item.label}</Text>
+                        <Text style={styles.infoBoxText}>Reviewed: {item.expectedValue}</Text>
+                        <Text style={styles.infoBoxText}>Contract: {item.contractValue}</Text>
+                        <Text style={styles.infoBoxText}>{item.detail}</Text>
                       </View>
                     ))}
                   </View>
-                </Card>
-              )}
-
-              {dealWarnings.length === 0 ? (
-                <Card>
-                  <Text style={styles.detailText}>
-                    No major warning flags based on the numbers entered yet. Still compare this with outside offers and ask for every line item in writing.
-                  </Text>
-                </Card>
+                  <View style={styles.stackGap}>
+                    <AppButton label="Copy paperwork audit" variant="secondary" onPress={() => void copyText('Paperwork audit', paperworkAuditSummary)} />
+                    <AppButton label="Share paperwork audit" onPress={() => void shareText('Dealer Guard paperwork audit', paperworkAuditSummary)} />
+                  </View>
+                </>
               ) : (
-                dealWarnings.map((warning) => (
-                  <View key={warning} style={styles.warningRowCard}>
-                    <Text style={styles.warningText}>{warning}</Text>
+                <Text style={styles.detailText}>Enter any contract numbers above to start the audit.</Text>
+              )}
+            </Card>
+
+            <Card>
+              <View style={styles.rowBetween}>
+                <Text style={styles.menuTitle}>Offer verdict</Text>
+                <StatusBadge label={dealAnalysis.dealVerdict} tone={dealAnalysis.dealGradeTone} />
+              </View>
+              <Text style={styles.detailText}>{dealAnalysis.dealGuidance}</Text>
+
+              <View style={styles.statsRow}>
+                <View style={styles.statCard}>
+                  <Text style={styles.statLabel}>Financed</Text>
+                  <Text style={styles.statValue}>{currency(dealAnalysis.amountFinanced)}</Text>
+                </View>
+                <View style={styles.statCard}>
+                  <Text style={styles.statLabel}>Monthly</Text>
+                  <Text style={styles.statValue}>{currency(dealAnalysis.monthlyPayment)}</Text>
+                </View>
+                <View style={styles.statCard}>
+                  <Text style={styles.statLabel}>Total paid</Text>
+                  <Text style={styles.statValue}>{currency(dealAnalysis.totalPaid)}</Text>
+                </View>
+              </View>
+
+              <Text style={styles.subheading}>Why this score happened</Text>
+              <ScoreBreakdown items={dealAnalysis.scoreBreakdown} />
+
+              <Text style={styles.subheading}>Fee review</Text>
+              <View style={styles.stackGapSmall}>
+                {dealAnalysis.flaggedFees.length ? (
+                  dealAnalysis.flaggedFees.map((fee) => (
+                    <View key={fee.key} style={styles.infoBox}>
+                      <Text style={styles.bold}>{fee.label}</Text>
+                      <Text style={styles.infoBoxText}>{fee.reason}</Text>
+                    </View>
+                  ))
+                ) : (
+                  <Text style={styles.detailText}>No suspicious fee keywords were detected from the current fee notes.</Text>
+                )}
+              </View>
+
+              {dealAnalysis.dealWarnings.length > 0 && (
+                <>
+                  <Text style={styles.subheading}>Warnings</Text>
+                  <View style={styles.stackGapSmall}>
+                    {dealAnalysis.dealWarnings.map((warning) => (
+                      <View key={warning} style={styles.warningRow}>
+                        <Text style={styles.warningBullet}>•</Text>
+                        <Text style={styles.warningText}>{warning}</Text>
+                      </View>
+                    ))}
                   </View>
-                ))
+                </>
               )}
 
-              {(dealVerdict === 'Bad Deal' || dealVerdict === 'Walk Away') && (
-                <Card>
-                  <Text style={styles.highRiskTitle}>Slow down before signing</Text>
-                  <Text style={styles.detailText}>
-                    This deal has multiple warning signs. Ask for the full breakdown in writing, compare outside financing, and be willing to walk away.
-                  </Text>
+              <View style={styles.stackGap}>
+                <AppButton label="Save this offer" onPress={saveCurrentDeal} />
+                <AppButton label="Copy offer summary" variant="secondary" onPress={() => void copyText('Offer summary', currentDealSummary)} />
+                <AppButton label="Share offer summary" variant="secondary" onPress={() => void shareText('Dealer Guard offer review', currentDealSummary)} />
+              </View>
+            </Card>
+
+            <Card>
+              <Text style={styles.menuTitle}>Shareable buyer report</Text>
+              <Text style={styles.detailText}>Package the deal, confidence level, market benchmark, trade fairness, recommendation, and paperwork audit into one clean summary for someone else to review.</Text>
+              <View style={styles.stackGap}>
+                <AppButton label="Copy buyer report" variant="secondary" onPress={() => void copyText('Buyer report', buyerReport)} />
+                <AppButton label="Share buyer report" onPress={() => void shareText('Dealer Guard buyer report', buyerReport)} />
+              </View>
+            </Card>
+
+            <Card>
+              <View style={styles.rowBetween}>
+                <Text style={styles.menuTitle}>Deal confidence</Text>
+                <StatusBadge label={`${dealConfidence.score}%`} tone={dealConfidence.tone} />
+              </View>
+              <Text style={styles.detailText}>{dealConfidence.label}</Text>
+              <ProgressBar value={dealConfidence.score} />
+              <Text style={styles.detailText}>{dealConfidence.detail}</Text>
+              {dealConfidence.missingFields.length > 0 ? (
+                <>
+                  <Text style={styles.subheading}>Still missing</Text>
                   <View style={styles.stackGapSmall}>
-                    <AppButton
-                      label="Copy walk-away script"
-                      variant="danger"
-                      onPress={() =>
-                        copyScript(
-                          'I am not comfortable signing today. Please print the full breakdown and I will review it before making a decision.'
-                        )
-                      }
-                    />
+                    {dealConfidence.missingFields.map((item) => (
+                      <Text key={item} style={styles.detailText}>
+                        • {item}
+                      </Text>
+                    ))}
                   </View>
-                </Card>
-              )}
-            </View>
+                </>
+              ) : null}
+            </Card>
+
+            {marketBenchmarkAssessment && (
+              <Card>
+                <View style={styles.rowBetween}>
+                  <Text style={styles.menuTitle}>Market benchmark</Text>
+                  <StatusBadge
+                    label={
+                      marketBenchmarkAssessment.tone === 'good'
+                        ? 'Near target'
+                        : marketBenchmarkAssessment.tone === 'bad'
+                          ? 'Above target'
+                          : 'Counter range'
+                    }
+                    tone={marketBenchmarkAssessment.tone}
+                  />
+                </View>
+                <Text style={styles.detailText}>{marketBenchmarkAssessment.headline}</Text>
+                <Text style={styles.detailText}>{marketBenchmarkAssessment.detail}</Text>
+                <View style={styles.statsRow}>
+                  {appData.deal.marketVehiclePrice ? (
+                    <View style={styles.statCard}>
+                      <Text style={styles.statLabel}>Price gap</Text>
+                      <Text style={styles.statValue}>{currency(Math.abs(marketBenchmarkAssessment.vehiclePriceGap))}</Text>
+                    </View>
+                  ) : null}
+                  {appData.deal.targetTotalPaid ? (
+                    <View style={styles.statCard}>
+                      <Text style={styles.statLabel}>Total gap</Text>
+                      <Text style={styles.statValue}>{currency(Math.abs(marketBenchmarkAssessment.totalPaidGap))}</Text>
+                    </View>
+                  ) : null}
+                </View>
+                <View style={styles.scriptBox}>
+                  <Text style={styles.detailText}>
+                    <Text style={styles.bold}>Say this: </Text>
+                    {marketBenchmarkAssessment.negotiationScript}
+                  </Text>
+                </View>
+              </Card>
+            )}
+
+            <Card>
+              <View style={styles.rowBetween}>
+                <Text style={styles.menuTitle}>Buy, counter, or leave</Text>
+                <StatusBadge label={actionRecommendation.action} tone={actionRecommendation.tone} />
+              </View>
+              <Text style={styles.detailText}>{actionRecommendation.headline}</Text>
+              <Text style={styles.detailText}>{actionRecommendation.detail}</Text>
+              <View style={styles.statsRow}>
+                {typeof actionRecommendation.targetTotalPaid === 'number' ? (
+                  <View style={styles.statCard}>
+                    <Text style={styles.statLabel}>Target total</Text>
+                    <Text style={styles.statValue}>{currency(actionRecommendation.targetTotalPaid)}</Text>
+                  </View>
+                ) : null}
+                {typeof actionRecommendation.targetMonthlyPayment === 'number' ? (
+                  <View style={styles.statCard}>
+                    <Text style={styles.statLabel}>Target monthly</Text>
+                    <Text style={styles.statValue}>{currency(actionRecommendation.targetMonthlyPayment)}</Text>
+                  </View>
+                ) : null}
+              </View>
+            </Card>
+
+            {tradeInAssessment && (
+              <Card>
+                <View style={styles.rowBetween}>
+                  <Text style={styles.menuTitle}>Trade-in fairness</Text>
+                  <StatusBadge label={tradeInAssessment.tone === 'good' ? 'Fair trade' : tradeInAssessment.tone === 'bad' ? 'Trade risk' : 'Review trade'} tone={tradeInAssessment.tone} />
+                </View>
+                <Text style={styles.detailText}>{tradeInAssessment.detail}</Text>
+                <View style={styles.statsRow}>
+                  <View style={styles.statCard}>
+                    <Text style={styles.statLabel}>Dealer trade</Text>
+                    <Text style={styles.statValue}>{currency(tradeInAssessment.offeredValue)}</Text>
+                  </View>
+                  {tradeInAssessment.benchmarkValue > 0 ? (
+                    <View style={styles.statCard}>
+                      <Text style={styles.statLabel}>Benchmark</Text>
+                      <Text style={styles.statValue}>{currency(tradeInAssessment.benchmarkValue)}</Text>
+                    </View>
+                  ) : null}
+                  {tradeInAssessment.payoffBalance > 0 ? (
+                    <View style={styles.statCard}>
+                      <Text style={styles.statLabel}>Payoff</Text>
+                      <Text style={styles.statValue}>{currency(tradeInAssessment.payoffBalance)}</Text>
+                    </View>
+                  ) : null}
+                </View>
+                {tradeInAssessment.payoffBalance > 0 ? (
+                  <Text style={styles.detailText}>
+                    Current equity position: {tradeInAssessment.equity >= 0 ? currency(tradeInAssessment.equity) : `-${currency(Math.abs(tradeInAssessment.equity))}`}
+                  </Text>
+                ) : null}
+                <View style={styles.scriptBox}>
+                  <Text style={styles.detailText}>
+                    <Text style={styles.bold}>Say this: </Text>
+                    {tradeInAssessment.negotiationScript}
+                  </Text>
+                </View>
+              </Card>
+            )}
+
+            <Card>
+              <Text style={styles.menuTitle}>Negotiation blueprint</Text>
+              <Text style={styles.detailText}>{negotiationPlan.headline}</Text>
+
+              <View style={styles.scriptBox}>
+                <Text style={styles.detailText}>
+                  <Text style={styles.bold}>Best next line: </Text>
+                  {negotiationPlan.strongestMove}
+                </Text>
+              </View>
+
+              <View style={styles.stackGapSmall}>
+                {negotiationPlan.scenarios.length > 0 ? (
+                  negotiationPlan.scenarios.map((scenario) => (
+                    <View key={scenario.title} style={styles.infoBox}>
+                      <Text style={styles.bold}>{scenario.title}</Text>
+                      <Text style={styles.infoBoxText}>{scenario.detail}</Text>
+                      <Text style={styles.infoBoxText}>
+                        Estimated total impact: {currency(scenario.totalChange)}
+                      </Text>
+                      <Text style={styles.infoBoxText}>
+                        {scenario.monthlyChange >= 0
+                          ? `Estimated monthly drop: ${currency(scenario.monthlyChange)}`
+                          : `Estimated monthly increase: ${currency(Math.abs(scenario.monthlyChange))}`}
+                      </Text>
+                      {scenario.tradeoff ? <Text style={styles.infoBoxText}>{scenario.tradeoff}</Text> : null}
+                      <View style={styles.scriptBox}>
+                        <Text style={styles.detailText}>
+                          <Text style={styles.bold}>Say this: </Text>
+                          {scenario.script}
+                        </Text>
+                      </View>
+                    </View>
+                  ))
+                ) : (
+                  <Text style={styles.detailText}>No single lever is dominating this deal. Keep pushing for a cleaner written out-the-door price and lower total paid.</Text>
+                )}
+              </View>
+
+              <View style={styles.stackGap}>
+                <AppButton label="Copy negotiation blueprint" variant="secondary" onPress={() => void copyText('Negotiation blueprint', negotiationPlanSummary)} />
+                <AppButton label="Share negotiation blueprint" onPress={() => void shareText('Dealer Guard negotiation blueprint', negotiationPlanSummary)} />
+              </View>
+            </Card>
+
+            {offerTimeline.length > 0 && (
+              <Card>
+                <Text style={styles.menuTitle}>Offer strength timeline</Text>
+                <Text style={styles.detailText}>Each saved revision shows whether the dealership really improved the deal or just moved numbers around.</Text>
+                <View style={styles.stackGapSmall}>
+                  {offerTimeline.map((entry) => (
+                    <View key={entry.deal.id} style={styles.infoBox}>
+                      <Text style={styles.bold}>
+                        Revision {entry.deal.revisionNumber} • {new Date(entry.deal.savedAt).toLocaleString()}
+                      </Text>
+                      <Text style={styles.infoBoxText}>
+                        Verdict: {entry.analysis.dealVerdict} • Total paid: {currency(entry.analysis.totalPaid)} • Monthly: {currency(entry.analysis.monthlyPayment)}
+                      </Text>
+                      {entry.insights.map((insight) => (
+                        <Text key={`${entry.deal.id}-${insight.label}`} style={styles.infoBoxText}>
+                          • {insight.label}: {insight.detail}
+                        </Text>
+                      ))}
+                    </View>
+                  ))}
+                </View>
+              </Card>
+            )}
           </>
         )}
 
@@ -1518,28 +1721,12 @@ export default function App() {
             </View>
 
             <Card>
-              <StatusBadge label="High-pressure zone" tone="bad" />
-              <Text style={styles.heroText}>
-                The finance office is where many buyers get loaded up with expensive extras. Slow the process down and review each product one at a time.
-              </Text>
-
-              <View style={styles.dangerPanel}>
-                <Text style={styles.dangerPanelTitle}>What to watch for</Text>
-                <Text style={styles.dangerPanelText}>• Products bundled into one monthly payment</Text>
-                <Text style={styles.dangerPanelText}>• “This only adds a little per month” language</Text>
-                <Text style={styles.dangerPanelText}>• Optional products presented like required protection</Text>
-                <Text style={styles.dangerPanelText}>• Pressure to sign before reading contracts</Text>
-              </View>
-            </Card>
-
-            <Card>
-              <Text style={styles.menuTitle}>Finance office checklist</Text>
+              <Text style={styles.heroText}>The finance office is where optional products and payment framing often get bundled into the deal.</Text>
               <View style={styles.stackGapSmall}>
                 {financeOfficeChecklist.map((item) => (
-                  <View key={item} style={styles.warningRow}>
-                    <Text style={styles.warningBullet}>•</Text>
-                    <Text style={styles.warningText}>{item}</Text>
-                  </View>
+                  <Text key={item} style={styles.detailText}>
+                    • {item}
+                  </Text>
                 ))}
               </View>
             </Card>
@@ -1549,36 +1736,22 @@ export default function App() {
                 <Card key={item.title}>
                   <Text style={styles.menuTitle}>{item.title}</Text>
                   <Text style={styles.detailText}>
-                    <Text style={styles.bold}>Why to be careful: </Text>
+                    <Text style={styles.bold}>Danger: </Text>
                     {item.danger}
                   </Text>
                   <Text style={styles.detailText}>
-                    <Text style={styles.bold}>What to review: </Text>
+                    <Text style={styles.bold}>Watch for: </Text>
                     {item.watch}
                   </Text>
-                  <TouchableOpacity activeOpacity={0.85} onPress={() => copyScript(item.script)} style={styles.scriptTile}>
-                    <Text style={styles.detailText}>“{item.script}”</Text>
-                    <Text style={styles.copyHint}>Tap to copy</Text>
-                  </TouchableOpacity>
+                  <View style={styles.scriptBox}>
+                    <Text style={styles.detailText}>
+                      <Text style={styles.bold}>Say this: </Text>
+                      {item.script}
+                    </Text>
+                  </View>
                 </Card>
               ))}
             </View>
-
-            <Card>
-              <Text style={styles.highRiskTitle}>Golden rule</Text>
-              <Text style={styles.detailText}>
-                Never agree to a finance product just because it changes the monthly payment a little. Judge every product by its full cost, actual benefit, and whether you can buy it elsewhere for less.
-              </Text>
-              <AppButton
-                label="Copy finance office script"
-                variant="danger"
-                onPress={() =>
-                  copyScript(
-                    'Please stop and itemize each finance product separately. I want to review the cost, terms, and whether each item is optional before signing anything.'
-                  )
-                }
-              />
-            </Card>
           </>
         )}
 
@@ -1592,15 +1765,8 @@ export default function App() {
             </View>
 
             <Card>
-              <StatusBadge label="In-the-moment coaching" tone="warn" />
-              <Text style={styles.heroText}>
-                Tap the line that sounds closest to what the salesperson just said. The app will explain the tactic and give you a response you can use immediately.
-              </Text>
-            </Card>
-
-            <Card>
-              <Text style={styles.menuTitle}>Common dealership lines</Text>
-              <View style={styles.stackGapSmall}>
+              <Text style={styles.heroText}>Tap the line that sounds closest to what the salesperson just said.</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.stateChipRow}>
                 {salesTacticItems.map((item, index) => {
                   const active = selectedTacticIndex === index;
                   return (
@@ -1608,33 +1774,43 @@ export default function App() {
                       key={item.line}
                       activeOpacity={0.85}
                       onPress={() => setSelectedTacticIndex(index)}
-                      style={[styles.optionButton, active && styles.optionButtonActive]}
+                      style={[styles.stateChip, active && styles.stateChipActive]}
                     >
-                      <Text style={active ? styles.optionTextActive : styles.optionText}>{item.line}</Text>
+                      <Text style={active ? styles.stateChipTextActive : styles.stateChipText}>{item.tactic}</Text>
                     </TouchableOpacity>
                   );
                 })}
+              </ScrollView>
+              <View style={styles.infoBox}>
+                <Text style={styles.bold}>They said:</Text>
+                <Text style={styles.infoBoxText}>{selectedTactic.line}</Text>
+              </View>
+              <Text style={styles.detailText}>
+                <Text style={styles.bold}>Why it works: </Text>
+                {selectedTactic.why}
+              </Text>
+              <Text style={styles.detailText}>
+                <Text style={styles.bold}>Your risk: </Text>
+                {selectedTactic.risk}
+              </Text>
+              <View style={styles.scriptBox}>
+                <Text style={styles.detailText}>
+                  <Text style={styles.bold}>Best response: </Text>
+                  {selectedTactic.script}
+                </Text>
               </View>
             </Card>
 
             <Card>
-              <Text style={styles.menuTitle}>What that usually means</Text>
-              <Text style={styles.detailText}>
-                <Text style={styles.bold}>Tactic: </Text>
-                {selectedTactic.tactic}
-              </Text>
-              <Text style={styles.detailText}>
-                <Text style={styles.bold}>Why it matters: </Text>
-                {selectedTactic.why}
-              </Text>
-              <Text style={styles.detailText}>
-                <Text style={styles.bold}>Risk to you: </Text>
-                {selectedTactic.risk}
-              </Text>
-              <TouchableOpacity activeOpacity={0.85} onPress={() => copyScript(selectedTactic.script)} style={styles.scriptTile}>
-                <Text style={styles.detailText}>“{selectedTactic.script}”</Text>
-                <Text style={styles.copyHint}>Tap to copy response</Text>
-              </TouchableOpacity>
+              <Text style={styles.menuTitle}>Quick scripts</Text>
+              <View style={styles.stackGapSmall}>
+                {quickScripts.map((script) => (
+                  <TouchableOpacity key={script} style={styles.scriptRow} activeOpacity={0.85} onPress={() => void copyText('Script', script)}>
+                    <Text style={styles.flexOne}>{script}</Text>
+                    <Text style={styles.linkText}>Copy</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
             </Card>
           </>
         )}
@@ -1648,42 +1824,72 @@ export default function App() {
               </TouchableOpacity>
             </View>
 
-            {savedDeals.length === 0 ? (
+            {appData.savedDeals.length === 0 ? (
               <Card>
                 <Text style={styles.heroText}>No saved deals yet. Save an offer from the Deal review screen to compare it here.</Text>
               </Card>
             ) : (
               <>
-                {winnerComparison && (
+                {dealerScorecards.length > 0 && (
+                  <Card>
+                    <Text style={styles.menuTitle}>Dealer scorecards</Text>
+                    <Text style={styles.detailText}>These scorecards combine the latest deal quality with pressure incidents and promise outcomes for each dealership.</Text>
+                    <View style={styles.stackGapSmall}>
+                      {dealerScorecards.map((scorecard) => (
+                        <View key={scorecard.dealershipName} style={styles.infoBox}>
+                          <View style={styles.rowBetween}>
+                            <Text style={styles.bold}>{scorecard.dealershipName}</Text>
+                            <StatusBadge label={scorecard.latestVerdict} tone={scorecard.tone} />
+                          </View>
+                          <Text style={styles.infoBoxText}>{scorecard.headline}</Text>
+                          <Text style={styles.infoBoxText}>Revisions: {scorecard.revisionCount}</Text>
+                          <Text style={styles.infoBoxText}>Pressure incidents: {scorecard.pressureCount}</Text>
+                          <Text style={styles.infoBoxText}>Promises kept / broken: {scorecard.keptPromiseCount} / {scorecard.brokenPromiseCount}</Text>
+                          <Text style={styles.infoBoxText}>
+                            Latest total paid: {typeof scorecard.latestTotalPaid === 'number' ? currency(scorecard.latestTotalPaid) : 'No saved offer yet'}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  </Card>
+                )}
+
+                {comparison?.winner && (
                   <Card>
                     <StatusBadge label="Current best offer" tone="good" />
-                    <Text style={styles.menuTitle}>{winnerComparison.deal.dealershipName || 'Unnamed dealership'}</Text>
-                    <Text style={styles.detailText}>Verdict: {winnerComparison.analysis.dealVerdict}</Text>
-                    <Text style={styles.detailText}>Estimated total paid: {currency(winnerComparison.analysis.totalPaid)}</Text>
-                    <Text style={styles.detailText}>Estimated monthly payment: {currency(winnerComparison.analysis.monthlyPayment)}</Text>
-                    <Text style={styles.detailText}>Warning count: {winnerComparison.analysis.dealWarnings.length + winnerComparison.analysis.flaggedFees.length}</Text>
-                    {comparisonReasons.length > 0 && (
+                    <Text style={styles.menuTitle}>{comparison.winner.deal.dealershipName || 'Unnamed dealership'}</Text>
+                    <Text style={styles.detailText}>State context: {getStateName(comparison.winner.deal.buyerStateCode)}</Text>
+                    <Text style={styles.detailText}>Estimated total paid: {currency(comparison.winner.analysis.totalPaid)}</Text>
+                    <Text style={styles.detailText}>Estimated monthly payment: {currency(comparison.winner.analysis.monthlyPayment)}</Text>
+                    <Text style={styles.detailText}>Structured fees: {currency(getFeeTotal(comparison.winner.deal))}</Text>
+                    <Text style={styles.detailText}>Warning count: {comparison.winner.analysis.dealWarnings.length + comparison.winner.analysis.flaggedFees.length}</Text>
+                    {comparison.reasons.length > 0 && (
                       <View style={styles.gradePanel}>
                         <Text style={styles.bold}>Why it currently wins</Text>
-                        {comparisonReasons.map((reason) => (
-                          <Text key={reason} style={styles.detailText}>• {reason}</Text>
+                        {comparison.reasons.map((reason) => (
+                          <Text key={reason} style={styles.detailText}>
+                            • {reason}
+                          </Text>
                         ))}
                       </View>
                     )}
                   </Card>
                 )}
 
-                {savedDeals.length >= 2 && (
+                {appData.savedDeals.length >= 2 && (
                   <Card>
                     <Text style={styles.menuTitle}>Choose 2 offers to compare</Text>
                     <Text style={styles.detailText}>Pick one offer for the left column and one for the right column.</Text>
                     <View style={styles.stackGapSmall}>
-                      {savedDeals.map((savedDeal) => {
+                      {appData.savedDeals.map((savedDeal) => {
                         const pickedLeft = selectedComparePair.firstId === savedDeal.id;
                         const pickedRight = selectedComparePair.secondId === savedDeal.id;
                         return (
                           <View key={`pick-${savedDeal.id}`} style={styles.comparePickRow}>
-                            <Text style={styles.comparePickName}>{savedDeal.dealershipName || 'Unnamed dealership'}</Text>
+                            <View style={styles.flexOne}>
+                              <Text style={styles.comparePickName}>{savedDeal.dealershipName || 'Unnamed dealership'}</Text>
+                              <Text style={styles.detailText}>State: {getStateName(savedDeal.buyerStateCode)}</Text>
+                            </View>
                             <TouchableOpacity
                               activeOpacity={0.85}
                               onPress={() => toggleComparePick('firstId', savedDeal.id)}
@@ -1707,14 +1913,36 @@ export default function App() {
                         <AppButton
                           label="Copy summary"
                           variant="secondary"
-                          onPress={copyComparisonSummary}
+                          onPress={() => {
+                            if (!selectedDealsForCompare.first || !selectedDealsForCompare.second || !manualCompareAnalyses.first || !manualCompareAnalyses.second) return;
+                            void copyText(
+                              'Comparison summary',
+                              buildComparisonSummary(
+                                selectedDealsForCompare.first,
+                                selectedDealsForCompare.second,
+                                manualCompareAnalyses.first,
+                                manualCompareAnalyses.second
+                              )
+                            );
+                          }}
                           disabled={!selectedDealsForCompare.first || !selectedDealsForCompare.second}
                         />
                       </View>
                       <View style={styles.flexOne}>
                         <AppButton
                           label="Share summary"
-                          onPress={shareComparisonSummary}
+                          onPress={() => {
+                            if (!selectedDealsForCompare.first || !selectedDealsForCompare.second || !manualCompareAnalyses.first || !manualCompareAnalyses.second) return;
+                            void shareText(
+                              'Dealer Guard comparison summary',
+                              buildComparisonSummary(
+                                selectedDealsForCompare.first,
+                                selectedDealsForCompare.second,
+                                manualCompareAnalyses.first,
+                                manualCompareAnalyses.second
+                              )
+                            );
+                          }}
                           disabled={!selectedDealsForCompare.first || !selectedDealsForCompare.second}
                         />
                       </View>
@@ -1722,7 +1950,7 @@ export default function App() {
                   </Card>
                 )}
 
-                {selectedDealsForCompare.first && selectedDealsForCompare.second && manualCompareAnalyses.first && manualCompareAnalyses.second ? (
+                {selectedDealsForCompare.first && selectedDealsForCompare.second && manualCompareAnalyses.first && manualCompareAnalyses.second && (
                   <Card>
                     <Text style={styles.menuTitle}>Head-to-head comparison</Text>
                     <View style={styles.headToHeadHeader}>
@@ -1734,6 +1962,11 @@ export default function App() {
                       <Text style={styles.compareLabel}>Verdict</Text>
                       <Text style={styles.compareValue}>{manualCompareAnalyses.first.dealVerdict}</Text>
                       <Text style={styles.compareValue}>{manualCompareAnalyses.second.dealVerdict}</Text>
+                    </View>
+                    <View style={styles.compareRow}>
+                      <Text style={styles.compareLabel}>State</Text>
+                      <Text style={styles.compareValue}>{getStateName(selectedDealsForCompare.first.buyerStateCode)}</Text>
+                      <Text style={styles.compareValue}>{getStateName(selectedDealsForCompare.second.buyerStateCode)}</Text>
                     </View>
                     <View style={styles.compareRow}>
                       <Text style={styles.compareLabel}>Amount financed</Text>
@@ -1755,61 +1988,67 @@ export default function App() {
                       <Text style={styles.compareValue}>{manualCompareAnalyses.first.dealWarnings.length + manualCompareAnalyses.first.flaggedFees.length}</Text>
                       <Text style={styles.compareValue}>{manualCompareAnalyses.second.dealWarnings.length + manualCompareAnalyses.second.flaggedFees.length}</Text>
                     </View>
+                    <View style={styles.compareRow}>
+                      <Text style={styles.compareLabel}>Fees</Text>
+                      <Text style={styles.compareValue}>{currency(getFeeTotal(selectedDealsForCompare.first))}</Text>
+                      <Text style={styles.compareValue}>{currency(getFeeTotal(selectedDealsForCompare.second))}</Text>
+                    </View>
+                    <View style={styles.compareRow}>
+                      <Text style={styles.compareLabel}>Add-ons</Text>
+                      <Text style={styles.compareValue}>{currency(getAddOnTotal(selectedDealsForCompare.first))}</Text>
+                      <Text style={styles.compareValue}>{currency(getAddOnTotal(selectedDealsForCompare.second))}</Text>
+                    </View>
                   </Card>
-                ) : (
-                  dealComparison?.winner && dealComparison?.runnerUp && (
-                    <Card>
-                      <Text style={styles.menuTitle}>Head-to-head comparison</Text>
-                      <View style={styles.headToHeadHeader}>
-                        <Text style={styles.headToHeadDealName}>{dealComparison.winner.deal.dealershipName || 'Offer 1'}</Text>
-                        <Text style={styles.headToHeadDealName}>{dealComparison.runnerUp.deal.dealershipName || 'Offer 2'}</Text>
-                      </View>
+                )}
 
-                      <View style={styles.compareRow}>
-                        <Text style={styles.compareLabel}>Verdict</Text>
-                        <Text style={styles.compareValue}>{dealComparison.winner.analysis.dealVerdict}</Text>
-                        <Text style={styles.compareValue}>{dealComparison.runnerUp.analysis.dealVerdict}</Text>
-                      </View>
-                      <View style={styles.compareRow}>
-                        <Text style={styles.compareLabel}>Amount financed</Text>
-                        <Text style={styles.compareValue}>{currency(dealComparison.winner.analysis.amountFinanced)}</Text>
-                        <Text style={styles.compareValue}>{currency(dealComparison.runnerUp.analysis.amountFinanced)}</Text>
-                      </View>
-                      <View style={styles.compareRow}>
-                        <Text style={styles.compareLabel}>Monthly payment</Text>
-                        <Text style={styles.compareValue}>{currency(dealComparison.winner.analysis.monthlyPayment)}</Text>
-                        <Text style={styles.compareValue}>{currency(dealComparison.runnerUp.analysis.monthlyPayment)}</Text>
-                      </View>
-                      <View style={styles.compareRow}>
-                        <Text style={styles.compareLabel}>Total paid</Text>
-                        <Text style={styles.compareValue}>{currency(dealComparison.winner.analysis.totalPaid)}</Text>
-                        <Text style={styles.compareValue}>{currency(dealComparison.runnerUp.analysis.totalPaid)}</Text>
-                      </View>
-                      <View style={styles.compareRow}>
-                        <Text style={styles.compareLabel}>Warnings</Text>
-                        <Text style={styles.compareValue}>{dealComparison.winner.analysis.dealWarnings.length + dealComparison.winner.analysis.flaggedFees.length}</Text>
-                        <Text style={styles.compareValue}>{dealComparison.runnerUp.analysis.dealWarnings.length + dealComparison.runnerUp.analysis.flaggedFees.length}</Text>
-                      </View>
-                    </Card>
-                  )
+                {manualComparisonInsights.length > 0 && (
+                  <Card>
+                    <Text style={styles.menuTitle}>What changed between offers</Text>
+                    <View style={styles.stackGapSmall}>
+                      {manualComparisonInsights.map((insight) => (
+                        <View key={insight.label} style={styles.infoBox}>
+                          <Text style={styles.bold}>
+                            {insight.label}: {insight.winner === 'tie' ? 'Tie' : insight.winner === 'left' ? 'Left offer' : 'Right offer'}
+                          </Text>
+                          <Text style={styles.infoBoxText}>{insight.detail}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  </Card>
+                )}
+
+                {manualCounterMoves.length > 0 && (
+                  <Card>
+                    <Text style={styles.menuTitle}>How to counter the weaker offer</Text>
+                    <View style={styles.stackGapSmall}>
+                      {manualCounterMoves.map((move) => (
+                        <View key={move.title} style={styles.scriptBox}>
+                          <Text style={styles.bold}>{move.title}</Text>
+                          <Text style={styles.detailText}>{move.detail}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  </Card>
                 )}
 
                 <View style={styles.stackGap}>
-                  {savedDeals.map((savedDeal) => {
+                  {appData.savedDeals.map((savedDeal) => {
                     const analysis = buildDealAnalysis(savedDeal, readinessLabel);
-                    const comparisonTone: 'good' | 'warn' | 'bad' = analysis.dealVerdict === 'Fair Deal' ? 'good' : analysis.dealVerdict === 'Review Carefully' ? 'warn' : 'bad';
-                    const isWinner = winnerComparison?.deal.id === savedDeal.id;
+                    const isWinner = comparison?.winner.deal.id === savedDeal.id;
 
                     return (
                       <Card key={savedDeal.id}>
                         <View style={styles.rowBetween}>
                           <Text style={styles.menuTitle}>{savedDeal.dealershipName || 'Unnamed dealership'}</Text>
-                          <StatusBadge label={isWinner ? 'Best' : analysis.dealVerdict} tone={isWinner ? 'good' : comparisonTone} />
+                          <StatusBadge label={isWinner ? 'Best' : analysis.dealVerdict} tone={isWinner ? 'good' : analysis.dealGradeTone} />
                         </View>
+                        <Text style={styles.detailText}>Revision {savedDeal.revisionNumber}</Text>
+                        <Text style={styles.detailText}>State: {getStateName(savedDeal.buyerStateCode)}</Text>
                         <Text style={styles.detailText}>Estimated financed: {currency(analysis.amountFinanced)}</Text>
                         <Text style={styles.detailText}>Estimated monthly: {currency(analysis.monthlyPayment)}</Text>
                         <Text style={styles.detailText}>Estimated total paid: {currency(analysis.totalPaid)}</Text>
-                        <Text style={styles.detailText}>Warning count: {analysis.dealWarnings.length + analysis.flaggedFees.length}</Text>
+                        <Text style={styles.detailText}>Fees / add-ons: {currency(getFeeTotal(savedDeal))} / {currency(getAddOnTotal(savedDeal))}</Text>
+                        <Text style={styles.detailText}>Offer notes: {savedDeal.offerNotes || 'None attached.'}</Text>
                         <Text style={styles.detailText}>Saved: {new Date(savedDeal.savedAt).toLocaleString()}</Text>
                         <View style={styles.doubleButtons}>
                           <View style={styles.flexOne}>
@@ -1837,16 +2076,83 @@ export default function App() {
               </TouchableOpacity>
             </View>
             <Card>
-              <Text style={styles.heroText}>Save quotes, salesperson names, promises, add-ons they pushed, and anything that felt off.</Text>
+              <Text style={styles.heroText}>Save quotes, salesperson names, promises, and anything that felt off. These notes stay separate from the per-offer notes in Deal review.</Text>
               <TextInput
                 style={styles.notesInput}
-                value={notes}
-                onChangeText={setNotes}
+                value={appData.notes}
+                onChangeText={(text) => setAppData((prev) => ({ ...prev, notes: text }))}
                 placeholder="Example: Dealer quoted 8.9% APR, pushed paint protection, and would not show full out-the-door price until late in the conversation."
                 placeholderTextColor="#94a3b8"
                 multiline
                 textAlignVertical="top"
               />
+            </Card>
+            <Card>
+              <Text style={styles.menuTitle}>Promise tracker</Text>
+              <Text style={styles.detailText}>{promiseSummary.headline}</Text>
+              <View style={styles.statsRow}>
+                <View style={styles.statCard}>
+                  <Text style={styles.statLabel}>Open</Text>
+                  <Text style={styles.statValue}>{promiseSummary.openCount}</Text>
+                </View>
+                <View style={styles.statCard}>
+                  <Text style={styles.statLabel}>Kept</Text>
+                  <Text style={styles.statValue}>{promiseSummary.keptCount}</Text>
+                </View>
+                <View style={styles.statCard}>
+                  <Text style={styles.statLabel}>Broken</Text>
+                  <Text style={styles.statValue}>{promiseSummary.brokenCount}</Text>
+                </View>
+              </View>
+              <DealInput
+                label="Log a promise"
+                value={promiseDraft}
+                onChangeText={setPromiseDraft}
+                placeholder="Example: We will remove the prep fee before you come back."
+                numeric={false}
+                multiline
+              />
+              <AppButton label="Save promise" onPress={addPromiseRecord} />
+              <View style={styles.stackGapSmall}>
+                {promiseSummary.recent.length > 0 ? (
+                  promiseSummary.recent.map((promise) => (
+                    <View key={promise.id} style={styles.infoBox}>
+                      <Text style={styles.bold}>{promise.dealershipName}</Text>
+                      <Text style={styles.infoBoxText}>{promise.text}</Text>
+                      <Text style={styles.infoBoxText}>Status: {promise.status}</Text>
+                      <Text style={styles.infoBoxText}>Logged: {new Date(promise.notedAt).toLocaleString()}</Text>
+                      <View style={styles.doubleButtons}>
+                        <View style={styles.flexOne}>
+                          <AppButton label="Kept" variant="secondary" onPress={() => updatePromiseStatus(promise.id, 'kept')} />
+                        </View>
+                        <View style={styles.flexOne}>
+                          <AppButton label="Broken" variant="danger" onPress={() => updatePromiseStatus(promise.id, 'broken')} />
+                        </View>
+                      </View>
+                      {promise.status !== 'open' ? <AppButton label="Reopen" variant="secondary" onPress={() => updatePromiseStatus(promise.id, 'open')} /> : null}
+                    </View>
+                  ))
+                ) : (
+                  <Text style={styles.detailText}>No promises logged yet.</Text>
+                )}
+              </View>
+            </Card>
+            <Card>
+              <Text style={styles.menuTitle}>Pressure history</Text>
+              <Text style={styles.detailText}>{pressureSummary.headline}</Text>
+              <View style={styles.stackGapSmall}>
+                {pressureSummary.recent.length > 0 ? (
+                  pressureSummary.recent.map((incident) => (
+                    <View key={incident.id} style={styles.infoBox}>
+                      <Text style={styles.bold}>{incident.dealershipName}</Text>
+                      <Text style={styles.infoBoxText}>{incident.flag}</Text>
+                      <Text style={styles.infoBoxText}>{new Date(incident.notedAt).toLocaleString()}</Text>
+                    </View>
+                  ))
+                ) : (
+                  <Text style={styles.detailText}>No pressure incidents saved yet.</Text>
+                )}
+              </View>
             </Card>
           </>
         )}
@@ -1860,6 +2166,13 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f8fafc',
   },
+  loadingWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    padding: 24,
+  },
   container: {
     padding: 16,
     paddingBottom: 40,
@@ -1868,8 +2181,13 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  headerSubtitle: {
+    color: '#475569',
+    fontSize: 15,
+    lineHeight: 22,
   },
   eyebrow: {
     fontSize: 11,
@@ -1882,6 +2200,7 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '800',
     color: '#0f172a',
+    marginBottom: 4,
   },
   resetPill: {
     backgroundColor: '#ffffff',
@@ -1896,54 +2215,45 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   tabBar: {
-    flexDirection: 'row',
-    gap: 6,
-    marginBottom: 8,
-    backgroundColor: '#e2e8f0',
-    borderRadius: 20,
-    padding: 6,
+    gap: 8,
+    paddingVertical: 4,
   },
-  tabButton: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 40,
-    borderRadius: 14,
+  tabSlot: {
+    width: 108,
   },
-  tabButtonActive: {
-    backgroundColor: '#ffffff',
+  heroTitle: {
+    fontSize: 26,
+    lineHeight: 32,
+    fontWeight: '800',
+    color: '#0f172a',
   },
-  tabButtonText: {
-    fontSize: 12,
+  heroText: {
     color: '#475569',
-    fontWeight: '700',
+    fontSize: 15,
+    lineHeight: 22,
   },
-  tabButtonTextActive: {
-    fontSize: 12,
+  heroWarningBox: {
+    backgroundColor: '#eff6ff',
+    borderRadius: 20,
+    padding: 16,
+    gap: 8,
+  },
+  heroWarningTitle: {
     color: '#0f172a',
     fontWeight: '800',
+    fontSize: 15,
   },
-  statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
-    fontSize: 12,
-    fontWeight: '800',
-    overflow: 'hidden',
+  heroWarningText: {
+    color: '#1e3a8a',
+    fontSize: 14,
   },
-  badgeGood: {
-    backgroundColor: '#dcfce7',
-    color: '#166534',
+  stackGap: {
+    gap: 12,
   },
-  badgeWarn: {
-    backgroundColor: '#fef3c7',
-    color: '#92400e',
+  stackGapSmall: {
+    gap: 8,
   },
-  badgeBad: {
-    backgroundColor: '#fee2e2',
-    color: '#991b1b',
-  },
-  card: {
+  menuCard: {
     backgroundColor: '#ffffff',
     borderRadius: 24,
     padding: 18,
@@ -1952,103 +2262,59 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 4 },
     elevation: 2,
-    gap: 12,
-  },
-  heroTitle: {
-    fontSize: 26,
-    lineHeight: 32,
-    fontWeight: '800',
-    color: '#0f172a',
-    flex: 1,
-    marginRight: 12,
-  },
-  heroText: {
-    fontSize: 15,
-    lineHeight: 22,
-    color: '#475569',
-  },
-  stackGap: {
-    gap: 12,
-  },
-  stackGapSmall: {
-    gap: 8,
-  },
-  button: {
-    minHeight: 52,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 16,
-  },
-  buttonPrimary: {
-    backgroundColor: '#0f172a',
-  },
-  buttonSecondary: {
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#cbd5e1',
-  },
-  buttonDanger: {
-    backgroundColor: '#7f1d1d',
-  },
-  buttonDisabled: {
-    opacity: 0.45,
-  },
-  buttonPrimaryText: {
-    color: '#ffffff',
-    fontWeight: '700',
-    fontSize: 16,
-  },
-  buttonSecondaryText: {
-    color: '#0f172a',
-    fontWeight: '700',
-    fontSize: 16,
-  },
-  buttonDangerText: {
-    color: '#ffffff',
-    fontWeight: '700',
-    fontSize: 16,
-  },
-  menuCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 24,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
     gap: 6,
   },
   menuTitle: {
-    fontSize: 19,
-    fontWeight: '700',
+    fontSize: 18,
+    fontWeight: '800',
     color: '#0f172a',
   },
+  menuTitleActive: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#ffffff',
+  },
   menuDesc: {
-    fontSize: 14,
-    lineHeight: 20,
-    color: '#64748b',
+    color: '#475569',
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  rowBetween: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
+  },
+  screenTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#0f172a',
+  },
+  linkText: {
+    color: '#2563eb',
+    fontWeight: '700',
   },
   sectionLabel: {
     fontSize: 13,
+    fontWeight: '700',
     color: '#64748b',
-    fontWeight: '600',
   },
   questionTitle: {
-    fontSize: 24,
-    lineHeight: 30,
+    fontSize: 22,
     fontWeight: '800',
     color: '#0f172a',
-    marginTop: 8,
   },
   questionSubtitle: {
+    color: '#475569',
     fontSize: 15,
     lineHeight: 22,
-    color: '#64748b',
   },
   optionButton: {
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: '#cbd5e1',
-    borderRadius: 18,
-    padding: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
     backgroundColor: '#ffffff',
   },
   optionButtonActive: {
@@ -2057,183 +2323,106 @@ const styles = StyleSheet.create({
   },
   optionText: {
     color: '#0f172a',
-    fontSize: 15,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   optionTextActive: {
     color: '#ffffff',
-    fontSize: 15,
     fontWeight: '700',
   },
   doubleButtons: {
     flexDirection: 'row',
-    gap: 10,
-    marginTop: 4,
+    gap: 12,
   },
   flexOne: {
     flex: 1,
   },
-  progressTrack: {
-    height: 10,
-    backgroundColor: '#e2e8f0',
-    borderRadius: 999,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: '#0f172a',
-    borderRadius: 999,
-  },
-  heroWarningBox: {
-    backgroundColor: '#fff7ed',
-    borderRadius: 18,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#fdba74',
-    gap: 4,
-  },
-  heroWarningTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#9a3412',
-    marginBottom: 2,
-  },
-  heroWarningText: {
-    fontSize: 14,
-    color: '#9a3412',
-    lineHeight: 20,
-  },
   infoBox: {
-    backgroundColor: '#f1f5f9',
     borderRadius: 18,
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
     padding: 14,
-    gap: 6,
+    gap: 4,
   },
   infoBoxText: {
     color: '#334155',
-    fontSize: 14,
     lineHeight: 20,
   },
   subheading: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 16,
+    fontWeight: '800',
     color: '#0f172a',
     marginTop: 4,
   },
   warningRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 8,
     alignItems: 'flex-start',
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    padding: 12,
   },
   warningBullet: {
-    fontSize: 16,
-    color: '#b45309',
-    fontWeight: '700',
+    color: '#b91c1c',
+    fontWeight: '800',
+    lineHeight: 20,
   },
   warningText: {
     flex: 1,
-    color: '#334155',
-    fontSize: 14,
+    color: '#7f1d1d',
     lineHeight: 20,
   },
-  rowBetween: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 10,
+  detailText: {
+    color: '#334155',
+    lineHeight: 21,
   },
-  screenTitle: {
-    fontSize: 24,
+  detailTextActive: {
+    color: '#e2e8f0',
+    lineHeight: 21,
+  },
+  bold: {
     fontWeight: '800',
     color: '#0f172a',
   },
-  linkText: {
-    color: '#0f172a',
-    fontWeight: '700',
-    fontSize: 15,
-  },
-  detailText: {
-    fontSize: 14,
-    lineHeight: 21,
-    color: '#334155',
-  },
-  bold: {
-    fontWeight: '700',
-    color: '#0f172a',
-  },
   scriptBox: {
-    backgroundColor: '#f8fafc',
-    borderRadius: 16,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
+    backgroundColor: '#eff6ff',
+    borderRadius: 18,
+    padding: 14,
   },
   checkItem: {
     flexDirection: 'row',
     gap: 10,
-    borderRadius: 16,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#cbd5e1',
-    backgroundColor: '#ffffff',
     alignItems: 'center',
+    backgroundColor: '#f8fafc',
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
   },
   checkItemActive: {
-    backgroundColor: '#0f172a',
-    borderColor: '#0f172a',
+    backgroundColor: '#dcfce7',
   },
   checkMark: {
-    fontSize: 18,
     color: '#64748b',
-    fontWeight: '700',
+    fontWeight: '800',
   },
   checkMarkActive: {
-    fontSize: 18,
-    color: '#ffffff',
-    fontWeight: '700',
+    color: '#166534',
+    fontWeight: '800',
   },
   checkText: {
     flex: 1,
-    color: '#0f172a',
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: '600',
+    color: '#334155',
   },
   checkTextActive: {
     flex: 1,
-    color: '#ffffff',
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: '700',
-  },
-  dangerPanel: {
-    backgroundColor: '#7f1d1d',
-    borderRadius: 18,
-    padding: 14,
-    gap: 4,
-  },
-  dangerPanelTitle: {
-    color: '#ffffff',
-    fontWeight: '800',
-    fontSize: 15,
-    marginBottom: 2,
-  },
-  dangerPanelText: {
-    color: '#fecaca',
-    fontSize: 14,
-    lineHeight: 20,
+    color: '#166534',
+    fontWeight: '600',
   },
   statsRow: {
     flexDirection: 'row',
     gap: 10,
+    flexWrap: 'wrap',
   },
   statCard: {
-    flex: 1,
+    flexGrow: 1,
+    minWidth: 100,
     backgroundColor: '#ffffff',
     borderRadius: 18,
     borderWidth: 1,
@@ -2242,109 +2431,109 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   statLabel: {
-    fontSize: 12,
     color: '#64748b',
-    fontWeight: '600',
+    fontWeight: '700',
+    fontSize: 12,
   },
   statValue: {
-    fontSize: 18,
     color: '#0f172a',
     fontWeight: '800',
+    fontSize: 18,
   },
-  copyHint: {
-    marginTop: 6,
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#0f172a',
-  },
-  scriptTile: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
+  flagCard: {
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
-    padding: 12,
+    borderColor: '#cbd5e1',
+    padding: 14,
+    gap: 6,
+  },
+  flagCardActive: {
+    backgroundColor: '#0f172a',
+    borderColor: '#0f172a',
   },
   inputWrap: {
     gap: 6,
-    marginBottom: 10,
+  },
+  lineItemCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    backgroundColor: '#f8fafc',
+    padding: 12,
+    gap: 8,
   },
   inputLabel: {
+    color: '#334155',
+    fontWeight: '700',
     fontSize: 13,
-    color: '#475569',
-    fontWeight: '600',
   },
   input: {
-    minHeight: 48,
+    minHeight: 50,
     borderRadius: 16,
+    backgroundColor: '#ffffff',
     borderWidth: 1,
     borderColor: '#cbd5e1',
-    backgroundColor: '#ffffff',
     paddingHorizontal: 14,
     color: '#0f172a',
-    fontSize: 15,
   },
-  snapshotRow: {
+  inputMultiline: {
+    minHeight: 110,
+    paddingTop: 12,
+  },
+  breakdownRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
     gap: 10,
+    alignItems: 'flex-start',
+  },
+  breakdownDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 999,
+    marginTop: 6,
+  },
+  dotGood: {
+    backgroundColor: '#16a34a',
+  },
+  dotWarn: {
+    backgroundColor: '#d97706',
+  },
+  dotBad: {
+    backgroundColor: '#dc2626',
+  },
+  breakdownTitle: {
+    color: '#0f172a',
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  stateChipRow: {
+    gap: 8,
+    paddingVertical: 2,
+  },
+  stateChip: {
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+  },
+  stateChipActive: {
+    backgroundColor: '#0f172a',
+    borderColor: '#0f172a',
+  },
+  stateChipText: {
+    color: '#0f172a',
+    fontWeight: '700',
+  },
+  stateChipTextActive: {
+    color: '#ffffff',
+    fontWeight: '700',
   },
   gradePanel: {
     borderRadius: 18,
-    padding: 14,
     backgroundColor: '#f8fafc',
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    gap: 6,
-  },
-  gradeTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#0f172a',
-  },
-  highRiskTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#7f1d1d',
-  },
-  warningRowCard: {
-    backgroundColor: '#fef3c7',
-    borderColor: '#f59e0b',
-    borderWidth: 1,
-    borderRadius: 18,
     padding: 14,
-  },
-  headToHeadHeader: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 4,
-  },
-  headToHeadDealName: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#0f172a',
-  },
-  compareRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
-  },
-  compareLabel: {
-    flex: 1.1,
-    fontSize: 13,
-    color: '#475569',
-    fontWeight: '700',
-  },
-  compareValue: {
-    flex: 1,
-    fontSize: 13,
-    color: '#0f172a',
-    fontWeight: '600',
+    gap: 4,
   },
   comparePickRow: {
     flexDirection: 'row',
@@ -2352,20 +2541,15 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   comparePickName: {
-    flex: 1,
-    fontSize: 14,
+    fontWeight: '700',
     color: '#0f172a',
-    fontWeight: '600',
   },
   comparePickButton: {
-    minWidth: 60,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
     borderRadius: 14,
     borderWidth: 1,
     borderColor: '#cbd5e1',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     backgroundColor: '#ffffff',
   },
   comparePickButtonActive: {
@@ -2375,23 +2559,62 @@ const styles = StyleSheet.create({
   comparePickButtonText: {
     color: '#0f172a',
     fontWeight: '700',
-    fontSize: 13,
   },
   comparePickButtonTextActive: {
     color: '#ffffff',
     fontWeight: '700',
-    fontSize: 13,
+  },
+  headToHeadHeader: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  headToHeadDealName: {
+    flex: 1,
+    fontWeight: '800',
+    color: '#0f172a',
+  },
+  compareRow: {
+    flexDirection: 'row',
+    gap: 10,
+    alignItems: 'center',
+    paddingVertical: 6,
+  },
+  compareLabel: {
+    flex: 1.1,
+    color: '#64748b',
+    fontWeight: '700',
+  },
+  compareValue: {
+    flex: 1,
+    color: '#0f172a',
+    fontWeight: '700',
+  },
+  scriptRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#f8fafc',
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
   },
   notesInput: {
-    minHeight: 240,
+    minHeight: 180,
     borderRadius: 18,
     borderWidth: 1,
     borderColor: '#cbd5e1',
     backgroundColor: '#ffffff',
-    paddingHorizontal: 14,
-    paddingVertical: 14,
+    padding: 16,
     color: '#0f172a',
-    fontSize: 15,
-    lineHeight: 22,
+  },
+  quotePreview: {
+    width: '100%',
+    height: 220,
+    borderRadius: 18,
+    backgroundColor: '#e2e8f0',
+  },
+  removeText: {
+    color: '#b91c1c',
+    fontWeight: '700',
   },
 });

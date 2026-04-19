@@ -1,50 +1,40 @@
-# Welcome to your Expo app 👋
+# Dealer Guard
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Dealer Guard is an Expo / React Native app for car buyers who want help preparing for dealership negotiations, reviewing financing offers, spotting pressure tactics, and comparing saved offers side by side.
 
-## Get started
+## What the app does
 
-1. Install dependencies
+- Runs a readiness check before the user visits a dealership
+- Provides a dealership checklist and a trap library
+- Analyzes vehicle price, fees, add-ons, APR, and term length
+- Tracks live pressure tactics and converts them into a transparency score
+- Saves multiple offers and compares them with a consistent scoring model
+- Keeps state context attached to offers so fee reviews stay locally grounded
 
-   ```bash
-   npm install
-   ```
+## Project structure
 
-2. Start the app
+- [app/index.tsx](/Users/jeromeanderson/dealer-guard/app/index.tsx) contains the routed app shell and screen composition
+- [data](/Users/jeromeanderson/dealer-guard/data) contains the static app content such as questions, traps, scripts, tactics, and state options
+- [utils/deals.ts](/Users/jeromeanderson/dealer-guard/utils/deals.ts) contains the pure domain logic for scoring, fee detection, and offer comparisons
+- [utils/app-state.ts](/Users/jeromeanderson/dealer-guard/utils/app-state.ts) defines the versioned persisted state shape and sanitizers
+- [utils/storage.ts](/Users/jeromeanderson/dealer-guard/utils/storage.ts) handles AsyncStorage persistence and legacy migration
+- [tests](/Users/jeromeanderson/dealer-guard/tests) contains pure Node-based tests for the finance, scoring, and persistence layers
 
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+## Commands
 
 ```bash
-npm run reset-project
+npm install
+npm run start
+npm run lint
+npm run test
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## Persistence model
 
-## Learn more
+The app stores a single versioned snapshot in AsyncStorage under `dealerGuard_state`. On first load it also reads the older per-key storage layout and migrates it forward into the sanitized snapshot shape.
 
-To learn more about developing your project with Expo, look at the following resources:
+## Design notes
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+- The deal-analysis logic is intentionally pure and testable so financial calculations and warning heuristics can be verified outside the UI.
+- State context is used as a reminder to verify local fee expectations, not as a substitute for current legal advice or a state-specific compliance engine.
+- Saved offers keep their own notes so shared summaries and later comparisons have more context.

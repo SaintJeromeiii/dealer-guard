@@ -1,4 +1,4 @@
-import type { Answers } from './types';
+import type { Answers } from './types.ts';
 
 export function scoreAnswers(answers: Answers) {
   let score = 0;
