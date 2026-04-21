@@ -14,12 +14,18 @@ import {
   buildHonestyScore,
   buildLiveCoachingPlan,
   buildMarketBenchmarkAssessment,
+  buildMonetizationSummary,
   buildNegotiationPlan,
   buildPaperworkAudit,
   buildOfferTimeline,
   buildPaperworkAuditSummary,
   buildPressureSummary,
   buildPromiseSummary,
+  buildQuickStartGuide,
+  buildReferralLoop,
+  buildSavingsOpportunity,
+  buildSecondOpinionShare,
+  buildVisitCaseSummary,
   buildSessionPlaybook,
   buildTradeInAssessment,
   compareSavedDeals,
@@ -31,7 +37,7 @@ import {
   importQuoteText,
   scoreAnswers,
 } from '../utils/deals.ts';
-import { createInitialDeal } from '../utils/app-state.ts';
+import { createInitialAppData, createInitialDeal, sanitizeAppData } from '../utils/app-state.ts';
 import { salesTacticItems } from '../data/deal-content.ts';
 
 test('scoreAnswers and readiness label reflect missing prep work', () => {
@@ -181,6 +187,26 @@ test('summary builders include decision context', () => {
   assert.ok(livePlan.nextQuestions.some((item) => item.includes('print')));
   assert.match(buyerReport, /buyer report/i);
   assert.match(buyerReport, /Recommendation/);
+  const secondOpinionShare = buildSecondOpinionShare(secondDeal, secondAnalysis, recommendation, negotiationPlan);
+  assert.match(secondOpinionShare, /sanity-check this car deal/i);
+  assert.match(secondOpinionShare, /Dealer Guard/i);
+  const referralLoop = buildReferralLoop(secondDeal, secondAnalysis, recommendation, secondOpinionShare);
+  assert.match(referralLoop.headline, /before you sign/i);
+  assert.match(referralLoop.inviteMessage, /Dealer Guard/i);
+  const visitCaseSummary = buildVisitCaseSummary(
+    [
+      {
+        id: 'timeline-1',
+        dealershipName: 'Offer Two',
+        type: 'offerSaved',
+        title: 'Offer saved',
+        detail: 'Saved the current revision.',
+        createdAt: '2026-04-20T12:00:00.000Z',
+      },
+    ],
+    'Offer Two'
+  );
+  assert.match(visitCaseSummary, /visit case file/i);
 });
 
 test('live coaching changes meaningfully for multiple pressure tactics', () => {
@@ -267,6 +293,86 @@ test('buildOfferTimeline reveals real concessions versus payment reshuffling', (
 
   assert.equal(timeline.length, 2);
   assert.ok(timeline[1]?.insights.some((item) => item.label === 'Packaged extras'));
+});
+
+test('buildMonetizationSummary highlights premium value around existing usage', () => {
+  const appData = createInitialAppData();
+  const savedDeal = {
+    ...createInitialDeal(),
+    id: 'deal-1',
+    savedAt: '2026-04-20T10:00:00.000Z',
+    seriesId: 'series-1',
+    revisionNumber: 1,
+    basedOnDealId: null,
+    dealershipName: 'Metro Auto',
+    vehiclePrice: '25000',
+    apr: '6.4',
+    months: '60',
+  };
+
+  const summary = buildMonetizationSummary(
+    {
+      ...appData.subscription,
+      tier: 'free',
+    },
+    [savedDeal, { ...savedDeal, id: 'deal-2', dealershipName: 'North Motors' }],
+    [{ id: 'incident-1', flag: 'todayOnly', dealershipName: 'Metro Auto', notedAt: '2026-04-20T10:05:00.000Z' }],
+    [{ id: 'promise-1', dealershipName: 'Metro Auto', text: 'We will remove the prep fee.', status: 'open', notedAt: '2026-04-20T10:06:00.000Z', resolvedAt: null }]
+  );
+
+  assert.match(summary.headline, /free-to-pro/i);
+  assert.equal(summary.featureCards.length, 3);
+  assert.ok(summary.reasons.some((reason) => reason.includes('saved offer')));
+});
+
+test('buildSavingsOpportunity surfaces a concrete savings hook when leverage exists', () => {
+  const deal = {
+    ...createInitialDeal(),
+    dealershipName: 'Metro Auto',
+    vehiclePrice: '30000',
+    dealerFees: '1200',
+    addOns: '1800',
+    apr: '9.5',
+    months: '72',
+  };
+
+  const analysis = buildDealAnalysis(deal, 'Strong');
+  const plan = buildNegotiationPlan(deal, analysis);
+  const recommendation = buildDealActionRecommendation(deal, analysis, plan);
+  const result = buildSavingsOpportunity(analysis, plan, recommendation);
+
+  assert.ok(result.estimatedSavings > 0);
+  assert.match(result.headline, /save about/i);
+});
+
+test('buildQuickStartGuide gives a low-friction first-use path', () => {
+  const guide = buildQuickStartGuide();
+
+  assert.match(guide.headline, /fastest path/i);
+  assert.equal(guide.steps.length, 3);
+});
+
+test('sanitizeAppData preserves subscription defaults and accepts pro state', () => {
+  const defaults = sanitizeAppData({});
+  assert.equal(defaults.subscription.tier, 'free');
+  assert.equal(defaults.subscription.usage.ocrImports, 0);
+
+  const upgraded = sanitizeAppData({
+    subscription: {
+      tier: 'pro',
+      upgradedAt: '2026-04-20T11:00:00.000Z',
+      usage: {
+        ocrImports: 3,
+        reportsShared: 2,
+        dealsSaved: 5,
+        tacticsLogged: 4,
+      },
+    },
+  });
+
+  assert.equal(upgraded.subscription.tier, 'pro');
+  assert.equal(upgraded.subscription.usage.reportsShared, 2);
+  assert.equal(upgraded.subscription.usage.referralShares, 0);
 });
 
 test('buildDealActionRecommendation chooses counter for negotiable risky deals', () => {

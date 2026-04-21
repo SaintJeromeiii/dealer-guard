@@ -18,22 +18,30 @@ import type {
   ImportLineItemReview,
   LiveCoachingPlan,
   MarketBenchmarkAssessment,
+  MonetizationFeatureCard,
+  MonetizationSummary,
   NegotiationPlan,
   NegotiationFlag,
   PaperworkAudit,
   PaperworkAuditItem,
+  PremiumTier,
   PressureIncident,
   PromiseRecord,
   PromiseSummary,
   QuoteImportResult,
   ReadinessLabel,
+  ReferralLoop,
   SavedDeal,
   SalesTacticItem,
+  VisitTimelineEntry,
+  SavingsOpportunity,
   SessionPlaybook,
   SessionPlaybookStep,
+  SubscriptionState,
   SuspiciousFeeRule,
   Tone,
   TradeInAssessment,
+  QuickStartGuide,
   OfferTimelineEntry,
   OfferRevisionInsight,
 } from './types.ts';
@@ -1335,6 +1343,146 @@ export function buildDealerScorecards(
     });
 }
 
+function createFeatureCard(title: string, detail: string, tier: PremiumTier): MonetizationFeatureCard {
+  return {
+    title,
+    detail,
+    badge: tier === 'pro' ? 'Unlocked in Pro' : 'Pro feature',
+    unlocked: tier === 'pro',
+  };
+}
+
+export function buildMonetizationSummary(
+  subscription: SubscriptionState,
+  savedDeals: SavedDeal[],
+  pressureIncidents: PressureIncident[],
+  promises: PromiseRecord[]
+): MonetizationSummary {
+  const tier = subscription.tier;
+  const reasons: string[] = [];
+
+  if (savedDeals.length >= 2) {
+    reasons.push(`You already have ${savedDeals.length} saved offer${savedDeals.length === 1 ? '' : 's'}, which makes premium comparison tools easier to justify.`);
+  }
+
+  if (pressureIncidents.length > 0) {
+    reasons.push(`You have logged ${pressureIncidents.length} pressure incident${pressureIncidents.length === 1 ? '' : 's'}, so live coaching history is becoming part of the product value.`);
+  }
+
+  if (promises.length > 0) {
+    reasons.push(`Promise tracking is active, which supports a stronger “dealer accountability” premium story.`);
+  }
+
+  if (!reasons.length) {
+    reasons.push('The strongest monetization pitch is still protecting the buyer from bad deal structure before they sign.');
+  }
+
+  return {
+    headline:
+      tier === 'pro'
+        ? 'Dealer Guard Pro preview is active on this device.'
+        : 'Dealer Guard is ready for a clear free-to-Pro upgrade path.',
+    detail:
+      tier === 'pro'
+        ? 'This local Pro preview unlocks the most differentiated decision tools so you can test what the paid experience should feel like.'
+        : 'Keep the core deal review free, then charge for the features that help buyers justify, compare, and share a high-stakes decision.',
+    monthlyPriceLabel: '$9.99 / month',
+    annualPriceLabel: '$79.99 / year',
+    reasons,
+    featureCards: [
+      createFeatureCard('Shareable buyer report', 'Turns a deal into a polished summary a spouse, friend, or advisor can review quickly.', tier),
+      createFeatureCard('Dealer scorecards', 'Combines deal quality, pressure tactics, and broken promises into one dealership reputation view.', tier),
+      createFeatureCard('Session playbook', 'Transforms the analysis into a real in-store action sequence instead of passive information.', tier),
+    ],
+  };
+}
+
+export function buildSavingsOpportunity(
+  analysis: DealAnalysis,
+  negotiationPlan: NegotiationPlan,
+  recommendation: DealActionRecommendation
+): SavingsOpportunity {
+  const bestScenario = negotiationPlan.scenarios[0] ?? null;
+  const estimatedSavings = bestScenario?.totalChange ?? 0;
+
+  if (estimatedSavings > 0) {
+    return {
+      headline: `You may be able to save about ${currency(estimatedSavings)} on this deal.`,
+      detail: `${bestScenario?.detail ?? 'There is still room to improve the deal.'} That makes the review feel immediately valuable, even before the buyer reads every detail.`,
+      estimatedSavings,
+      strongestLever: bestScenario?.title ?? 'Lower the total paid',
+      tone: recommendation.action === 'Leave' ? 'bad' : 'good',
+    };
+  }
+
+  if (recommendation.action === 'Leave') {
+    return {
+      headline: 'The biggest savings move may be walking away from this deal.',
+      detail: 'When the structure is too risky, the real win is avoiding an overpriced or padded contract entirely.',
+      estimatedSavings: 0,
+      strongestLever: 'Walk away from the current structure',
+      tone: 'bad',
+    };
+  }
+
+  return {
+    headline: 'This deal does not show a large obvious savings lever yet.',
+    detail: 'The next value move is keeping the paperwork clean and preventing last-minute changes instead of chasing a small concession.',
+    estimatedSavings: 0,
+    strongestLever: 'Protect the clean structure',
+    tone: 'warn',
+  };
+}
+
+export function buildQuickStartGuide(): QuickStartGuide {
+  return {
+    headline: 'New here? Start with the fastest path to a useful answer.',
+    steps: [
+      'Paste or import the quote first so the app can estimate the real deal structure.',
+      'Review the verdict, savings opportunity, and biggest warning before looking at the deeper screens.',
+      'Share the second-opinion message with someone you trust before signing anything.',
+    ],
+  };
+}
+
+export function buildReferralLoop(
+  deal: DealState,
+  analysis: DealAnalysis,
+  recommendation: DealActionRecommendation,
+  secondOpinionShare: string
+): ReferralLoop {
+  const dealerLabel = deal.dealershipName.trim() || 'this dealership';
+
+  return {
+    headline: 'Bring another person into the decision before you sign.',
+    detail: `People naturally ask a spouse, friend, or advisor to sanity-check a big purchase. Give them a quick summary first, then invite them into Dealer Guard if they want the deeper breakdown.`,
+    inviteMessage: `${secondOpinionShare}\n\nIf you want the same kind of breakdown for your own car deal, I used Dealer Guard to catch the structure fast.`,
+    followUpMessage: `I just ran ${dealerLabel} through Dealer Guard and it came back as ${analysis.dealVerdict}. The app says my best move is ${recommendation.action.toLowerCase()}. If you want, I can send you the quick summary I shared.`,
+  };
+}
+
+export function buildVisitCaseSummary(entries: VisitTimelineEntry[], dealershipName: string) {
+  const normalizedDealer = dealershipName.trim().toLowerCase();
+  const filtered = normalizedDealer
+    ? entries.filter((entry) => entry.dealershipName.trim().toLowerCase() === normalizedDealer)
+    : entries;
+
+  if (!filtered.length) {
+    return 'No dealership visit timeline has been captured yet.';
+  }
+
+  const ordered = filtered
+    .slice()
+    .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+    .slice(0, 8);
+
+  return [
+    `Dealer Guard visit case file${dealershipName ? `: ${dealershipName}` : ''}`,
+    '',
+    ...ordered.map((entry) => `- ${new Date(entry.createdAt).toLocaleString()}: ${entry.title}. ${entry.detail}`),
+  ].join('\n');
+}
+
 function stringifyMoney(value: string) {
   return currency(Number(value || 0));
 }
@@ -1556,5 +1704,33 @@ export function buildBuyerReport(
     ...(confidence.missingFields.length ? confidence.missingFields.map((item) => `- ${item}`) : ['- No major fields missing.']),
     '',
     deal.offerNotes ? `Offer notes: ${deal.offerNotes}` : 'Offer notes: None saved yet.',
+  ].join('\n');
+}
+
+export function buildSecondOpinionShare(
+  deal: DealState,
+  analysis: DealAnalysis,
+  recommendation: DealActionRecommendation,
+  negotiationPlan: NegotiationPlan
+) {
+  const warningCount = analysis.dealWarnings.length + analysis.flaggedFees.length;
+  const firstWarning =
+    analysis.dealWarnings[0] ??
+    analysis.flaggedFees[0]?.reason ??
+    'No major warning was detected yet, but I still want another set of eyes on it.';
+
+  return [
+    `Can you sanity-check this car deal with me${deal.dealershipName ? ` from ${deal.dealershipName}` : ''}?`,
+    '',
+    `Dealer Guard flagged it as: ${analysis.dealVerdict}`,
+    `Recommended move: ${recommendation.action}`,
+    `Estimated monthly: ${currency(analysis.monthlyPayment)}`,
+    `Estimated total paid: ${currency(analysis.totalPaid)}`,
+    `Warning count: ${warningCount}`,
+    '',
+    `Biggest concern: ${firstWarning}`,
+    `Best next move: ${negotiationPlan.strongestMove}`,
+    '',
+    'I ran this through Dealer Guard before signing. Want me to send you the full breakdown too?',
   ].join('\n');
 }

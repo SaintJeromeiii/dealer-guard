@@ -47,6 +47,7 @@ import {
   buildHonestyScore,
   buildLiveCoachingPlan,
   buildMarketBenchmarkAssessment,
+  buildMonetizationSummary,
   buildNegotiationPlan,
   buildNegotiationPlanSummary,
   buildOfferTimeline,
@@ -54,8 +55,13 @@ import {
   buildPaperworkAuditSummary,
   buildPressureSummary,
   buildPromiseSummary,
+  buildQuickStartGuide,
+  buildReferralLoop,
+  buildSavingsOpportunity,
+  buildSecondOpinionShare,
   buildSessionPlaybook,
   buildTradeInAssessment,
+  buildVisitCaseSummary,
   compareSavedDeals,
   currency,
   getAddOnTotal,
@@ -65,8 +71,9 @@ import {
   importQuoteText,
   scoreAnswers,
 } from '@/utils/deals';
+import { initializeBilling, purchaseProEntitlement, restoreProEntitlement } from '@/utils/billing';
 import { loadAppData, resetStoredAppData, saveAppData } from '@/utils/storage';
-import type { DealLineItem, MainTab, NegotiationFlag, PromiseRecord, QuoteImportResult, SavedDeal, Screen, SelectedComparePair, Tone } from '@/utils/types';
+import type { DealLineItem, ExperienceMode, MainTab, NegotiationFlag, PremiumTier, PromiseRecord, QuoteImportResult, SavedDeal, Screen, SelectedComparePair, Tone, VisitTimelineEntry, VisitTimelineEventType } from '@/utils/types';
 
 function makeId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -82,6 +89,36 @@ function createLineItem(): DealLineItem {
 
 function createSeriesId() {
   return `series-${makeId()}`;
+}
+
+function createTimelineEntry(type: VisitTimelineEventType, dealershipName: string, title: string, detail: string): VisitTimelineEntry {
+  return {
+    id: makeId(),
+    dealershipName: dealershipName.trim() || 'Unnamed dealership',
+    type,
+    title,
+    detail,
+    createdAt: new Date().toISOString(),
+  };
+}
+
+function PremiumPreviewCard({
+  title,
+  detail,
+  onPress,
+}: {
+  title: string;
+  detail: string;
+  onPress: () => void;
+}) {
+  return (
+    <Card>
+      <StatusBadge label="Dealer Guard Pro" tone="warn" />
+      <Text style={styles.menuTitle}>{title}</Text>
+      <Text style={styles.detailText}>{detail}</Text>
+      <AppButton label="Open Pro preview" onPress={onPress} />
+    </Card>
+  );
 }
 
 function DealInput({
@@ -204,6 +241,8 @@ export default function App() {
   const [editableAddOnItems, setEditableAddOnItems] = useState<DealLineItem[]>([]);
   const [loadedDealId, setLoadedDealId] = useState<string | null>(null);
   const [promiseDraft, setPromiseDraft] = useState('');
+  const [billingBusy, setBillingBusy] = useState(false);
+  const [showProActivatedBanner, setShowProActivatedBanner] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -227,6 +266,26 @@ export default function App() {
       console.log('Save error');
     });
   }, [appData, loaded]);
+
+  useEffect(() => {
+    let active = true;
+
+    initializeBilling(appData.subscription.tier)
+      .then((billing) => {
+        if (!active) return;
+        setAppData((prev) => ({
+          ...prev,
+          billing,
+        }));
+      })
+      .catch(() => {
+        console.log('Billing init error');
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [appData.subscription.tier]);
 
   const currentQuestion = questions[questionIndex];
   const selectedTactic = salesTacticItems[selectedTacticIndex];
@@ -282,6 +341,15 @@ export default function App() {
     () => buildDealerScorecards(appData.savedDeals, appData.pressureIncidents, appData.promises, readinessLabel),
     [appData.pressureIncidents, appData.promises, appData.savedDeals, readinessLabel]
   );
+  const monetizationSummary = useMemo(
+    () => buildMonetizationSummary(appData.subscription, appData.savedDeals, appData.pressureIncidents, appData.promises),
+    [appData.pressureIncidents, appData.promises, appData.savedDeals, appData.subscription]
+  );
+  const savingsOpportunity = useMemo(
+    () => buildSavingsOpportunity(dealAnalysis, negotiationPlan, actionRecommendation),
+    [actionRecommendation, dealAnalysis, negotiationPlan]
+  );
+  const quickStartGuide = useMemo(() => buildQuickStartGuide(), []);
   const activeSeriesId = useMemo(() => {
     if (loadedDealId) {
       return appData.savedDeals.find((deal) => deal.id === loadedDealId)?.seriesId ?? null;
@@ -328,6 +396,8 @@ export default function App() {
       ? buildCounterOfferMoves(selectedDealsForCompare.second, selectedDealsForCompare.first, manualCompareAnalyses.second, manualCompareAnalyses.first)
       : buildCounterOfferMoves(selectedDealsForCompare.first, selectedDealsForCompare.second, manualCompareAnalyses.first, manualCompareAnalyses.second);
   }, [selectedDealsForCompare, manualCompareAnalyses]);
+  const isPro = appData.subscription.tier === 'pro';
+  const experienceMode = appData.preferences.experienceMode;
 
   function updateDeal<K extends keyof typeof appData.deal>(key: K, value: (typeof appData.deal)[K]) {
     setAppData((prev) => ({
@@ -352,6 +422,7 @@ export default function App() {
     );
     setEditableFeeItems(result.feeItemReviews.map((item) => ({ id: item.id, label: item.label, amount: item.amount })));
     setEditableAddOnItems(result.addOnItemReviews.map((item) => ({ id: item.id, label: item.label, amount: item.amount })));
+    appendTimelineEntry('quoteImported', 'Imported quote for review', `Matched ${result.matchedFields.length} field(s) from ${sourceLabel}.`);
 
     if (!result.matchedFields.length) {
       Alert.alert('Import review', result.reviewNotes.join('\n'));
@@ -392,6 +463,8 @@ export default function App() {
         importReviewNotes: updatedReviewNotes,
       },
     }));
+    incrementUsage('ocrImports');
+    appendTimelineEntry('quoteImported', 'Applied reviewed quote fields', 'Imported quote values were reviewed and applied to the active deal.');
     setPendingImport(null);
     setEditableImportFields({});
     setEditableFeeItems([]);
@@ -408,6 +481,79 @@ export default function App() {
 
   function updateEditableImportField(field: string, value: string) {
     setEditableImportFields((prev) => ({ ...prev, [field]: value }));
+  }
+
+  function appendTimelineEntry(type: VisitTimelineEventType, title: string, detail: string, dealershipName = appData.deal.dealershipName) {
+    setAppData((prev) => ({
+      ...prev,
+      visitTimeline: [createTimelineEntry(type, dealershipName, title, detail), ...prev.visitTimeline].slice(0, 120),
+    }));
+  }
+
+  function setPremiumTier(tier: PremiumTier) {
+    setAppData((prev) => ({
+      ...prev,
+      subscription: {
+        ...prev.subscription,
+        tier,
+        upgradedAt: tier === 'pro' ? prev.subscription.upgradedAt ?? new Date().toISOString() : null,
+      },
+    }));
+  }
+
+  function enableLocalPreview() {
+    setPremiumTier('pro');
+    setMainTab('dealReview');
+    setScreen('dealReview');
+    setShowProActivatedBanner(true);
+    Alert.alert('Dealer Guard Pro preview', 'Pro preview is now active on this device. Pro-only tools are unlocked locally for testing.');
+  }
+
+  function setExperienceMode(mode: ExperienceMode) {
+    setAppData((prev) => ({
+      ...prev,
+      preferences: {
+        ...prev.preferences,
+        experienceMode: mode,
+      },
+    }));
+  }
+
+  async function startPaywallPurchase() {
+    setBillingBusy(true);
+
+    try {
+      const result = await purchaseProEntitlement();
+      setPremiumTier(result.tier);
+      Alert.alert('Dealer Guard Pro', result.note);
+    } finally {
+      setBillingBusy(false);
+    }
+  }
+
+  async function restorePurchase() {
+    setBillingBusy(true);
+
+    try {
+      const result = await restoreProEntitlement(appData.subscription.tier);
+      setPremiumTier(result.tier);
+      Alert.alert('Restore purchase', result.note);
+    } finally {
+      setBillingBusy(false);
+    }
+  }
+
+  function incrementUsage(key: keyof typeof appData.subscription.usage) {
+    setAppData((prev) => ({
+      ...prev,
+      subscription: {
+        ...prev.subscription,
+        usage: {
+          ...prev.subscription.usage,
+          [key]: prev.subscription.usage[key] + 1,
+        },
+      },
+    }));
   }
 
   function updateEditableLineItem(section: 'fee' | 'addon', id: string, key: 'label' | 'amount', value: string) {
@@ -549,6 +695,11 @@ export default function App() {
     setScreen('questions');
   }
 
+  function startQuickQuoteCheck() {
+    setMainTab('dealReview');
+    setScreen('dealReview');
+  }
+
   function selectAnswer(value: string) {
     setAppData((prev) => ({
       ...prev,
@@ -581,6 +732,10 @@ export default function App() {
             ...prev.pressureIncidents,
           ].slice(0, 50),
     }));
+    if (!appData.negotiationFlags.includes(flag)) {
+      incrementUsage('tacticsLogged');
+      appendTimelineEntry('pressureLogged', 'Pressure tactic logged', `${flag} was marked during the dealership session.`);
+    }
   }
 
   function addPromiseRecord() {
@@ -603,6 +758,7 @@ export default function App() {
       ...prev,
       promises: [newPromise, ...prev.promises].slice(0, 100),
     }));
+    appendTimelineEntry('promiseLogged', 'Promise logged', text, newPromise.dealershipName);
     setPromiseDraft('');
   }
 
@@ -619,6 +775,7 @@ export default function App() {
           : promise
       ),
     }));
+    appendTimelineEntry('promiseUpdated', 'Promise status updated', `Promise marked as ${status}.`);
   }
 
   function goNext() {
@@ -690,6 +847,8 @@ export default function App() {
       ...prev,
       savedDeals: [newDeal, ...prev.savedDeals].slice(0, 10),
     }));
+    incrementUsage('dealsSaved');
+    appendTimelineEntry('offerSaved', 'Offer saved to timeline', `Saved revision ${revisionNumber} for ${newDeal.dealershipName}.`, newDeal.dealershipName);
     setLoadedDealId(newDeal.id);
 
     Alert.alert(
@@ -771,6 +930,9 @@ export default function App() {
   const currentDealSummary = buildCurrentDealSummary(appData.deal, dealAnalysis);
   const negotiationPlanSummary = buildNegotiationPlanSummary(appData.deal, dealAnalysis, negotiationPlan);
   const paperworkAuditSummary = paperworkAudit ? buildPaperworkAuditSummary(appData.deal, paperworkAudit) : '';
+  const secondOpinionShare = buildSecondOpinionShare(appData.deal, dealAnalysis, actionRecommendation, negotiationPlan);
+  const referralLoop = buildReferralLoop(appData.deal, dealAnalysis, actionRecommendation, secondOpinionShare);
+  const visitCaseSummary = buildVisitCaseSummary(appData.visitTimeline, appData.deal.dealershipName);
   const buyerReport = buildBuyerReport(
     appData.deal,
     dealAnalysis,
@@ -826,23 +988,130 @@ export default function App() {
               />
               <Text style={styles.heroTitle}>Don&apos;t get played at the dealership</Text>
               <Text style={styles.heroText}>
-                Prepare before you walk in, spot pressure tactics, and review whether a deal actually makes sense.
+                {experienceMode === 'firstTimeBuyer'
+                  ? 'Start with the quote, let the app flag the biggest risks, and get help deciding what to ask before you sign anything.'
+                  : 'Prepare before you walk in, spot pressure tactics, and review whether a deal actually makes sense.'}
               </Text>
 
+              <View style={styles.proofRow}>
+                <View style={styles.proofPill}>
+                  <Text style={styles.proofPillValue}>Quote check</Text>
+                  <Text style={styles.proofPillLabel}>Find the real structure fast</Text>
+                </View>
+                <View style={styles.proofPill}>
+                  <Text style={styles.proofPillValue}>Savings hook</Text>
+                  <Text style={styles.proofPillLabel}>See the clearest leverage first</Text>
+                </View>
+                <View style={styles.proofPill}>
+                  <Text style={styles.proofPillValue}>Second opinion</Text>
+                  <Text style={styles.proofPillLabel}>Share before you sign</Text>
+                </View>
+              </View>
+
               <View style={styles.heroWarningBox}>
-                <Text style={styles.heroWarningTitle}>What this version adds</Text>
-                <Text style={styles.heroWarningText}>• Offer scoring now explains why the score moved.</Text>
-                <Text style={styles.heroWarningText}>• Saved offers carry state context and offer notes.</Text>
-                <Text style={styles.heroWarningText}>• Comparisons are backed by tested domain logic.</Text>
+                <Text style={styles.heroWarningTitle}>What you can do in the first 2 minutes</Text>
+                {quickStartGuide.steps.map((step) => (
+                  <Text key={step} style={styles.heroWarningText}>• {step}</Text>
+                ))}
               </View>
 
               <View style={styles.stackGap}>
-                <AppButton label="Start readiness check" onPress={startQuestionFlow} />
+                <AppButton label="Quick quote check" onPress={startQuickQuoteCheck} />
+                <AppButton
+                  label={experienceMode === 'firstTimeBuyer' ? 'Start first-time buyer setup' : 'Start readiness check'}
+                  variant="secondary"
+                  onPress={startQuestionFlow}
+                />
                 <AppButton label="Open live dealership mode" variant="secondary" onPress={() => setScreen('liveMode')} />
               </View>
             </Card>
 
+            <Card>
+              <Text style={styles.menuTitle}>Start here</Text>
+              <Text style={styles.detailText}>This version is tuned to get a useful answer quickly, even if the buyer only has a screenshot or a rushed quote in front of them.</Text>
+              <View style={styles.onboardingGrid}>
+                <View style={styles.onboardingStepCard}>
+                  <Text style={styles.onboardingStepNumber}>1</Text>
+                  <Text style={styles.bold}>Import the quote</Text>
+                  <Text style={styles.infoBoxText}>Paste the worksheet or run photo OCR to extract price, APR, term, and fee lines.</Text>
+                </View>
+                <View style={styles.onboardingStepCard}>
+                  <Text style={styles.onboardingStepNumber}>2</Text>
+                  <Text style={styles.bold}>Read the verdict</Text>
+                  <Text style={styles.infoBoxText}>Dealer Guard highlights the biggest risks, the cleanest counter move, and the likely savings lever.</Text>
+                </View>
+                <View style={styles.onboardingStepCard}>
+                  <Text style={styles.onboardingStepNumber}>3</Text>
+                  <Text style={styles.bold}>Share before signing</Text>
+                  <Text style={styles.infoBoxText}>Use the second-opinion share so another person can sanity-check the deal with you.</Text>
+                </View>
+              </View>
+            </Card>
+
+            <Card>
+              <View style={styles.rowBetween}>
+                <Text style={styles.menuTitle}>First-time buyer mode</Text>
+                <StatusBadge label={experienceMode === 'firstTimeBuyer' ? 'On' : 'Standard'} tone={experienceMode === 'firstTimeBuyer' ? 'good' : 'warn'} />
+              </View>
+              <Text style={styles.detailText}>
+                {experienceMode === 'firstTimeBuyer'
+                  ? 'The app is now emphasizing the fastest path: quote review first, simpler guidance, and fewer assumptions that you already know dealership jargon.'
+                  : 'Turn this on to make the app feel more guided and beginner-friendly for newer buyers.'}
+              </Text>
+              <View style={styles.doubleButtons}>
+                <View style={styles.flexOne}>
+                  <AppButton label="Standard mode" variant="secondary" onPress={() => setExperienceMode('standard')} />
+                </View>
+                <View style={styles.flexOne}>
+                  <AppButton label="First-time mode" onPress={() => setExperienceMode('firstTimeBuyer')} />
+                </View>
+              </View>
+            </Card>
+
+            <Card>
+              <View style={styles.rowBetween}>
+                <Text style={styles.menuTitle}>Potential savings</Text>
+                <StatusBadge
+                  label={savingsOpportunity.estimatedSavings > 0 ? currency(savingsOpportunity.estimatedSavings) : savingsOpportunity.strongestLever}
+                  tone={savingsOpportunity.tone}
+                />
+              </View>
+              <Text style={styles.detailText}>{savingsOpportunity.headline}</Text>
+              <Text style={styles.detailText}>{savingsOpportunity.detail}</Text>
+              <Text style={styles.detailText}>
+                <Text style={styles.bold}>Strongest lever: </Text>
+                {savingsOpportunity.strongestLever}
+              </Text>
+            </Card>
+
+            <Card>
+              <Text style={styles.menuTitle}>Why buyers trust this screen</Text>
+              <View style={styles.stackGapSmall}>
+                <View style={styles.infoBox}>
+                  <Text style={styles.bold}>It stays on the written numbers</Text>
+                  <Text style={styles.infoBoxText}>The app is built around vehicle price, fees, add-ons, APR, term, trade, and contract mismatches instead of dealership sales language.</Text>
+                </View>
+                <View style={styles.infoBox}>
+                  <Text style={styles.bold}>It catches structure, not just price</Text>
+                  <Text style={styles.infoBoxText}>A deal can look affordable monthly while still being bad overall. Dealer Guard surfaces payment-stretching, padded extras, and weak trade handling.</Text>
+                </View>
+                <View style={styles.infoBox}>
+                  <Text style={styles.bold}>It helps you slow the moment down</Text>
+                  <Text style={styles.infoBoxText}>Use the second-opinion share, paperwork audit, and live coaching prompts to avoid rushed decisions on the lot.</Text>
+                </View>
+              </View>
+            </Card>
+
             <View style={styles.stackGap}>
+              <TouchableOpacity style={styles.menuCard} onPress={() => setScreen('upgradeHub')} activeOpacity={0.85}>
+                <Text style={styles.menuTitle}>Dealer Guard Pro</Text>
+                <Text style={styles.menuDesc}>
+                  {isPro
+                    ? 'Pro preview is active. Open your upgrade hub to review premium positioning and pricing.'
+                    : 'Shape a premium tier around buyer reports, dealer scorecards, and live session playbooks.'}
+                </Text>
+              </TouchableOpacity>
+
               <TouchableOpacity style={styles.menuCard} onPress={() => setScreen('traps')} activeOpacity={0.85}>
                 <Text style={styles.menuTitle}>Trap library</Text>
                 <Text style={styles.menuDesc}>Learn common dealership tactics and what to say back.</Text>
@@ -879,14 +1148,18 @@ export default function App() {
         {screen === 'questions' && (
           <Card>
             <View style={styles.rowBetween}>
-              <Text style={styles.sectionLabel}>Readiness check</Text>
+              <Text style={styles.sectionLabel}>{experienceMode === 'firstTimeBuyer' ? 'First-time buyer setup' : 'Readiness check'}</Text>
               <Text style={styles.sectionLabel}>
                 {questionIndex + 1} / {questions.length}
               </Text>
             </View>
             <ProgressBar value={((questionIndex + 1) / questions.length) * 100} />
             <Text style={styles.questionTitle}>{currentQuestion.title}</Text>
-            <Text style={styles.questionSubtitle}>{currentQuestion.subtitle}</Text>
+            <Text style={styles.questionSubtitle}>
+              {experienceMode === 'firstTimeBuyer'
+                ? `${currentQuestion.subtitle} This helps the app explain whether the dealership numbers are reasonable.`
+                : currentQuestion.subtitle}
+            </Text>
 
             <View style={styles.stackGap}>
               {currentQuestion.options.map((option) => {
@@ -924,6 +1197,14 @@ export default function App() {
               </View>
               <Text style={styles.heroText}>Score: {readiness.score} / {readiness.max}</Text>
               <ProgressBar value={(readiness.score / readiness.max) * 100} />
+              {experienceMode === 'firstTimeBuyer' ? (
+                <View style={styles.infoBox}>
+                  <Text style={styles.bold}>What this means</Text>
+                  <Text style={styles.infoBoxText}>
+                    Strong means you are less likely to be pushed around. Almost Ready means you can still improve leverage. Not Ready means the dealership may have more room to control the conversation.
+                  </Text>
+                </View>
+              ) : null}
 
               <Text style={styles.subheading}>What to fix first</Text>
               <View style={styles.stackGapSmall}>
@@ -1110,20 +1391,28 @@ export default function App() {
               </View>
             </Card>
 
-            <Card>
-              <Text style={styles.menuTitle}>Session playbook</Text>
-              <Text style={styles.detailText}>{sessionPlaybook.headline}</Text>
-              <View style={styles.stackGapSmall}>
-                {sessionPlaybook.steps.map((step, index) => (
-                  <View key={`${step.title}-${index}`} style={styles.infoBox}>
-                    <Text style={styles.bold}>
-                      Step {index + 1}: {step.title}
-                    </Text>
-                    <Text style={styles.infoBoxText}>{step.detail}</Text>
-                  </View>
-                ))}
-              </View>
-            </Card>
+            {isPro ? (
+              <Card>
+                <Text style={styles.menuTitle}>Session playbook</Text>
+                <Text style={styles.detailText}>{sessionPlaybook.headline}</Text>
+                <View style={styles.stackGapSmall}>
+                  {sessionPlaybook.steps.map((step, index) => (
+                    <View key={`${step.title}-${index}`} style={styles.infoBox}>
+                      <Text style={styles.bold}>
+                        Step {index + 1}: {step.title}
+                      </Text>
+                      <Text style={styles.infoBoxText}>{step.detail}</Text>
+                    </View>
+                  ))}
+                </View>
+              </Card>
+            ) : (
+              <PremiumPreviewCard
+                title="Session playbook is a premium coaching feature"
+                detail="This is one of the clearest upgrade moments in the app because it converts scattered analysis into the exact order the buyer should use in the dealership conversation."
+                onPress={() => setScreen('upgradeHub')}
+              />
+            )}
 
             <Card>
               <Text style={styles.menuTitle}>Pressure tactic tracker</Text>
@@ -1160,9 +1449,24 @@ export default function App() {
               </TouchableOpacity>
             </View>
 
+            {showProActivatedBanner ? (
+              <Card>
+                <View style={styles.rowBetween}>
+                  <Text style={styles.menuTitle}>Pro preview active</Text>
+                  <StatusBadge label="Unlocked" tone="good" />
+                </View>
+                <Text style={styles.detailText}>Dealer Guard Pro tools are now unlocked locally on this device for testing.</Text>
+                <AppButton label="Continue" variant="secondary" onPress={() => setShowProActivatedBanner(false)} />
+              </Card>
+            ) : null}
+
             <Card>
               <Text style={styles.menuTitle}>Paste quote text</Text>
-              <Text style={styles.heroText}>Paste a worksheet, text message, or email quote. Dealer Guard will try to pull out price, APR, term, trade, and fee/add-on lines.</Text>
+              <Text style={styles.heroText}>
+                {experienceMode === 'firstTimeBuyer'
+                  ? 'Start here if you just want the app to check whether the quote feels clean or risky. Paste a worksheet, text message, or email quote and Dealer Guard will pull out the important numbers.'
+                  : 'Paste a worksheet, text message, or email quote. Dealer Guard will try to pull out price, APR, term, trade, and fee/add-on lines.'}
+              </Text>
               <View style={styles.infoBox}>
                 <Text style={styles.bold}>Best results</Text>
                 <Text style={styles.infoBoxText}>Use a flat, printed quote with strong lighting and a tight crop. Handwritten notes can work, but they usually need review and manual correction.</Text>
@@ -1438,13 +1742,44 @@ export default function App() {
                     ))}
                   </View>
                   <View style={styles.stackGap}>
-                    <AppButton label="Copy paperwork audit" variant="secondary" onPress={() => void copyText('Paperwork audit', paperworkAuditSummary)} />
-                    <AppButton label="Share paperwork audit" onPress={() => void shareText('Dealer Guard paperwork audit', paperworkAuditSummary)} />
+                    <AppButton
+                      label="Copy paperwork audit"
+                      variant="secondary"
+                      onPress={() => {
+                        appendTimelineEntry('paperworkChecked', 'Paperwork audit copied', 'Copied the paperwork audit summary for review.');
+                        void copyText('Paperwork audit', paperworkAuditSummary);
+                      }}
+                    />
+                    <AppButton
+                      label="Share paperwork audit"
+                      onPress={() => {
+                        appendTimelineEntry('paperworkChecked', 'Paperwork audit shared', 'Shared the paperwork audit summary.');
+                        void shareText('Dealer Guard paperwork audit', paperworkAuditSummary);
+                      }}
+                    />
                   </View>
                 </>
               ) : (
                 <Text style={styles.detailText}>Enter any contract numbers above to start the audit.</Text>
               )}
+            </Card>
+
+            <Card>
+              <View style={styles.rowBetween}>
+                <Text style={styles.menuTitle}>Deal savings counter</Text>
+                <StatusBadge
+                  label={savingsOpportunity.estimatedSavings > 0 ? currency(savingsOpportunity.estimatedSavings) : 'Protect deal'}
+                  tone={savingsOpportunity.tone}
+                />
+              </View>
+              <Text style={styles.detailText}>{savingsOpportunity.headline}</Text>
+              <Text style={styles.detailText}>{savingsOpportunity.detail}</Text>
+              <View style={styles.scriptBox}>
+                <Text style={styles.detailText}>
+                  <Text style={styles.bold}>Move to try next: </Text>
+                  {savingsOpportunity.strongestLever}
+                </Text>
+              </View>
             </Card>
 
             <Card>
@@ -1507,12 +1842,82 @@ export default function App() {
               </View>
             </Card>
 
+            {isPro ? (
+              <Card>
+                <Text style={styles.menuTitle}>Shareable buyer report</Text>
+                <Text style={styles.detailText}>Package the deal, confidence level, market benchmark, trade fairness, recommendation, and paperwork audit into one clean summary for someone else to review.</Text>
+                <View style={styles.stackGap}>
+                  <AppButton
+                    label="Copy buyer report"
+                    variant="secondary"
+                    onPress={() => {
+                      incrementUsage('reportsShared');
+                      void copyText('Buyer report', buyerReport);
+                    }}
+                  />
+                  <AppButton
+                    label="Share buyer report"
+                    onPress={() => {
+                      incrementUsage('reportsShared');
+                      void shareText('Dealer Guard buyer report', buyerReport);
+                    }}
+                  />
+                </View>
+              </Card>
+            ) : (
+              <PremiumPreviewCard
+                title="Buyer report belongs in Pro"
+                detail="It is an easy premium sell because buyers want a clean second-opinion summary they can text to someone they trust before signing."
+                onPress={() => setScreen('upgradeHub')}
+              />
+            )}
+
             <Card>
-              <Text style={styles.menuTitle}>Shareable buyer report</Text>
-              <Text style={styles.detailText}>Package the deal, confidence level, market benchmark, trade fairness, recommendation, and paperwork audit into one clean summary for someone else to review.</Text>
+              <Text style={styles.menuTitle}>Second-opinion share</Text>
+              <Text style={styles.detailText}>Turn this deal into a fast message you can text to a spouse, friend, or advisor before you sign. This is free on purpose so the app can travel person-to-person.</Text>
               <View style={styles.stackGap}>
-                <AppButton label="Copy buyer report" variant="secondary" onPress={() => void copyText('Buyer report', buyerReport)} />
-                <AppButton label="Share buyer report" onPress={() => void shareText('Dealer Guard buyer report', buyerReport)} />
+                <AppButton
+                  label="Copy second-opinion text"
+                  variant="secondary"
+                  onPress={() => {
+                    incrementUsage('referralShares');
+                    appendTimelineEntry('referralShared', 'Second-opinion summary copied', 'Copied the fast second-opinion text for outside review.');
+                    void copyText('Second-opinion text', secondOpinionShare);
+                  }}
+                />
+                <AppButton
+                  label="Share second-opinion text"
+                  onPress={() => {
+                    incrementUsage('referralShares');
+                    appendTimelineEntry('referralShared', 'Second-opinion summary shared', 'Shared the fast second-opinion message with someone else.');
+                    void shareText('Help me review this deal', secondOpinionShare);
+                  }}
+                />
+              </View>
+            </Card>
+
+            <Card>
+              <Text style={styles.menuTitle}>Invite someone else into Dealer Guard</Text>
+              <Text style={styles.detailText}>{referralLoop.headline}</Text>
+              <Text style={styles.detailText}>{referralLoop.detail}</Text>
+              <View style={styles.stackGap}>
+                <AppButton
+                  label="Share invite message"
+                  variant="secondary"
+                  onPress={() => {
+                    incrementUsage('referralShares');
+                    appendTimelineEntry('referralShared', 'Invite message shared', 'Shared a Dealer Guard invite after the second-opinion flow.');
+                    void shareText('Try Dealer Guard', referralLoop.inviteMessage);
+                  }}
+                />
+                <AppButton
+                  label="Copy follow-up invite"
+                  onPress={() => {
+                    incrementUsage('referralShares');
+                    appendTimelineEntry('referralShared', 'Follow-up invite copied', 'Copied a follow-up invite message for a friend or advisor.');
+                    void copyText('Follow-up invite', referralLoop.followUpMessage);
+                  }}
+                />
               </View>
             </Card>
 
@@ -1830,29 +2235,36 @@ export default function App() {
               </Card>
             ) : (
               <>
-                {dealerScorecards.length > 0 && (
-                  <Card>
-                    <Text style={styles.menuTitle}>Dealer scorecards</Text>
-                    <Text style={styles.detailText}>These scorecards combine the latest deal quality with pressure incidents and promise outcomes for each dealership.</Text>
-                    <View style={styles.stackGapSmall}>
-                      {dealerScorecards.map((scorecard) => (
-                        <View key={scorecard.dealershipName} style={styles.infoBox}>
-                          <View style={styles.rowBetween}>
-                            <Text style={styles.bold}>{scorecard.dealershipName}</Text>
-                            <StatusBadge label={scorecard.latestVerdict} tone={scorecard.tone} />
+                {dealerScorecards.length > 0 &&
+                  (isPro ? (
+                    <Card>
+                      <Text style={styles.menuTitle}>Dealer scorecards</Text>
+                      <Text style={styles.detailText}>These scorecards combine the latest deal quality with pressure incidents and promise outcomes for each dealership.</Text>
+                      <View style={styles.stackGapSmall}>
+                        {dealerScorecards.map((scorecard) => (
+                          <View key={scorecard.dealershipName} style={styles.infoBox}>
+                            <View style={styles.rowBetween}>
+                              <Text style={styles.bold}>{scorecard.dealershipName}</Text>
+                              <StatusBadge label={scorecard.latestVerdict} tone={scorecard.tone} />
+                            </View>
+                            <Text style={styles.infoBoxText}>{scorecard.headline}</Text>
+                            <Text style={styles.infoBoxText}>Revisions: {scorecard.revisionCount}</Text>
+                            <Text style={styles.infoBoxText}>Pressure incidents: {scorecard.pressureCount}</Text>
+                            <Text style={styles.infoBoxText}>Promises kept / broken: {scorecard.keptPromiseCount} / {scorecard.brokenPromiseCount}</Text>
+                            <Text style={styles.infoBoxText}>
+                              Latest total paid: {typeof scorecard.latestTotalPaid === 'number' ? currency(scorecard.latestTotalPaid) : 'No saved offer yet'}
+                            </Text>
                           </View>
-                          <Text style={styles.infoBoxText}>{scorecard.headline}</Text>
-                          <Text style={styles.infoBoxText}>Revisions: {scorecard.revisionCount}</Text>
-                          <Text style={styles.infoBoxText}>Pressure incidents: {scorecard.pressureCount}</Text>
-                          <Text style={styles.infoBoxText}>Promises kept / broken: {scorecard.keptPromiseCount} / {scorecard.brokenPromiseCount}</Text>
-                          <Text style={styles.infoBoxText}>
-                            Latest total paid: {typeof scorecard.latestTotalPaid === 'number' ? currency(scorecard.latestTotalPaid) : 'No saved offer yet'}
-                          </Text>
-                        </View>
-                      ))}
-                    </View>
-                  </Card>
-                )}
+                        ))}
+                      </View>
+                    </Card>
+                  ) : (
+                    <PremiumPreviewCard
+                      title="Dealer scorecards are a premium trust layer"
+                      detail="This is the kind of historical accountability view buyers cannot easily build on their own, which makes it strong subscription material."
+                      onPress={() => setScreen('upgradeHub')}
+                    />
+                  ))}
 
                 {comparison?.winner && (
                   <Card>
@@ -2067,6 +2479,116 @@ export default function App() {
           </>
         )}
 
+        {screen === 'upgradeHub' && (
+          <>
+            <View style={styles.rowBetween}>
+              <Text style={styles.screenTitle}>Dealer Guard Pro</Text>
+              <TouchableOpacity onPress={() => setScreen('home')}>
+                <Text style={styles.linkText}>Home</Text>
+              </TouchableOpacity>
+            </View>
+
+            <Card>
+              <View style={styles.rowBetween}>
+                <Text style={styles.menuTitle}>Current plan</Text>
+                <StatusBadge label={isPro ? 'Pro preview' : 'Free plan'} tone={isPro ? 'good' : 'warn'} />
+              </View>
+              <Text style={styles.detailText}>{monetizationSummary.headline}</Text>
+              <Text style={styles.detailText}>{monetizationSummary.detail}</Text>
+              <View style={styles.statsRow}>
+                <View style={styles.statCard}>
+                  <Text style={styles.statLabel}>Monthly</Text>
+                  <Text style={styles.statValue}>{monetizationSummary.monthlyPriceLabel}</Text>
+                </View>
+                <View style={styles.statCard}>
+                  <Text style={styles.statLabel}>Annual</Text>
+                  <Text style={styles.statValue}>{monetizationSummary.annualPriceLabel}</Text>
+                </View>
+              </View>
+              <View style={styles.doubleButtons}>
+                <View style={styles.flexOne}>
+                  <AppButton label="Use free plan" variant="secondary" onPress={() => setPremiumTier('free')} />
+                </View>
+                <View style={styles.flexOne}>
+                  <AppButton label={billingBusy ? 'Processing...' : 'Unlock Dealer Guard Pro'} onPress={() => void startPaywallPurchase()} disabled={billingBusy} />
+                </View>
+              </View>
+              <View style={styles.doubleButtons}>
+                <View style={styles.flexOne}>
+                  <AppButton label="Restore purchase" variant="secondary" onPress={() => void restorePurchase()} disabled={billingBusy} />
+                </View>
+                <View style={styles.flexOne}>
+                  <AppButton
+                    label={isPro ? 'Local preview active' : 'Use local preview'}
+                    variant="secondary"
+                    onPress={enableLocalPreview}
+                    disabled={isPro}
+                  />
+                </View>
+              </View>
+              <Text style={styles.detailText}>
+                Billing provider: {appData.billing.provider === 'revenuecat' ? 'RevenueCat-ready configuration detected' : 'Local mock paywall active'}.
+              </Text>
+              <Text style={styles.detailText}>
+                Offerings synced: {appData.billing.offeringsLoaded ? 'Yes' : 'No'}{appData.billing.lastSyncAt ? ` • Last sync ${new Date(appData.billing.lastSyncAt).toLocaleString()}` : ''}
+              </Text>
+            </Card>
+
+            <Card>
+              <Text style={styles.menuTitle}>Why this app can charge</Text>
+              <View style={styles.stackGapSmall}>
+                {monetizationSummary.reasons.map((reason) => (
+                  <Text key={reason} style={styles.detailText}>
+                    • {reason}
+                  </Text>
+                ))}
+              </View>
+            </Card>
+
+            <Card>
+              <Text style={styles.menuTitle}>Premium feature stack</Text>
+              <View style={styles.stackGapSmall}>
+                {monetizationSummary.featureCards.map((card) => (
+                  <View key={card.title} style={styles.infoBox}>
+                    <View style={styles.rowBetween}>
+                      <Text style={styles.bold}>{card.title}</Text>
+                      <StatusBadge label={card.badge} tone={card.unlocked ? 'good' : 'warn'} />
+                    </View>
+                    <Text style={styles.infoBoxText}>{card.detail}</Text>
+                  </View>
+                ))}
+              </View>
+            </Card>
+
+            <Card>
+              <Text style={styles.menuTitle}>Usage signals</Text>
+              <Text style={styles.detailText}>These are the moments most likely to support conversion once you connect real billing.</Text>
+              <View style={styles.statsRow}>
+                <View style={styles.statCard}>
+                  <Text style={styles.statLabel}>OCR imports</Text>
+                  <Text style={styles.statValue}>{appData.subscription.usage.ocrImports}</Text>
+                </View>
+                <View style={styles.statCard}>
+                  <Text style={styles.statLabel}>Buyer reports</Text>
+                  <Text style={styles.statValue}>{appData.subscription.usage.reportsShared}</Text>
+                </View>
+                <View style={styles.statCard}>
+                  <Text style={styles.statLabel}>Deals saved</Text>
+                  <Text style={styles.statValue}>{appData.subscription.usage.dealsSaved}</Text>
+                </View>
+                <View style={styles.statCard}>
+                  <Text style={styles.statLabel}>Tactics logged</Text>
+                  <Text style={styles.statValue}>{appData.subscription.usage.tacticsLogged}</Text>
+                </View>
+                <View style={styles.statCard}>
+                  <Text style={styles.statLabel}>Referral shares</Text>
+                  <Text style={styles.statValue}>{appData.subscription.usage.referralShares}</Text>
+                </View>
+              </View>
+            </Card>
+          </>
+        )}
+
         {screen === 'notes' && (
           <>
             <View style={styles.rowBetween}>
@@ -2086,6 +2608,39 @@ export default function App() {
                 multiline
                 textAlignVertical="top"
               />
+              <AppButton
+                label="Save visit note to timeline"
+                variant="secondary"
+                onPress={() => {
+                  const text = appData.notes.trim();
+                  if (!text) {
+                    Alert.alert('Add a note first', 'Type a dealership note before saving it to the visit timeline.');
+                    return;
+                  }
+                  appendTimelineEntry('noteAdded', 'Visit note saved', text);
+                }}
+              />
+            </Card>
+            <Card>
+              <Text style={styles.menuTitle}>Dealership visit timeline</Text>
+              <Text style={styles.detailText}>This turns the current dealership interaction into a reusable case file you can review later or share with someone else.</Text>
+              <View style={styles.stackGap}>
+                <AppButton label="Copy visit case file" variant="secondary" onPress={() => void copyText('Visit case file', visitCaseSummary)} />
+              </View>
+              <View style={styles.stackGapSmall}>
+                {appData.visitTimeline.length > 0 ? (
+                  appData.visitTimeline.slice(0, 10).map((entry) => (
+                    <View key={entry.id} style={styles.infoBox}>
+                      <Text style={styles.bold}>{entry.title}</Text>
+                      <Text style={styles.infoBoxText}>{entry.detail}</Text>
+                      <Text style={styles.infoBoxText}>{entry.dealershipName}</Text>
+                      <Text style={styles.infoBoxText}>{new Date(entry.createdAt).toLocaleString()}</Text>
+                    </View>
+                  ))
+                ) : (
+                  <Text style={styles.detailText}>No visit timeline entries yet. Import a quote, save an offer, log pressure, or save a note to start the case file.</Text>
+                )}
+              </View>
             </Card>
             <Card>
               <Text style={styles.menuTitle}>Promise tracker</Text>
@@ -2247,6 +2802,32 @@ const styles = StyleSheet.create({
     color: '#1e3a8a',
     fontSize: 14,
   },
+  proofRow: {
+    flexDirection: 'row',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  proofPill: {
+    flexGrow: 1,
+    minWidth: 96,
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#dbeafe',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 2,
+  },
+  proofPillValue: {
+    color: '#0f172a',
+    fontWeight: '800',
+    fontSize: 13,
+  },
+  proofPillLabel: {
+    color: '#475569',
+    fontSize: 12,
+    lineHeight: 16,
+  },
   stackGap: {
     gap: 12,
   },
@@ -2278,6 +2859,23 @@ const styles = StyleSheet.create({
     color: '#475569',
     fontSize: 15,
     lineHeight: 22,
+  },
+  onboardingGrid: {
+    gap: 10,
+  },
+  onboardingStepCard: {
+    borderRadius: 18,
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    padding: 14,
+    gap: 6,
+  },
+  onboardingStepNumber: {
+    color: '#2563eb',
+    fontWeight: '800',
+    fontSize: 22,
+    lineHeight: 24,
   },
   rowBetween: {
     flexDirection: 'row',

@@ -9,10 +9,14 @@ export type Screen =
   | 'financeDefense'
   | 'tacticDecoder'
   | 'compareDeals'
+  | 'upgradeHub'
   | 'notes';
 
 export type MainTab = 'home' | 'checklist' | 'traps' | 'dealReview' | 'financeDefense' | 'notes';
 export type Tone = 'good' | 'warn' | 'bad';
+export type PremiumTier = 'free' | 'pro';
+export type ExperienceMode = 'standard' | 'firstTimeBuyer';
+export type BillingProvider = 'mock' | 'revenuecat';
 export type ReadinessLabel = 'Strong' | 'Almost Ready' | 'Not Ready';
 export type DealVerdict = 'Fair Deal' | 'Review Carefully' | 'Bad Deal' | 'Walk Away';
 export type NegotiationFlag = 'paymentShift' | 'todayOnly' | 'managerTrip' | 'bundleAddOn' | 'wontPrint' | 'tradeMix';
@@ -22,6 +26,26 @@ export type PressureIncident = {
   flag: NegotiationFlag;
   dealershipName: string;
   notedAt: string;
+};
+
+export type VisitTimelineEventType =
+  | 'quoteImported'
+  | 'offerSaved'
+  | 'pressureLogged'
+  | 'promiseLogged'
+  | 'promiseUpdated'
+  | 'reportShared'
+  | 'referralShared'
+  | 'paperworkChecked'
+  | 'noteAdded';
+
+export type VisitTimelineEntry = {
+  id: string;
+  dealershipName: string;
+  type: VisitTimelineEventType;
+  title: string;
+  detail: string;
+  createdAt: string;
 };
 export type PromiseRecord = {
   id: string;
@@ -340,6 +364,68 @@ export type HonestyScore = {
   breakdown: HonestyScorePart[];
 };
 
+export type SubscriptionUsage = {
+  ocrImports: number;
+  reportsShared: number;
+  dealsSaved: number;
+  tacticsLogged: number;
+  referralShares: number;
+};
+
+export type SubscriptionState = {
+  tier: PremiumTier;
+  upgradedAt: string | null;
+  usage: SubscriptionUsage;
+};
+
+export type BillingState = {
+  provider: BillingProvider;
+  isConfigured: boolean;
+  offeringsLoaded: boolean;
+  packageLabel: string;
+  lastSyncAt: string | null;
+};
+
+export type MonetizationFeatureCard = {
+  title: string;
+  detail: string;
+  badge: string;
+  unlocked: boolean;
+};
+
+export type MonetizationSummary = {
+  headline: string;
+  detail: string;
+  monthlyPriceLabel: string;
+  annualPriceLabel: string;
+  reasons: string[];
+  featureCards: MonetizationFeatureCard[];
+};
+
+export type SavingsOpportunity = {
+  headline: string;
+  detail: string;
+  estimatedSavings: number;
+  strongestLever: string;
+  tone: Tone;
+};
+
+export type QuickStartGuide = {
+  headline: string;
+  steps: string[];
+};
+
+export type ReferralLoop = {
+  headline: string;
+  detail: string;
+  inviteMessage: string;
+  followUpMessage: string;
+};
+
+export type AppPreferences = {
+  experienceMode: ExperienceMode;
+};
+
 export type DealerGuardAppData = {
   answers: Answers;
   checkedItems: CheckedItems;
@@ -347,6 +433,10 @@ export type DealerGuardAppData = {
   negotiationFlags: NegotiationFlag[];
   pressureIncidents: PressureIncident[];
   promises: PromiseRecord[];
+  visitTimeline: VisitTimelineEntry[];
   savedDeals: SavedDeal[];
   deal: DealState;
+  subscription: SubscriptionState;
+  billing: BillingState;
+  preferences: AppPreferences;
 };

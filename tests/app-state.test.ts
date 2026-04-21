@@ -82,5 +82,7 @@ test('createInitialAppData returns the version-safe default shape', () => {
   assert.equal(initial.deal.months, '60');
   assert.equal(initial.pressureIncidents.length, 0);
   assert.equal(initial.promises.length, 0);
+  assert.equal(initial.visitTimeline.length, 0);
   assert.equal(initial.savedDeals.length, 0);
+  assert.equal(initial.billing.provider, 'mock');
 });

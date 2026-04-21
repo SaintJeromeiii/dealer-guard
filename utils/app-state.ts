@@ -1,6 +1,6 @@
-import type { DealLineItem, DealState, DealerGuardAppData, NegotiationFlag, PressureIncident, PromiseRecord, SavedDeal } from './types.ts';
+import type { BillingState, DealLineItem, DealState, DealerGuardAppData, NegotiationFlag, PressureIncident, PromiseRecord, SavedDeal, SubscriptionState, VisitTimelineEntry } from './types.ts';
 
-export const STORAGE_VERSION = 5;
+export const STORAGE_VERSION = 8;
 export const STORAGE_KEY = 'dealerGuard_state';
 
 export const LEGACY_STORAGE_KEYS = {
@@ -84,8 +84,38 @@ export function createInitialAppData(): DealerGuardAppData {
     negotiationFlags: [],
     pressureIncidents: [],
     promises: [],
+    visitTimeline: [],
     savedDeals: [],
     deal: createInitialDeal(),
+    subscription: createInitialSubscription(),
+    billing: createInitialBillingState(),
+    preferences: {
+      experienceMode: 'standard',
+    },
+  };
+}
+
+function createInitialSubscription(): SubscriptionState {
+  return {
+    tier: 'free',
+    upgradedAt: null,
+    usage: {
+      ocrImports: 0,
+      reportsShared: 0,
+      dealsSaved: 0,
+      tacticsLogged: 0,
+      referralShares: 0,
+    },
+  };
+}
+
+function createInitialBillingState(): BillingState {
+  return {
+    provider: 'mock',
+    isConfigured: false,
+    offeringsLoaded: false,
+    packageLabel: 'Dealer Guard Pro',
+    lastSyncAt: null,
   };
 }
 
@@ -127,6 +157,25 @@ function sanitizePromises(value: unknown): PromiseRecord[] {
     })
     .filter((item): item is PromiseRecord => !!item && !!item.id && !!item.text && !!item.notedAt)
     .slice(0, 100);
+}
+
+function sanitizeVisitTimeline(value: unknown): VisitTimelineEntry[] {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .map((item) => {
+      if (!item || typeof item !== 'object' || Array.isArray(item)) return null;
+      return {
+        id: safeString((item as VisitTimelineEntry).id),
+        dealershipName: safeString((item as VisitTimelineEntry).dealershipName),
+        type: safeString((item as VisitTimelineEntry).type) as VisitTimelineEntry['type'],
+        title: safeString((item as VisitTimelineEntry).title),
+        detail: safeString((item as VisitTimelineEntry).detail),
+        createdAt: safeString((item as VisitTimelineEntry).createdAt),
+      };
+    })
+    .filter((item): item is VisitTimelineEntry => !!item && !!item.id && !!item.type && !!item.title && !!item.createdAt)
+    .slice(0, 120);
 }
 
 export function sanitizeDeal(value: unknown): DealState {
@@ -191,6 +240,10 @@ export function sanitizeNegotiationFlags(value: unknown): NegotiationFlag[] {
 
 export function sanitizeAppData(value: unknown): DealerGuardAppData {
   const raw = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  const subscriptionRaw = (raw as DealerGuardAppData).subscription;
+  const usageRaw = subscriptionRaw && typeof subscriptionRaw === 'object' && !Array.isArray(subscriptionRaw) ? subscriptionRaw.usage : null;
+  const billingRaw = (raw as DealerGuardAppData).billing;
+
   return {
     answers: safeRecord((raw as DealerGuardAppData).answers),
     checkedItems: safeBooleanRecord((raw as DealerGuardAppData).checkedItems),
@@ -198,7 +251,29 @@ export function sanitizeAppData(value: unknown): DealerGuardAppData {
     negotiationFlags: sanitizeNegotiationFlags((raw as DealerGuardAppData).negotiationFlags),
     pressureIncidents: sanitizePressureIncidents((raw as DealerGuardAppData).pressureIncidents),
     promises: sanitizePromises((raw as DealerGuardAppData).promises),
+    visitTimeline: sanitizeVisitTimeline((raw as DealerGuardAppData).visitTimeline),
     savedDeals: sanitizeSavedDeals((raw as DealerGuardAppData).savedDeals),
     deal: sanitizeDeal((raw as DealerGuardAppData).deal),
+    subscription: {
+      tier: subscriptionRaw?.tier === 'pro' ? 'pro' : 'free',
+      upgradedAt: safeString(subscriptionRaw?.upgradedAt) || null,
+      usage: {
+        ocrImports: Math.max(0, Number(usageRaw && typeof usageRaw === 'object' ? (usageRaw as SubscriptionState['usage']).ocrImports || 0 : 0)),
+        reportsShared: Math.max(0, Number(usageRaw && typeof usageRaw === 'object' ? (usageRaw as SubscriptionState['usage']).reportsShared || 0 : 0)),
+        dealsSaved: Math.max(0, Number(usageRaw && typeof usageRaw === 'object' ? (usageRaw as SubscriptionState['usage']).dealsSaved || 0 : 0)),
+        tacticsLogged: Math.max(0, Number(usageRaw && typeof usageRaw === 'object' ? (usageRaw as SubscriptionState['usage']).tacticsLogged || 0 : 0)),
+        referralShares: Math.max(0, Number(usageRaw && typeof usageRaw === 'object' ? (usageRaw as SubscriptionState['usage']).referralShares || 0 : 0)),
+      },
+    },
+    billing: {
+      provider: billingRaw?.provider === 'revenuecat' ? 'revenuecat' : 'mock',
+      isConfigured: !!billingRaw?.isConfigured,
+      offeringsLoaded: !!billingRaw?.offeringsLoaded,
+      packageLabel: safeString(billingRaw?.packageLabel, 'Dealer Guard Pro'),
+      lastSyncAt: safeString(billingRaw?.lastSyncAt) || null,
+    },
+    preferences: {
+      experienceMode: (raw as DealerGuardAppData).preferences?.experienceMode === 'firstTimeBuyer' ? 'firstTimeBuyer' : 'standard',
+    },
   };
 }

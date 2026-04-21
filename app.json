@@ -2,6 +2,7 @@
   "expo": {
     "name": "dealer-guard",
     "slug": "dealer-guard",
+    "description": "Spot bad car deals, compare offers, and protect yourself from dealership pressure tactics before you sign.",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
