@@ -93,9 +93,14 @@ export type DealState = {
   importReviewNotes: string[];
   vehiclePrice: string;
   marketVehiclePrice: string;
+  marketComparablePricesText: string;
+  outsideLenderApr: string;
+  outsideLenderTerm: string;
   targetTotalPaid: string;
   tradeReferenceValue: string;
   tradePayoff: string;
+  contractImportedPhotoUri: string;
+  contractImportReviewNotes: string[];
   contractVehiclePrice: string;
   contractFees: string;
   contractAddOns: string;
@@ -182,6 +187,14 @@ export type DealerScorecard = {
   keptPromiseCount: number;
   latestVerdict: DealVerdict | 'No saved offer yet';
   latestTotalPaid: number | null;
+};
+
+export type DealerReputationReport = {
+  dealershipName: string;
+  trustScore: number;
+  tone: Tone;
+  headline: string;
+  highlights: string[];
 };
 
 export type RankedDeal = {
@@ -296,6 +309,16 @@ export type MarketBenchmarkAssessment = {
   totalPaidGap: number;
   detail: string;
   negotiationScript: string;
+};
+
+export type MarketCompSnapshot = {
+  averageComparablePrice: number;
+  comparableCount: number;
+  lenderApr: number;
+  lenderTerm: number;
+  lenderSavingsEstimate: number;
+  headline: string;
+  detail: string;
 };
 
 export type QuoteImportResult = {
@@ -413,6 +436,14 @@ export type SavingsOpportunity = {
 export type QuickStartGuide = {
   headline: string;
   steps: string[];
+};
+
+export type NegotiationSimulationTurn = {
+  title: string;
+  salespersonLine: string;
+  bestResponse: string;
+  ifYouFold: string;
+  ifYouHold: string;
 };
 
 export type ReferralLoop = {

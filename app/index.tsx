@@ -43,13 +43,16 @@ import {
   buildDealAnalysis,
   buildDealConfidence,
   buildDealerScorecards,
+  buildDealerReputationReports,
   buildDealActionRecommendation,
   buildHonestyScore,
   buildLiveCoachingPlan,
   buildMarketBenchmarkAssessment,
+  buildMarketCompSnapshot,
   buildMonetizationSummary,
   buildNegotiationPlan,
   buildNegotiationPlanSummary,
+  buildNegotiationSimulator,
   buildOfferTimeline,
   buildPaperworkAudit,
   buildPaperworkAuditSummary,
@@ -239,10 +242,14 @@ export default function App() {
   const [editableImportFields, setEditableImportFields] = useState<Record<string, string>>({});
   const [editableFeeItems, setEditableFeeItems] = useState<DealLineItem[]>([]);
   const [editableAddOnItems, setEditableAddOnItems] = useState<DealLineItem[]>([]);
+  const [isRunningContractOcr, setIsRunningContractOcr] = useState(false);
+  const [pendingContractImport, setPendingContractImport] = useState<QuoteImportResult | null>(null);
+  const [editableContractFields, setEditableContractFields] = useState<Record<string, string>>({});
   const [loadedDealId, setLoadedDealId] = useState<string | null>(null);
   const [promiseDraft, setPromiseDraft] = useState('');
   const [billingBusy, setBillingBusy] = useState(false);
   const [showProActivatedBanner, setShowProActivatedBanner] = useState(false);
+  const [simulatorIndex, setSimulatorIndex] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -306,6 +313,7 @@ export default function App() {
     () => buildMarketBenchmarkAssessment(appData.deal, dealAnalysis),
     [appData.deal, dealAnalysis]
   );
+  const marketCompSnapshot = useMemo(() => buildMarketCompSnapshot(appData.deal, dealAnalysis), [appData.deal, dealAnalysis]);
   const paperworkAudit = useMemo(() => buildPaperworkAudit(appData.deal), [appData.deal]);
   const pressureSummary = useMemo(
     () => buildPressureSummary(appData.pressureIncidents, appData.negotiationFlags, appData.deal.dealershipName),
@@ -340,6 +348,10 @@ export default function App() {
   const dealerScorecards = useMemo(
     () => buildDealerScorecards(appData.savedDeals, appData.pressureIncidents, appData.promises, readinessLabel),
     [appData.pressureIncidents, appData.promises, appData.savedDeals, readinessLabel]
+  );
+  const dealerReputationReports = useMemo(
+    () => buildDealerReputationReports(dealerScorecards, appData.visitTimeline),
+    [appData.visitTimeline, dealerScorecards]
   );
   const monetizationSummary = useMemo(
     () => buildMonetizationSummary(appData.subscription, appData.savedDeals, appData.pressureIncidents, appData.promises),
@@ -398,6 +410,11 @@ export default function App() {
   }, [selectedDealsForCompare, manualCompareAnalyses]);
   const isPro = appData.subscription.tier === 'pro';
   const experienceMode = appData.preferences.experienceMode;
+  const negotiationSimulatorTurns = useMemo(
+    () => buildNegotiationSimulator(selectedTactic, dealAnalysis, appData.negotiationFlags),
+    [selectedTactic, dealAnalysis, appData.negotiationFlags]
+  );
+  const activeSimulationTurn = negotiationSimulatorTurns[simulatorIndex % Math.max(negotiationSimulatorTurns.length, 1)];
 
   function updateDeal<K extends keyof typeof appData.deal>(key: K, value: (typeof appData.deal)[K]) {
     setAppData((prev) => ({
@@ -434,6 +451,32 @@ export default function App() {
 
   function importQuoteIntoDeal() {
     queueQuoteImport(appData.deal.importedQuoteText);
+  }
+
+  function queueContractImport(rawText: string, sourceLabel = 'contract OCR') {
+    const result = importQuoteText(rawText);
+    const contractFields = {
+      contractVehiclePrice: result.parsedDeal.vehiclePrice ?? '',
+      contractApr: result.parsedDeal.apr ?? '',
+      contractMonths: result.parsedDeal.months ?? '',
+      contractDownPayment: result.parsedDeal.downPayment ?? '',
+      contractTradeIn: result.parsedDeal.tradeIn ?? '',
+      contractFees:
+        result.parsedDeal.feeItems && result.parsedDeal.feeItems.length > 0
+          ? String(result.parsedDeal.feeItems.reduce((sum, item) => sum + Number(item.amount || 0), 0))
+          : '',
+      contractAddOns:
+        result.parsedDeal.addOnItems && result.parsedDeal.addOnItems.length > 0
+          ? String(result.parsedDeal.addOnItems.reduce((sum, item) => sum + Number(item.amount || 0), 0))
+          : '',
+    };
+
+    setPendingContractImport(result);
+    setEditableContractFields(contractFields);
+    updateDeal('contractImportReviewNotes', result.reviewNotes.map((note) => `${sourceLabel}: ${note}`));
+    appendTimelineEntry('paperworkChecked', 'Contract OCR prepared', `Detected ${result.matchedFields.length} contract field(s) from ${sourceLabel}.`);
+
+    Alert.alert('Contract import ready', 'Review the imported contract fields below before applying them to the paperwork audit.');
   }
 
   function applyPendingImport() {
@@ -477,6 +520,37 @@ export default function App() {
     setEditableImportFields({});
     setEditableFeeItems([]);
     setEditableAddOnItems([]);
+  }
+
+  function applyPendingContractImport() {
+    if (!pendingContractImport) return;
+
+    setAppData((prev) => ({
+      ...prev,
+      deal: {
+        ...prev.deal,
+        contractVehiclePrice: editableContractFields.contractVehiclePrice ?? prev.deal.contractVehiclePrice,
+        contractFees: editableContractFields.contractFees ?? prev.deal.contractFees,
+        contractAddOns: editableContractFields.contractAddOns ?? prev.deal.contractAddOns,
+        contractDownPayment: editableContractFields.contractDownPayment ?? prev.deal.contractDownPayment,
+        contractTradeIn: editableContractFields.contractTradeIn ?? prev.deal.contractTradeIn,
+        contractApr: editableContractFields.contractApr ?? prev.deal.contractApr,
+        contractMonths: editableContractFields.contractMonths ?? prev.deal.contractMonths,
+      },
+    }));
+    setPendingContractImport(null);
+    setEditableContractFields({});
+    appendTimelineEntry('paperworkChecked', 'Contract OCR applied', 'Imported contract values were applied to the paperwork audit.');
+    Alert.alert('Contract fields applied', 'The imported contract values are now loaded into the paperwork audit.');
+  }
+
+  function dismissPendingContractImport() {
+    setPendingContractImport(null);
+    setEditableContractFields({});
+  }
+
+  function updateEditableContractField(field: string, value: string) {
+    setEditableContractFields((prev) => ({ ...prev, [field]: value }));
   }
 
   function updateEditableImportField(field: string, value: string) {
@@ -606,6 +680,45 @@ export default function App() {
     }));
   }
 
+  async function pickContractPhoto() {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Permission required', 'Photo library access is required to choose a contract image.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: false,
+      quality: 1,
+    });
+
+    if (result.canceled || !result.assets?.[0]?.uri) return;
+
+    updateDeal('contractImportedPhotoUri', result.assets[0].uri);
+    updateDeal('contractImportReviewNotes', ['Contract photo selected. Run OCR to extract contract fields for the paperwork audit.']);
+  }
+
+  async function extractTextFromImage(uri: string) {
+    let text = '';
+
+    if (Platform.OS === 'web') {
+      const { recognize } = await import('tesseract.js');
+      const result = await recognize(uri, 'eng');
+      text = result.data.text?.trim() ?? '';
+    } else {
+      if (Constants.appOwnership === 'expo') {
+        throw new Error('expo-go-contract-ocr');
+      }
+
+      const { default: TextRecognition } = await import('@react-native-ml-kit/text-recognition');
+      const result = await TextRecognition.recognize(uri);
+      text = result?.text?.trim?.() ?? '';
+    }
+
+    return text;
+  }
+
   async function runPhotoOcrImport() {
     if (!appData.deal.importedPhotoUri) {
       Alert.alert('No photo selected', 'Choose a photo first, then run OCR.');
@@ -615,25 +728,7 @@ export default function App() {
     setIsRunningPhotoOcr(true);
 
     try {
-      let text = '';
-
-      if (Platform.OS === 'web') {
-        const { recognize } = await import('tesseract.js');
-        const result = await recognize(appData.deal.importedPhotoUri, 'eng');
-        text = result.data.text?.trim() ?? '';
-      } else {
-        if (Constants.appOwnership === 'expo') {
-          Alert.alert(
-            'Development build required',
-            'Native photo OCR needs a rebuilt development client. Expo Go can preview the photo, but ML Kit OCR only works after creating and opening a development build.'
-          );
-          return;
-        }
-
-        const { default: TextRecognition } = await import('@react-native-ml-kit/text-recognition');
-        const result = await TextRecognition.recognize(appData.deal.importedPhotoUri);
-        text = result?.text?.trim?.() ?? '';
-      }
+      const text = await extractTextFromImage(appData.deal.importedPhotoUri);
 
       if (!text) {
         Alert.alert('OCR review', 'No readable text was extracted from that image. Try a clearer crop with higher contrast.');
@@ -645,12 +740,75 @@ export default function App() {
       console.log(error);
       Alert.alert(
         'OCR failed',
-        Platform.OS === 'web'
+        error instanceof Error && error.message === 'expo-go-contract-ocr'
+          ? 'Native photo OCR needs a rebuilt development client. Expo Go can preview the photo, but ML Kit OCR only works after creating and opening a development build.'
+          : Platform.OS === 'web'
           ? 'Could not read text from that photo right now. Try the pasted text importer or another image.'
           : 'Could not run native OCR from that photo. Make sure you are using a rebuilt development build, then try another image.'
       );
     } finally {
       setIsRunningPhotoOcr(false);
+    }
+  }
+
+  async function runContractOcrImport() {
+    if (!appData.deal.contractImportedPhotoUri) {
+      Alert.alert('No contract photo selected', 'Choose a contract or buyer order photo first, then run OCR.');
+      return;
+    }
+
+    setIsRunningContractOcr(true);
+
+    try {
+      const text = await extractTextFromImage(appData.deal.contractImportedPhotoUri);
+
+      if (!text) {
+        Alert.alert('Contract OCR review', 'No readable text was extracted from that contract image. Try a flatter, clearer document photo.');
+        return;
+      }
+
+      queueContractImport(text, Platform.OS === 'web' ? 'contract photo OCR' : 'native contract OCR');
+    } catch (error) {
+      console.log(error);
+      Alert.alert(
+        'Contract OCR failed',
+        error instanceof Error && error.message === 'expo-go-contract-ocr'
+          ? 'Native contract OCR needs a rebuilt development client. Expo Go can preview the contract photo, but OCR only works after opening a development build.'
+          : 'Could not extract the contract fields from that image right now. Try a clearer photo or enter the contract values manually.'
+      );
+    } finally {
+      setIsRunningContractOcr(false);
+    }
+  }
+
+  async function exportBuyerCasePdf() {
+    try {
+      const Print = await import('expo-print');
+      const Sharing = await import('expo-sharing');
+      const html = `
+        <html>
+          <body style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; padding: 24px;">
+            <h1>Dealer Guard Buyer Case File</h1>
+            <pre style="white-space: pre-wrap; font-size: 13px;">${buyerReport.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</pre>
+            <hr />
+            <pre style="white-space: pre-wrap; font-size: 12px;">${visitCaseSummary.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</pre>
+          </body>
+        </html>
+      `;
+      const result = await Print.printToFileAsync({ html });
+      appendTimelineEntry('reportShared', 'Buyer case file exported as PDF', 'Generated a PDF buyer case file for sharing or records.');
+
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(result.uri, { mimeType: 'application/pdf', dialogTitle: 'Share buyer case file' });
+      } else {
+        Alert.alert('PDF exported', `Saved buyer case file to ${result.uri}`);
+      }
+    } catch (error) {
+      console.log(error);
+      Alert.alert(
+        'PDF export unavailable',
+        'PDF export needs a development build that includes Expo Print. You can keep testing the rest of the app now, then rebuild the Android development build when you are ready to test PDF export on your phone.'
+      );
     }
   }
 
@@ -1663,6 +1821,26 @@ export default function App() {
                 placeholder="23500"
               />
               <DealInput
+                label="Comparable listing prices"
+                value={appData.deal.marketComparablePricesText}
+                onChangeText={(text) => updateDeal('marketComparablePricesText', text)}
+                placeholder="22995, 23450, 23990"
+                numeric={false}
+                multiline
+              />
+              <DealInput
+                label="Outside lender APR"
+                value={appData.deal.outsideLenderApr}
+                onChangeText={(text) => updateDeal('outsideLenderApr', text)}
+                placeholder="5.9"
+              />
+              <DealInput
+                label="Outside lender term"
+                value={appData.deal.outsideLenderTerm}
+                onChangeText={(text) => updateDeal('outsideLenderTerm', text)}
+                placeholder="60"
+              />
+              <DealInput
                 label="Target total paid"
                 value={appData.deal.targetTotalPaid}
                 onChangeText={(text) => updateDeal('targetTotalPaid', text)}
@@ -1712,6 +1890,60 @@ export default function App() {
                 multiline
               />
             </Card>
+
+            <Card>
+              <Text style={styles.menuTitle}>Contract photo audit</Text>
+              <Text style={styles.detailText}>Choose a buyer&apos;s order or contract photo and let Dealer Guard prefill the paperwork audit from OCR before you sign.</Text>
+              <View style={styles.doubleButtons}>
+                <View style={styles.flexOne}>
+                  <AppButton label="Choose contract photo" variant="secondary" onPress={() => void pickContractPhoto()} />
+                </View>
+                <View style={styles.flexOne}>
+                  <AppButton
+                    label={isRunningContractOcr ? 'Reading contract...' : 'Run contract OCR'}
+                    onPress={() => void runContractOcrImport()}
+                    disabled={isRunningContractOcr || !appData.deal.contractImportedPhotoUri}
+                  />
+                </View>
+              </View>
+              {appData.deal.contractImportedPhotoUri ? (
+                <View style={styles.stackGapSmall}>
+                  <Image source={{ uri: appData.deal.contractImportedPhotoUri }} style={styles.quotePreview} resizeMode="cover" />
+                  <Text style={styles.detailText}>Selected contract photo is ready for OCR and paperwork audit review.</Text>
+                </View>
+              ) : null}
+              {appData.deal.contractImportReviewNotes.length > 0 ? (
+                <View style={styles.stackGapSmall}>
+                  {appData.deal.contractImportReviewNotes.map((note) => (
+                    <Text key={note} style={styles.detailText}>
+                      • {note}
+                    </Text>
+                  ))}
+                </View>
+              ) : null}
+            </Card>
+
+            {pendingContractImport ? (
+              <Card>
+                <Text style={styles.menuTitle}>Confirm imported contract fields</Text>
+                <Text style={styles.detailText}>Review these OCR values before they are applied to the final paperwork audit.</Text>
+                <DealInput label="Contract vehicle price" value={editableContractFields.contractVehiclePrice ?? ''} onChangeText={(text) => updateEditableContractField('contractVehiclePrice', text)} placeholder="25000" />
+                <DealInput label="Contract fees" value={editableContractFields.contractFees ?? ''} onChangeText={(text) => updateEditableContractField('contractFees', text)} placeholder="995" />
+                <DealInput label="Contract add-ons" value={editableContractFields.contractAddOns ?? ''} onChangeText={(text) => updateEditableContractField('contractAddOns', text)} placeholder="0" />
+                <DealInput label="Contract down payment" value={editableContractFields.contractDownPayment ?? ''} onChangeText={(text) => updateEditableContractField('contractDownPayment', text)} placeholder="3000" />
+                <DealInput label="Contract trade-in" value={editableContractFields.contractTradeIn ?? ''} onChangeText={(text) => updateEditableContractField('contractTradeIn', text)} placeholder="4000" />
+                <DealInput label="Contract APR" value={editableContractFields.contractApr ?? ''} onChangeText={(text) => updateEditableContractField('contractApr', text)} placeholder="6.9" />
+                <DealInput label="Contract term" value={editableContractFields.contractMonths ?? ''} onChangeText={(text) => updateEditableContractField('contractMonths', text)} placeholder="60" />
+                <View style={styles.doubleButtons}>
+                  <View style={styles.flexOne}>
+                    <AppButton label="Apply contract values" onPress={applyPendingContractImport} />
+                  </View>
+                  <View style={styles.flexOne}>
+                    <AppButton label="Dismiss" variant="secondary" onPress={dismissPendingContractImport} />
+                  </View>
+                </View>
+              </Card>
+            ) : null}
 
             <Card>
               <Text style={styles.menuTitle}>Final paperwork audit</Text>
@@ -1859,9 +2091,11 @@ export default function App() {
                     label="Share buyer report"
                     onPress={() => {
                       incrementUsage('reportsShared');
+                      appendTimelineEntry('reportShared', 'Buyer report shared', 'Shared the full buyer report with someone else.');
                       void shareText('Dealer Guard buyer report', buyerReport);
                     }}
                   />
+                  <AppButton label="Export buyer case file PDF" variant="secondary" onPress={() => void exportBuyerCasePdf()} />
                 </View>
               </Card>
             ) : (
@@ -1982,6 +2216,40 @@ export default function App() {
                 </View>
               </Card>
             )}
+
+            {marketCompSnapshot ? (
+              <Card>
+                <Text style={styles.menuTitle}>Live market benchmarks</Text>
+                <Text style={styles.detailText}>{marketCompSnapshot.headline}</Text>
+                <Text style={styles.detailText}>{marketCompSnapshot.detail}</Text>
+                <View style={styles.statsRow}>
+                  {marketCompSnapshot.comparableCount > 0 ? (
+                    <View style={styles.statCard}>
+                      <Text style={styles.statLabel}>Comparable avg</Text>
+                      <Text style={styles.statValue}>{currency(marketCompSnapshot.averageComparablePrice)}</Text>
+                    </View>
+                  ) : null}
+                  {marketCompSnapshot.comparableCount > 0 ? (
+                    <View style={styles.statCard}>
+                      <Text style={styles.statLabel}>Comparable count</Text>
+                      <Text style={styles.statValue}>{marketCompSnapshot.comparableCount}</Text>
+                    </View>
+                  ) : null}
+                  {marketCompSnapshot.lenderApr > 0 ? (
+                    <View style={styles.statCard}>
+                      <Text style={styles.statLabel}>Outside APR</Text>
+                      <Text style={styles.statValue}>{marketCompSnapshot.lenderApr}%</Text>
+                    </View>
+                  ) : null}
+                  {marketCompSnapshot.lenderSavingsEstimate > 0 ? (
+                    <View style={styles.statCard}>
+                      <Text style={styles.statLabel}>Rate savings</Text>
+                      <Text style={styles.statValue}>{currency(marketCompSnapshot.lenderSavingsEstimate)}</Text>
+                    </View>
+                  ) : null}
+                </View>
+              </Card>
+            ) : null}
 
             <Card>
               <View style={styles.rowBetween}>
@@ -2217,6 +2485,42 @@ export default function App() {
                 ))}
               </View>
             </Card>
+
+            <Card>
+              <Text style={styles.menuTitle}>Negotiation simulator</Text>
+              {activeSimulationTurn ? (
+                <View style={styles.stackGapSmall}>
+                  <View style={styles.infoBox}>
+                    <Text style={styles.bold}>{activeSimulationTurn.title}</Text>
+                    <Text style={styles.infoBoxText}>They say: {activeSimulationTurn.salespersonLine}</Text>
+                  </View>
+                  <View style={styles.scriptBox}>
+                    <Text style={styles.detailText}>
+                      <Text style={styles.bold}>Best response: </Text>
+                      {activeSimulationTurn.bestResponse}
+                    </Text>
+                  </View>
+                  <Text style={styles.detailText}>
+                    <Text style={styles.bold}>If you fold: </Text>
+                    {activeSimulationTurn.ifYouFold}
+                  </Text>
+                  <Text style={styles.detailText}>
+                    <Text style={styles.bold}>If you hold: </Text>
+                    {activeSimulationTurn.ifYouHold}
+                  </Text>
+                  <View style={styles.doubleButtons}>
+                    <View style={styles.flexOne}>
+                      <AppButton label="Copy response" variant="secondary" onPress={() => void copyText('Simulator response', activeSimulationTurn.bestResponse)} />
+                    </View>
+                    <View style={styles.flexOne}>
+                      <AppButton label="Next scenario" onPress={() => setSimulatorIndex((prev) => prev + 1)} />
+                    </View>
+                  </View>
+                </View>
+              ) : (
+                <Text style={styles.detailText}>No simulation scenarios available yet.</Text>
+              )}
+            </Card>
           </>
         )}
 
@@ -2235,6 +2539,30 @@ export default function App() {
               </Card>
             ) : (
               <>
+                {dealerScorecards.length > 0 &&
+                  dealerReputationReports.length > 0 && (
+                    <Card>
+                      <Text style={styles.menuTitle}>Dealer reputation layer</Text>
+                      <Text style={styles.detailText}>This combines offer quality, pressure behavior, promises, and visit timeline signals into one trust snapshot.</Text>
+                      <View style={styles.stackGapSmall}>
+                        {dealerReputationReports.map((report) => (
+                          <View key={report.dealershipName} style={styles.infoBox}>
+                            <View style={styles.rowBetween}>
+                              <Text style={styles.bold}>{report.dealershipName}</Text>
+                              <StatusBadge label={`${report.trustScore}/100`} tone={report.tone} />
+                            </View>
+                            <Text style={styles.infoBoxText}>{report.headline}</Text>
+                            {report.highlights.map((highlight) => (
+                              <Text key={`${report.dealershipName}-${highlight}`} style={styles.infoBoxText}>
+                                • {highlight}
+                              </Text>
+                            ))}
+                          </View>
+                        ))}
+                      </View>
+                    </Card>
+                  )}
+
                 {dealerScorecards.length > 0 &&
                   (isPro ? (
                     <Card>

@@ -58,6 +58,7 @@
     },
     "extra": {
       "router": {},
+      "revenueCatApiKey": "",
       "eas": {
         "projectId": "1ed5833e-a11a-4ddd-b4b0-7685d67fe870"
       }

@@ -9,11 +9,13 @@ import {
   buildCurrentDealSummary,
   buildDealConfidence,
   buildDealerScorecards,
+  buildDealerReputationReports,
   buildDealActionRecommendation,
   buildDealAnalysis,
   buildHonestyScore,
   buildLiveCoachingPlan,
   buildMarketBenchmarkAssessment,
+  buildMarketCompSnapshot,
   buildMonetizationSummary,
   buildNegotiationPlan,
   buildPaperworkAudit,
@@ -25,6 +27,7 @@ import {
   buildReferralLoop,
   buildSavingsOpportunity,
   buildSecondOpinionShare,
+  buildNegotiationSimulator,
   buildVisitCaseSummary,
   buildSessionPlaybook,
   buildTradeInAssessment,
@@ -352,6 +355,24 @@ test('buildQuickStartGuide gives a low-friction first-use path', () => {
   assert.equal(guide.steps.length, 3);
 });
 
+test('buildMarketCompSnapshot combines comparable prices and lender leverage', () => {
+  const deal = {
+    ...createInitialDeal(),
+    vehiclePrice: '25000',
+    marketComparablePricesText: '23995, 24150, 24400',
+    outsideLenderApr: '5.4',
+    outsideLenderTerm: '60',
+    apr: '7.9',
+    months: '60',
+  };
+  const analysis = buildDealAnalysis(deal, 'Strong');
+  const snapshot = buildMarketCompSnapshot(deal, analysis);
+
+  assert.ok(snapshot);
+  assert.equal(snapshot?.comparableCount, 3);
+  assert.ok((snapshot?.averageComparablePrice ?? 0) > 0);
+});
+
 test('sanitizeAppData preserves subscription defaults and accepts pro state', () => {
   const defaults = sanitizeAppData({});
   assert.equal(defaults.subscription.tier, 'free');
@@ -427,6 +448,23 @@ test('buildPressureSummary highlights repeated dealership tactics', () => {
   assert.equal(summary.recent.length, 3);
 });
 
+test('buildNegotiationSimulator produces realistic practice turns', () => {
+  const deal = {
+    ...createInitialDeal(),
+    dealershipName: 'Metro Auto',
+    vehiclePrice: '24000',
+    dealerFees: '1200',
+    addOns: '1800',
+    apr: '8.9',
+    months: '72',
+  };
+  const analysis = buildDealAnalysis(deal, 'Strong');
+  const turns = buildNegotiationSimulator(salesTacticItems[0], analysis, ['bundleAddOn']);
+
+  assert.ok(turns.length >= 3);
+  assert.match(turns[0]?.salespersonLine ?? '', /monthly payment/i);
+});
+
 test('buildPromiseSummary counts open, kept, and broken promises by dealership', () => {
   const summary = buildPromiseSummary(
     [
@@ -490,6 +528,37 @@ test('buildDealerScorecards combines offer quality, pressure, and promises', () 
   assert.equal(scorecards[0]?.dealershipName, 'Metro Auto');
   assert.equal(scorecards[0]?.pressureCount, 2);
   assert.equal(scorecards[0]?.brokenPromiseCount, 1);
+});
+
+test('buildDealerReputationReports adds trust-level summaries', () => {
+  const reports = buildDealerReputationReports(
+    [
+      {
+        dealershipName: 'Metro Auto',
+        tone: 'bad',
+        headline: 'Pattern shows meaningful caution signs.',
+        revisionCount: 2,
+        pressureCount: 2,
+        brokenPromiseCount: 1,
+        keptPromiseCount: 0,
+        latestVerdict: 'Bad Deal',
+        latestTotalPaid: 31000,
+      },
+    ],
+    [
+      {
+        id: 'timeline-1',
+        dealershipName: 'Metro Auto',
+        type: 'offerSaved',
+        title: 'Offer saved',
+        detail: 'Saved a revision.',
+        createdAt: '2026-04-20T12:00:00.000Z',
+      },
+    ]
+  );
+
+  assert.equal(reports.length, 1);
+  assert.ok(reports[0]!.trustScore < 100);
 });
 
 test('buildSessionPlaybook creates an ordered in-session action plan', () => {

@@ -23,9 +23,14 @@ test('sanitizeAppData preserves valid records and falls back for invalid fields'
       offerNotes: 'Mentioned manager special.',
       vehiclePrice: '21000',
       marketVehiclePrice: '19800',
+      marketComparablePricesText: '19800, 20100, 20500',
+      outsideLenderApr: '5.9',
+      outsideLenderTerm: '60',
       targetTotalPaid: '26500',
       tradeReferenceValue: '7000',
       tradePayoff: '5400',
+      contractImportedPhotoUri: 'file://contract.png',
+      contractImportReviewNotes: ['Imported from contract OCR'],
       contractVehiclePrice: '21000',
       contractFees: '499',
       contractAddOns: '0',
@@ -49,7 +54,10 @@ test('sanitizeAppData preserves valid records and falls back for invalid fields'
   assert.equal(sanitized.deal.tradeReferenceValue, '7000');
   assert.equal(sanitized.deal.tradePayoff, '5400');
   assert.equal(sanitized.deal.marketVehiclePrice, '19800');
+  assert.equal(sanitized.deal.marketComparablePricesText, '19800, 20100, 20500');
+  assert.equal(sanitized.deal.outsideLenderApr, '5.9');
   assert.equal(sanitized.deal.targetTotalPaid, '26500');
+  assert.equal(sanitized.deal.contractImportedPhotoUri, 'file://contract.png');
   assert.equal(sanitized.deal.contractApr, '6.9');
   assert.equal(sanitized.deal.contractMonths, '72');
   assert.equal(sanitized.deal.feeItems.length, 1);

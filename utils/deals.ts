@@ -8,6 +8,7 @@ import type {
   DealActionRecommendation,
   DealAnalysisBreakdownItem,
   DealConfidence,
+  DealerReputationReport,
   DealerScorecard,
   DealLineItem,
   DealState,
@@ -17,11 +18,13 @@ import type {
   ImportFieldReview,
   ImportLineItemReview,
   LiveCoachingPlan,
+  MarketCompSnapshot,
   MarketBenchmarkAssessment,
   MonetizationFeatureCard,
   MonetizationSummary,
   NegotiationPlan,
   NegotiationFlag,
+  NegotiationSimulationTurn,
   PaperworkAudit,
   PaperworkAuditItem,
   PremiumTier,
@@ -162,10 +165,68 @@ export function buildTradeInAssessment(deal: DealState): TradeInAssessment | nul
   };
 }
 
+function parseComparablePrices(rawText: string) {
+  return rawText
+    .split(/[\n,]/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map((item) => Number(parseMoneyToken(item)))
+    .filter((value) => value > 0);
+}
+
+export function buildMarketCompSnapshot(deal: DealState, analysis: DealAnalysis): MarketCompSnapshot | null {
+  const comparablePrices = parseComparablePrices(deal.marketComparablePricesText);
+  const comparableCount = comparablePrices.length;
+  const averageComparablePrice = comparableCount
+    ? Math.round(comparablePrices.reduce((sum, value) => sum + value, 0) / comparableCount)
+    : 0;
+  const lenderApr = Number(deal.outsideLenderApr || 0);
+  const lenderTerm = Number(deal.outsideLenderTerm || deal.months || 0);
+
+  if (!averageComparablePrice && !lenderApr) return null;
+
+  let lenderSavingsEstimate = 0;
+  if (lenderApr > 0 && lenderTerm > 0 && Number(deal.apr || 0) > lenderApr) {
+    const currentMonthly = estimateMonthlyPayment(analysis.amountFinanced, Number(deal.apr || 0), lenderTerm);
+    const outsideMonthly = estimateMonthlyPayment(analysis.amountFinanced, lenderApr, lenderTerm);
+    lenderSavingsEstimate = Math.max(0, Math.round((currentMonthly - outsideMonthly) * lenderTerm));
+  }
+
+  const headline =
+    averageComparablePrice > 0
+      ? `Comparable listings average about ${currency(averageComparablePrice)}.`
+      : `Outside lender rate entered at about ${lenderApr}% for ${lenderTerm || Number(deal.months || 0)} months.`;
+
+  const detailParts = [];
+  if (averageComparablePrice > 0) {
+    detailParts.push(`Use the comparable average instead of a single researched number when you want a more grounded price anchor.`);
+  }
+  if (lenderSavingsEstimate > 0) {
+    detailParts.push(`An outside rate near ${lenderApr}% could save about ${currency(lenderSavingsEstimate)} over the loan.`);
+  } else if (lenderApr > 0) {
+    detailParts.push(`Outside financing at ${lenderApr}% gives you a written rate benchmark to push against the dealership offer.`);
+  }
+
+  return {
+    averageComparablePrice,
+    comparableCount,
+    lenderApr,
+    lenderTerm,
+    lenderSavingsEstimate,
+    headline,
+    detail: detailParts.join(' '),
+  };
+}
+
 export function buildMarketBenchmarkAssessment(deal: DealState, analysis: DealAnalysis): MarketBenchmarkAssessment | null {
-  const marketVehiclePrice = Number(deal.marketVehiclePrice || 0);
+  const comparablePrices = parseComparablePrices(deal.marketComparablePricesText);
+  const averageComparablePrice = comparablePrices.length
+    ? Math.round(comparablePrices.reduce((sum, value) => sum + value, 0) / comparablePrices.length)
+    : 0;
+  const marketVehiclePrice = Number(deal.marketVehiclePrice || averageComparablePrice || 0);
   const targetTotalPaid = Number(deal.targetTotalPaid || 0);
   const currentVehiclePrice = Number(deal.vehiclePrice || 0);
+  const outsideLenderApr = Number(deal.outsideLenderApr || 0);
 
   if (marketVehiclePrice <= 0 && targetTotalPaid <= 0) return null;
 
@@ -210,7 +271,10 @@ export function buildMarketBenchmarkAssessment(deal: DealState, analysis: DealAn
     tone: 'warn',
     vehiclePriceGap,
     totalPaidGap,
-    detail: 'The current offer and your benchmark are not far apart, but the gap is still large enough to justify a direct counter.',
+    detail:
+      outsideLenderApr > 0 && Number(deal.apr || 0) > outsideLenderApr
+        ? `The current offer and your benchmark are not far apart, but the store is still above your outside lender rate of ${outsideLenderApr}%.`
+        : 'The current offer and your benchmark are not far apart, but the gap is still large enough to justify a direct counter.',
     negotiationScript:
       targetTotalPaid > 0
         ? `My target total paid is ${currency(targetTotalPaid)}. Show me what you can do to close that gap without changing the structure.`
@@ -875,6 +939,49 @@ export function buildLiveCoachingPlan(selectedTactic: SalesTacticItem, analysis:
   };
 }
 
+export function buildNegotiationSimulator(
+  selectedTactic: SalesTacticItem,
+  analysis: DealAnalysis,
+  activeFlags: NegotiationFlag[]
+): NegotiationSimulationTurn[] {
+  const turns: NegotiationSimulationTurn[] = [
+    {
+      title: 'Payment pivot',
+      salespersonLine: 'What monthly payment are you trying to stay under?',
+      bestResponse: 'I am deciding from the written out-the-door price, APR, and term first. Show me those numbers before we talk payment.',
+      ifYouFold: 'The conversation moves away from total cost and into a payment-focused structure they can manipulate.',
+      ifYouHold: 'You keep the discussion grounded in numbers that are harder to hide.',
+    },
+    {
+      title: 'Urgency pressure',
+      salespersonLine: 'This deal is only good if you sign today.',
+      bestResponse: 'If the numbers are fair on paper, I can review them and come back. I do not sign because of a deadline.',
+      ifYouFold: 'Urgency can force a rushed decision before you verify fees, add-ons, or contract changes.',
+      ifYouHold: 'You regain time to compare, think, and verify the written breakdown.',
+    },
+  ];
+
+  if (activeFlags.includes('bundleAddOn') || analysis.dealWarnings.some((item) => item.toLowerCase().includes('add-ons'))) {
+    turns.push({
+      title: 'Mandatory add-on push',
+      salespersonLine: 'That package is already on every car, so it stays.',
+      bestResponse: 'Itemize every product separately and show me which ones are required by law versus optional dealer products.',
+      ifYouFold: 'Optional profit products stay hidden inside the deal structure.',
+      ifYouHold: 'You force the store to separate mandatory charges from markup and add-ons.',
+    });
+  }
+
+  turns.push({
+    title: selectedTactic.tactic,
+    salespersonLine: selectedTactic.line,
+    bestResponse: selectedTactic.script,
+    ifYouFold: 'The salesperson keeps control of the frame and you lose clarity about what changed.',
+    ifYouHold: 'You answer with a prepared line and move the conversation back to the written numbers.',
+  });
+
+  return turns.slice(0, 4);
+}
+
 function pushPlaybookStep(steps: SessionPlaybookStep[], title: string, detail: string, tone: Tone) {
   steps.push({ title, detail, tone });
 }
@@ -1341,6 +1448,43 @@ export function buildDealerScorecards(
       if (toneRank[left.tone] !== toneRank[right.tone]) return toneRank[left.tone] - toneRank[right.tone];
       return left.dealershipName.localeCompare(right.dealershipName);
     });
+}
+
+export function buildDealerReputationReports(
+  scorecards: DealerScorecard[],
+  visitTimeline: VisitTimelineEntry[]
+): DealerReputationReport[] {
+  return scorecards.map((scorecard) => {
+    const relatedEntries = visitTimeline.filter(
+      (entry) => entry.dealershipName.trim().toLowerCase() === scorecard.dealershipName.trim().toLowerCase()
+    );
+    const trustScore = Math.max(
+      0,
+      100 -
+        scorecard.pressureCount * 10 -
+        scorecard.brokenPromiseCount * 18 -
+        Math.max(0, scorecard.revisionCount - 1) * 4
+    );
+    const tone: Tone = trustScore >= 75 ? 'good' : trustScore >= 50 ? 'warn' : 'bad';
+    const highlights = [
+      `${scorecard.pressureCount} pressure incident${scorecard.pressureCount === 1 ? '' : 's'} logged`,
+      `${scorecard.keptPromiseCount} kept / ${scorecard.brokenPromiseCount} broken promise${scorecard.brokenPromiseCount === 1 ? '' : 's'}`,
+      `${relatedEntries.length} timeline event${relatedEntries.length === 1 ? '' : 's'} captured`,
+    ];
+
+    return {
+      dealershipName: scorecard.dealershipName,
+      trustScore,
+      tone,
+      headline:
+        tone === 'good'
+          ? 'History looks comparatively consistent so far.'
+          : tone === 'warn'
+            ? 'Mixed trust signals are showing up across this dealership history.'
+            : 'This dealership is building a risk pattern across offers and behavior.',
+      highlights,
+    };
+  });
 }
 
 function createFeatureCard(title: string, detail: string, tier: PremiumTier): MonetizationFeatureCard {
