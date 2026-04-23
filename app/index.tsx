@@ -48,6 +48,7 @@ import {
   buildDealActionRecommendation,
   buildHonestyScore,
   buildLiveCoachingPlan,
+  buildLiveResponsePack,
   buildMarketBenchmarkAssessment,
   buildMarketCompSnapshot,
   buildMonetizationSummary,
@@ -330,6 +331,10 @@ export default function App() {
   );
   const liveCoachingPlan = useMemo(
     () => buildLiveCoachingPlan(selectedTactic, dealAnalysis, appData.negotiationFlags),
+    [selectedTactic, dealAnalysis, appData.negotiationFlags]
+  );
+  const liveResponsePack = useMemo(
+    () => buildLiveResponsePack(selectedTactic, dealAnalysis, appData.negotiationFlags),
     [selectedTactic, dealAnalysis, appData.negotiationFlags]
   );
   const sessionPlaybook = useMemo(
@@ -1554,6 +1559,23 @@ export default function App() {
                   <Text key={trigger} style={styles.warningText}>
                     • {trigger}
                   </Text>
+                ))}
+              </View>
+            </Card>
+
+            <Card>
+              <Text style={styles.menuTitle}>Live response pack</Text>
+              <Text style={styles.detailText}>{liveResponsePack.headline}</Text>
+              <View style={styles.stackGapSmall}>
+                {liveResponsePack.responses.map((item) => (
+                  <View key={item.label} style={styles.infoBox}>
+                    <Text style={styles.bold}>{item.label}</Text>
+                    <Text style={styles.infoBoxText}>{item.script}</Text>
+                    <Text style={styles.infoBoxText}>{item.reason}</Text>
+                    <View style={styles.stackGap}>
+                      <AppButton label={`Copy ${item.label.toLowerCase()}`} variant="secondary" onPress={() => void copyText(item.label, item.script)} />
+                    </View>
+                  </View>
                 ))}
               </View>
             </Card>

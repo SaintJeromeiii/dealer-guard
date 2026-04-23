@@ -15,6 +15,7 @@ import {
   buildDealAnalysis,
   buildHonestyScore,
   buildLiveCoachingPlan,
+  buildLiveResponsePack,
   buildMarketBenchmarkAssessment,
   buildMarketCompSnapshot,
   buildMonetizationSummary,
@@ -271,6 +272,30 @@ test('live coaching changes meaningfully for multiple pressure tactics', () => {
   assert.ok(livePlan.nextQuestions.some((item) => item.includes('trade-in value')));
   assert.ok(livePlan.walkAwayTriggers.some((item) => item.includes('urgency')));
   assert.ok(livePlan.walkAwayTriggers.some((item) => item.includes('mandatory')));
+});
+
+test('buildLiveResponsePack creates copy-ready lines for pressure moments', () => {
+  const analysis = buildDealAnalysis(
+    {
+      ...createInitialDeal(),
+      dealershipName: 'Pressure Store',
+      vehiclePrice: '22000',
+      dealerFees: '1800',
+      feeNames: 'doc fee, protection package',
+      addOns: '2400',
+      apr: '9.9',
+      months: '84',
+    },
+    'Strong'
+  );
+
+  const responsePack = buildLiveResponsePack(salesTacticItems[0], analysis, ['paymentShift', 'wontPrint', 'todayOnly']);
+
+  assert.match(responsePack.headline, /keep control|grounded/i);
+  assert.ok(responsePack.responses.some((item) => item.label === 'Stop the payment pivot'));
+  assert.ok(responsePack.responses.some((item) => item.label === 'Demand the written breakdown'));
+  assert.ok(responsePack.responses.some((item) => item.label === 'Defuse urgency'));
+  assert.ok(responsePack.responses.every((item) => item.script.length > 20));
 });
 
 test('buildNegotiationPlan surfaces high-value fixes with scripts', () => {

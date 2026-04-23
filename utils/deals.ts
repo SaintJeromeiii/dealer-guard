@@ -19,6 +19,7 @@ import type {
   ImportFieldReview,
   ImportLineItemReview,
   LiveCoachingPlan,
+  LiveResponsePack,
   MarketCompSnapshot,
   MarketBenchmarkAssessment,
   MonetizationFeatureCard,
@@ -997,6 +998,86 @@ export function buildLiveCoachingPlan(selectedTactic: SalesTacticItem, analysis:
     immediateScript: uniqueScripts[0] ?? selectedTactic.script,
     nextQuestions: uniqueQuestions,
     walkAwayTriggers: uniqueTriggers,
+  };
+}
+
+export function buildLiveResponsePack(
+  selectedTactic: SalesTacticItem,
+  analysis: DealAnalysis,
+  activeFlags: NegotiationFlag[]
+): LiveResponsePack {
+  const responses = [
+    {
+      label: 'Say this now',
+      script: selectedTactic.script,
+      reason: 'This answers the current tactic without arguing about their story.',
+    },
+    {
+      label: 'Bring it back to paper',
+      script: 'Please show me the full out-the-door number, APR, term, and every fee in writing before we go further.',
+      reason: 'Written numbers are harder to manipulate than verbal payment talk.',
+    },
+    {
+      label: 'Clean exit line',
+      script: 'I am going to pause here and review the written breakdown before I make any decision.',
+      reason: 'A calm exit line protects you from rushed signing pressure.',
+    },
+  ];
+
+  if (activeFlags.includes('paymentShift')) {
+    responses.unshift({
+      label: 'Stop the payment pivot',
+      script: 'Do not move me to a payment target. Show me the out-the-door price and amount financed first.',
+      reason: 'This keeps them from stretching term or rate to make the payment look smaller.',
+    });
+  }
+
+  if (activeFlags.includes('bundleAddOn')) {
+    responses.unshift({
+      label: 'Strip add-ons out',
+      script: 'Itemize each add-on separately and remove anything optional before we continue.',
+      reason: 'Optional products often carry the biggest hidden markup.',
+    });
+  }
+
+  if (activeFlags.includes('wontPrint')) {
+    responses.unshift({
+      label: 'Demand the written breakdown',
+      script: 'If you cannot print or text the breakdown, I am not moving forward with this deal.',
+      reason: 'Refusing to put the numbers in writing is a major transparency warning.',
+    });
+  }
+
+  if (activeFlags.includes('todayOnly')) {
+    responses.push({
+      label: 'Defuse urgency',
+      script: 'If the numbers are fair today, they should still be fair after I review them carefully.',
+      reason: 'This breaks the false deadline and gives you room to think.',
+    });
+  }
+
+  if (activeFlags.includes('tradeMix')) {
+    responses.push({
+      label: 'Separate the trade',
+      script: 'Please separate vehicle price, trade value, payoff, and financing into distinct written numbers.',
+      reason: 'Mixing the trade into the payment can hide where the deal actually changed.',
+    });
+  }
+
+  if (analysis.dealVerdict === 'Walk Away') {
+    responses.push({
+      label: 'Final boundary',
+      script: 'These numbers are not workable for me, so I am leaving unless the full structure changes in writing.',
+      reason: 'When the structure already scores as a walk-away deal, a firmer boundary is appropriate.',
+    });
+  }
+
+  return {
+    headline:
+      activeFlags.length > 0
+        ? 'Use these lines to keep control of the conversation when pressure starts.'
+        : 'Use these lines to keep the conversation grounded in written numbers.',
+    responses: Array.from(new Map(responses.map((item) => [item.script, item])).values()).slice(0, 6),
   };
 }
 

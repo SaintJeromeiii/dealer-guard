@@ -241,6 +241,17 @@ export type LiveCoachingPlan = {
   walkAwayTriggers: string[];
 };
 
+export type LiveResponseOption = {
+  label: string;
+  script: string;
+  reason: string;
+};
+
+export type LiveResponsePack = {
+  headline: string;
+  responses: LiveResponseOption[];
+};
+
 export type SessionPlaybookStep = {
   title: string;
   detail: string;
