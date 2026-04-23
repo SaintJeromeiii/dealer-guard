@@ -49,6 +49,8 @@ import type {
   QuickStartGuide,
   OfferTimelineEntry,
   OfferRevisionInsight,
+  WhatIfComparison,
+  WhatIfFieldChange,
 } from './types.ts';
 
 export { currency, estimateMonthlyPayment, getReadinessLabel, scoreAnswers };
@@ -1446,6 +1448,75 @@ export function buildDealActionRecommendation(
       : 'There is still room to improve the structure. Keep the focus on total paid, required fees, APR, and term.',
     targetTotalPaid: bestScenario ? Math.max(0, Math.round(analysis.totalPaid - bestScenario.totalChange)) : Math.round(analysis.totalPaid),
     targetMonthlyPayment: bestScenario ? Math.max(0, Math.round(analysis.monthlyPayment - bestScenario.monthlyChange)) : Math.round(analysis.monthlyPayment),
+  };
+}
+
+export function buildWhatIfComparison(currentDeal: DealState, scenarioDeal: DealState, readinessLabel: ReadinessLabel): WhatIfComparison {
+  const currentAnalysis = buildDealAnalysis(currentDeal, readinessLabel);
+  const scenarioAnalysis = buildDealAnalysis(scenarioDeal, readinessLabel);
+  const monthlyDifference = Math.round(scenarioAnalysis.monthlyPayment - currentAnalysis.monthlyPayment);
+  const totalDifference = Math.round(scenarioAnalysis.totalPaid - currentAnalysis.totalPaid);
+  const fieldChanges: WhatIfFieldChange[] = [];
+
+  const maybeAddChange = (label: string, currentValue: string, scenarioValue: string, impact: string) => {
+    if ((currentValue || '') === (scenarioValue || '')) return;
+    fieldChanges.push({ label, currentValue: currentValue || 'Not entered', scenarioValue: scenarioValue || 'Not entered', impact });
+  };
+
+  maybeAddChange('Vehicle price', currentDeal.vehiclePrice, scenarioDeal.vehiclePrice, 'Directly changes the base amount you are financing.');
+  maybeAddChange('Fees', String(getFeeTotal(currentDeal) || ''), String(getFeeTotal(scenarioDeal) || ''), 'Lower fees reduce financed amount without changing the car.');
+  maybeAddChange('Add-ons', String(getAddOnTotal(currentDeal) || ''), String(getAddOnTotal(scenarioDeal) || ''), 'Removing optional products is often the fastest clean savings lever.');
+  maybeAddChange('APR', currentDeal.apr, scenarioDeal.apr, 'APR changes affect the payment and total cost across the whole loan.');
+  maybeAddChange('Term', currentDeal.months, scenarioDeal.months, 'Term changes can lower the payment but may raise total paid if stretched out.');
+  maybeAddChange('Down payment', currentDeal.downPayment, scenarioDeal.downPayment, 'More cash down can lower the payment without fixing a weak structure.');
+  maybeAddChange('Trade-in', currentDeal.tradeIn, scenarioDeal.tradeIn, 'A stronger trade offer can improve the deal if the price stays honest.');
+
+  const biggestWins: string[] = [];
+  if (Number(currentDeal.apr || 0) > Number(scenarioDeal.apr || 0) && Number(scenarioDeal.apr || 0) > 0) {
+    biggestWins.push(`rate closer to ${scenarioDeal.apr}%`);
+  }
+  if (getAddOnTotal(currentDeal) > getAddOnTotal(scenarioDeal)) {
+    biggestWins.push(`remove about ${currency(Math.max(0, getAddOnTotal(currentDeal) - getAddOnTotal(scenarioDeal)))} in add-ons`);
+  }
+  if (getFeeTotal(currentDeal) > getFeeTotal(scenarioDeal)) {
+    biggestWins.push(`cut about ${currency(Math.max(0, getFeeTotal(currentDeal) - getFeeTotal(scenarioDeal)))} in fees`);
+  }
+  if (Number(currentDeal.vehiclePrice || 0) > Number(scenarioDeal.vehiclePrice || 0) && Number(scenarioDeal.vehiclePrice || 0) > 0) {
+    biggestWins.push(`bring vehicle price closer to ${currency(Number(scenarioDeal.vehiclePrice || 0))}`);
+  }
+
+  const strongestMove =
+    biggestWins.length > 0
+      ? `Rework this using ${biggestWins.slice(0, 2).join(' and ')}. Show me the full written breakdown with those exact changes.`
+      : 'Use this scenario to ask for a cleaner written structure and make the store respond line by line.';
+
+  const tone: Tone = totalDifference <= -2000 ? 'good' : totalDifference < 0 ? 'warn' : totalDifference > 1500 ? 'bad' : 'warn';
+  const headline =
+    totalDifference < 0
+      ? `This scenario could save about ${currency(Math.abs(totalDifference))} overall and ${currency(Math.abs(monthlyDifference))} per month.`
+      : totalDifference > 0
+        ? `This scenario actually looks about ${currency(totalDifference)} more expensive overall.`
+        : 'This scenario keeps the cost about the same overall.';
+
+  const detail =
+    totalDifference < 0
+      ? 'Use this as a negotiation anchor. If the dealership cannot match something close to this structure on paper, the current deal may not be the best version available.'
+      : totalDifference > 0
+        ? 'This is a useful reminder that some lower-payment scenarios still cost more overall. Watch term extensions and hidden extras.'
+        : 'This scenario is mainly a structure check. Compare the changed fields carefully before deciding whether it really helps you.';
+
+  return {
+    headline,
+    detail,
+    tone,
+    currentMonthlyPayment: currentAnalysis.monthlyPayment,
+    scenarioMonthlyPayment: scenarioAnalysis.monthlyPayment,
+    monthlyDifference,
+    currentTotalPaid: currentAnalysis.totalPaid,
+    scenarioTotalPaid: scenarioAnalysis.totalPaid,
+    totalDifference,
+    fieldChanges,
+    strongestMove,
   };
 }
 

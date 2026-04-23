@@ -6,6 +6,7 @@ export type Screen =
   | 'checklist'
   | 'liveMode'
   | 'dealReview'
+  | 'whatIfLab'
   | 'financeDefense'
   | 'tacticDecoder'
   | 'compareDeals'
@@ -297,6 +298,27 @@ export type DealActionRecommendation = {
   detail: string;
   targetTotalPaid?: number;
   targetMonthlyPayment?: number;
+};
+
+export type WhatIfFieldChange = {
+  label: string;
+  currentValue: string;
+  scenarioValue: string;
+  impact: string;
+};
+
+export type WhatIfComparison = {
+  headline: string;
+  detail: string;
+  tone: Tone;
+  currentMonthlyPayment: number;
+  scenarioMonthlyPayment: number;
+  monthlyDifference: number;
+  currentTotalPaid: number;
+  scenarioTotalPaid: number;
+  totalDifference: number;
+  fieldChanges: WhatIfFieldChange[];
+  strongestMove: string;
 };
 
 export type TradeInAssessment = {

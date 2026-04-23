@@ -31,6 +31,7 @@ import {
   buildSecondOpinionShare,
   buildNegotiationSimulator,
   buildVisitCaseSummary,
+  buildWhatIfComparison,
   buildSessionPlaybook,
   buildTradeInAssessment,
   compareSavedDeals,
@@ -240,6 +241,34 @@ test('buildDealInputGuidance turns missing fields into actionable next questions
   const completeGuidance = buildDealInputGuidance(partialDeal, completeConfidence);
   assert.equal(completeGuidance.questions.length, 0);
   assert.equal(completeGuidance.tone, 'good');
+});
+
+test('buildWhatIfComparison shows scenario savings and strongest move', () => {
+  const currentDeal = {
+    ...createInitialDeal(),
+    dealershipName: 'Scenario Motors',
+    vehiclePrice: '30000',
+    dealerFees: '1200',
+    addOns: '1800',
+    apr: '9.5',
+    months: '72',
+  };
+
+  const scenarioDeal = {
+    ...currentDeal,
+    dealerFees: '500',
+    addOns: '0',
+    apr: '6.4',
+    months: '60',
+  };
+
+  const comparison = buildWhatIfComparison(currentDeal, scenarioDeal, 'Strong');
+
+  assert.equal(comparison.tone, 'good');
+  assert.ok(comparison.totalDifference < 0);
+  assert.ok(comparison.fieldChanges.some((item) => item.label === 'APR'));
+  assert.ok(comparison.fieldChanges.some((item) => item.label === 'Add-ons'));
+  assert.match(comparison.strongestMove, /add-ons|rate/i);
 });
 
 test('live coaching changes meaningfully for multiple pressure tactics', () => {

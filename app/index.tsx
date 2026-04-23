@@ -67,6 +67,7 @@ import {
   buildSessionPlaybook,
   buildTradeInAssessment,
   buildVisitCaseSummary,
+  buildWhatIfComparison,
   compareSavedDeals,
   currency,
   getAddOnTotal,
@@ -78,7 +79,7 @@ import {
 } from '@/utils/deals';
 import { initializeBilling, purchaseProEntitlement, restoreProEntitlement } from '@/utils/billing';
 import { loadAppData, resetStoredAppData, saveAppData } from '@/utils/storage';
-import type { DealLineItem, ExperienceMode, MainTab, NegotiationFlag, PremiumTier, PromiseRecord, QuoteImportResult, SavedDeal, Screen, SelectedComparePair, Tone, VisitTimelineEntry, VisitTimelineEventType } from '@/utils/types';
+import type { DealLineItem, DealState, ExperienceMode, MainTab, NegotiationFlag, PremiumTier, PromiseRecord, QuoteImportResult, SavedDeal, Screen, SelectedComparePair, Tone, VisitTimelineEntry, VisitTimelineEventType } from '@/utils/types';
 
 function makeId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -94,6 +95,16 @@ function createLineItem(): DealLineItem {
 
 function createSeriesId() {
   return `series-${makeId()}`;
+}
+
+function cloneDealState(deal: DealState): DealState {
+  return {
+    ...deal,
+    feeItems: deal.feeItems.map((item) => ({ ...item })),
+    addOnItems: deal.addOnItems.map((item) => ({ ...item })),
+    importReviewNotes: [...deal.importReviewNotes],
+    contractImportReviewNotes: [...deal.contractImportReviewNotes],
+  };
 }
 
 function createTimelineEntry(type: VisitTimelineEventType, dealershipName: string, title: string, detail: string): VisitTimelineEntry {
@@ -248,6 +259,7 @@ export default function App() {
   const [pendingContractImport, setPendingContractImport] = useState<QuoteImportResult | null>(null);
   const [editableContractFields, setEditableContractFields] = useState<Record<string, string>>({});
   const [loadedDealId, setLoadedDealId] = useState<string | null>(null);
+  const [whatIfDeal, setWhatIfDeal] = useState<DealState>(createInitialAppData().deal);
   const [promiseDraft, setPromiseDraft] = useState('');
   const [billingBusy, setBillingBusy] = useState(false);
   const [showProActivatedBanner, setShowProActivatedBanner] = useState(false);
@@ -336,6 +348,10 @@ export default function App() {
   const liveResponsePack = useMemo(
     () => buildLiveResponsePack(selectedTactic, dealAnalysis, appData.negotiationFlags),
     [selectedTactic, dealAnalysis, appData.negotiationFlags]
+  );
+  const whatIfComparison = useMemo(
+    () => buildWhatIfComparison(appData.deal, whatIfDeal, readinessLabel),
+    [appData.deal, whatIfDeal, readinessLabel]
   );
   const sessionPlaybook = useMemo(
     () =>
@@ -853,6 +869,32 @@ export default function App() {
     setScreen(tab === 'home' ? 'home' : tab);
   }
 
+  function openWhatIfLab() {
+    setWhatIfDeal(cloneDealState(appData.deal));
+    setScreen('whatIfLab');
+  }
+
+  function updateWhatIfDeal<K extends keyof DealState>(key: K, value: DealState[K]) {
+    setWhatIfDeal((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
+  }
+
+  function resetWhatIfDeal() {
+    setWhatIfDeal(cloneDealState(appData.deal));
+  }
+
+  function applyWhatIfDealToReview() {
+    setAppData((prev) => ({
+      ...prev,
+      deal: cloneDealState(whatIfDeal),
+    }));
+    appendTimelineEntry('offerSaved', 'What-if scenario applied', 'Applied the current what-if lab scenario back into Deal review.');
+    Alert.alert('Scenario applied', 'The what-if scenario is now loaded into Deal review.');
+    setScreen('dealReview');
+  }
+
   function startQuestionFlow() {
     setQuestionIndex(0);
     setMainTab('home');
@@ -1095,6 +1137,26 @@ export default function App() {
   const negotiationPlanSummary = buildNegotiationPlanSummary(appData.deal, dealAnalysis, negotiationPlan);
   const paperworkAuditSummary = paperworkAudit ? buildPaperworkAuditSummary(appData.deal, paperworkAudit) : '';
   const dealInputGuidance = buildDealInputGuidance(appData.deal, dealConfidence);
+  const whatIfSummary = [
+    `Dealer Guard what-if lab${appData.deal.dealershipName ? `: ${appData.deal.dealershipName}` : ''}`,
+    '',
+    whatIfComparison.headline,
+    whatIfComparison.detail,
+    '',
+    `Current monthly: ${currency(whatIfComparison.currentMonthlyPayment)}`,
+    `Scenario monthly: ${currency(whatIfComparison.scenarioMonthlyPayment)}`,
+    `Monthly change: ${whatIfComparison.monthlyDifference < 0 ? '-' : '+'}${currency(Math.abs(whatIfComparison.monthlyDifference))}`,
+    `Current total paid: ${currency(whatIfComparison.currentTotalPaid)}`,
+    `Scenario total paid: ${currency(whatIfComparison.scenarioTotalPaid)}`,
+    `Total change: ${whatIfComparison.totalDifference < 0 ? '-' : '+'}${currency(Math.abs(whatIfComparison.totalDifference))}`,
+    '',
+    'Changed fields:',
+    ...(whatIfComparison.fieldChanges.length
+      ? whatIfComparison.fieldChanges.map((item) => `- ${item.label}: ${item.currentValue} -> ${item.scenarioValue}. ${item.impact}`)
+      : ['- No fields changed yet.']),
+    '',
+    `Strongest move: ${whatIfComparison.strongestMove}`,
+  ].join('\n');
   const secondOpinionShare = buildSecondOpinionShare(appData.deal, dealAnalysis, actionRecommendation, negotiationPlan);
   const referralLoop = buildReferralLoop(appData.deal, dealAnalysis, actionRecommendation, secondOpinionShare);
   const visitCaseSummary = buildVisitCaseSummary(appData.visitTimeline, appData.deal.dealershipName);
@@ -1297,6 +1359,11 @@ export default function App() {
               <TouchableOpacity style={styles.menuCard} onPress={() => setScreen('dealReview')} activeOpacity={0.85}>
                 <Text style={styles.menuTitle}>Deal review</Text>
                 <Text style={styles.menuDesc}>Break down vehicle price, fees, APR, add-ons, notes, and local state context.</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.menuCard} onPress={openWhatIfLab} activeOpacity={0.85}>
+                <Text style={styles.menuTitle}>What-if lab</Text>
+                <Text style={styles.menuDesc}>Model a cleaner structure and see how APR, term, fees, add-ons, trade, or down payment change the deal.</Text>
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.menuCard} onPress={() => setScreen('financeDefense')} activeOpacity={0.85}>
@@ -2101,6 +2168,7 @@ export default function App() {
 
               <View style={styles.stackGap}>
                 <AppButton label="Save this offer" onPress={saveCurrentDeal} />
+                <AppButton label="Open what-if lab" variant="secondary" onPress={openWhatIfLab} />
                 <AppButton label="Copy offer summary" variant="secondary" onPress={() => void copyText('Offer summary', currentDealSummary)} />
                 <AppButton label="Share offer summary" variant="secondary" onPress={() => void shareText('Dealer Guard offer review', currentDealSummary)} />
               </View>
@@ -2497,6 +2565,105 @@ export default function App() {
                 </Card>
               ))}
             </View>
+          </>
+        )}
+
+        {screen === 'whatIfLab' && (
+          <>
+            <View style={styles.rowBetween}>
+              <Text style={styles.screenTitle}>What-if lab</Text>
+              <TouchableOpacity onPress={() => setScreen('home')}>
+                <Text style={styles.linkText}>Home</Text>
+              </TouchableOpacity>
+            </View>
+
+            <Card>
+              <View style={styles.rowBetween}>
+                <Text style={styles.menuTitle}>Scenario impact</Text>
+                <StatusBadge
+                  label={
+                    whatIfComparison.totalDifference < 0
+                      ? `${currency(Math.abs(whatIfComparison.totalDifference))} lower`
+                      : whatIfComparison.totalDifference > 0
+                        ? `${currency(whatIfComparison.totalDifference)} higher`
+                        : 'Neutral'
+                  }
+                  tone={whatIfComparison.tone}
+                />
+              </View>
+              <Text style={styles.detailText}>{whatIfComparison.headline}</Text>
+              <Text style={styles.detailText}>{whatIfComparison.detail}</Text>
+              <View style={styles.statsRow}>
+                <View style={styles.statCard}>
+                  <Text style={styles.statLabel}>Current monthly</Text>
+                  <Text style={styles.statValue}>{currency(whatIfComparison.currentMonthlyPayment)}</Text>
+                </View>
+                <View style={styles.statCard}>
+                  <Text style={styles.statLabel}>Scenario monthly</Text>
+                  <Text style={styles.statValue}>{currency(whatIfComparison.scenarioMonthlyPayment)}</Text>
+                </View>
+                <View style={styles.statCard}>
+                  <Text style={styles.statLabel}>Current total</Text>
+                  <Text style={styles.statValue}>{currency(whatIfComparison.currentTotalPaid)}</Text>
+                </View>
+                <View style={styles.statCard}>
+                  <Text style={styles.statLabel}>Scenario total</Text>
+                  <Text style={styles.statValue}>{currency(whatIfComparison.scenarioTotalPaid)}</Text>
+                </View>
+              </View>
+              <View style={styles.scriptBox}>
+                <Text style={styles.detailText}>
+                  <Text style={styles.bold}>Strongest move: </Text>
+                  {whatIfComparison.strongestMove}
+                </Text>
+              </View>
+              <View style={styles.doubleButtons}>
+                <View style={styles.flexOne}>
+                  <AppButton label="Copy scenario" variant="secondary" onPress={() => void copyText('What-if summary', whatIfSummary)} />
+                </View>
+                <View style={styles.flexOne}>
+                  <AppButton label="Share scenario" onPress={() => void shareText('Dealer Guard what-if lab', whatIfSummary)} />
+                </View>
+              </View>
+            </Card>
+
+            <Card>
+              <Text style={styles.menuTitle}>Edit your scenario</Text>
+              <Text style={styles.detailText}>Change the numbers below without overwriting your real deal. Use this screen to test the cleaner structure you want the dealership to match.</Text>
+              <DealInput label="Scenario vehicle price" value={whatIfDeal.vehiclePrice} onChangeText={(text) => updateWhatIfDeal('vehiclePrice', text)} placeholder="25000" />
+              <DealInput label="Scenario fees" value={whatIfDeal.dealerFees} onChangeText={(text) => updateWhatIfDeal('dealerFees', text)} placeholder="995" />
+              <DealInput label="Scenario add-ons" value={whatIfDeal.addOns} onChangeText={(text) => updateWhatIfDeal('addOns', text)} placeholder="0" />
+              <DealInput label="Scenario APR" value={whatIfDeal.apr} onChangeText={(text) => updateWhatIfDeal('apr', text)} placeholder="6.9" />
+              <DealInput label="Scenario term" value={whatIfDeal.months} onChangeText={(text) => updateWhatIfDeal('months', text)} placeholder="60" />
+              <DealInput label="Scenario down payment" value={whatIfDeal.downPayment} onChangeText={(text) => updateWhatIfDeal('downPayment', text)} placeholder="3000" />
+              <DealInput label="Scenario trade-in" value={whatIfDeal.tradeIn} onChangeText={(text) => updateWhatIfDeal('tradeIn', text)} placeholder="4000" />
+              <View style={styles.doubleButtons}>
+                <View style={styles.flexOne}>
+                  <AppButton label="Reset from current deal" variant="secondary" onPress={resetWhatIfDeal} />
+                </View>
+                <View style={styles.flexOne}>
+                  <AppButton label="Apply to deal review" onPress={applyWhatIfDealToReview} />
+                </View>
+              </View>
+            </Card>
+
+            <Card>
+              <Text style={styles.menuTitle}>What changed</Text>
+              <View style={styles.stackGapSmall}>
+                {whatIfComparison.fieldChanges.length > 0 ? (
+                  whatIfComparison.fieldChanges.map((item) => (
+                    <View key={item.label} style={styles.infoBox}>
+                      <Text style={styles.bold}>{item.label}</Text>
+                      <Text style={styles.infoBoxText}>Current: {item.currentValue}</Text>
+                      <Text style={styles.infoBoxText}>Scenario: {item.scenarioValue}</Text>
+                      <Text style={styles.infoBoxText}>{item.impact}</Text>
+                    </View>
+                  ))
+                ) : (
+                  <Text style={styles.detailText}>No fields changed yet. Start by lowering a fee, removing add-ons, improving APR, or testing a shorter term.</Text>
+                )}
+              </View>
+            </Card>
           </>
         )}
 
