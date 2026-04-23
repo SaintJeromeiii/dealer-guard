@@ -22,12 +22,17 @@ import {
   buildNegotiationPlan,
   buildPaperworkAudit,
   buildOfferTimeline,
+  buildOcrRecoverySuggestion,
+  buildOnboardingSummary,
   buildPaperworkAuditSummary,
+  buildPersonalizedInsight,
   buildPressureSummary,
   buildPromiseSummary,
   buildQuickStartGuide,
   buildReferralLoop,
+  buildSavingsProof,
   buildSavingsOpportunity,
+  buildGuidedSessionFlow,
   buildSigningReadiness,
   buildSecondOpinionShare,
   buildNegotiationSimulator,
@@ -244,6 +249,29 @@ test('buildDealInputGuidance turns missing fields into actionable next questions
   assert.equal(completeGuidance.tone, 'good');
 });
 
+test('buildOcrRecoverySuggestion highlights likely OCR cleanup work', () => {
+  const imported = importQuoteText('Price: $25,000\nAPR: 6.9%\nTerm: GO months\nDoc fee $499');
+  const recovery = buildOcrRecoverySuggestion(imported);
+
+  assert.ok(recovery);
+  assert.ok(recovery?.lowConfidenceFields.includes('Term'));
+  assert.ok(recovery?.suggestions.some((item) => item.includes('term')));
+});
+
+test('buildOnboardingSummary reflects the current buyer setup', () => {
+  const summary = buildOnboardingSummary({
+    experienceMode: 'firstTimeBuyer',
+    onboardingComplete: true,
+    buyerStage: 'tradeShopper',
+    financingNeed: 'finance',
+    creditBand: 'good',
+    hasTrade: true,
+  });
+
+  assert.match(summary.headline, /active|ready/i);
+  assert.match(summary.detail, /trade-in focused purchase/i);
+});
+
 test('buildWhatIfComparison shows scenario savings and strongest move', () => {
   const currentDeal = {
     ...createInitialDeal(),
@@ -270,6 +298,51 @@ test('buildWhatIfComparison shows scenario savings and strongest move', () => {
   assert.ok(comparison.fieldChanges.some((item) => item.label === 'APR'));
   assert.ok(comparison.fieldChanges.some((item) => item.label === 'Add-ons'));
   assert.match(comparison.strongestMove, /add-ons|rate/i);
+});
+
+test('buildPersonalizedInsight and buildGuidedSessionFlow turn history into usable guidance', () => {
+  const savedDeal = {
+    ...createInitialDeal(),
+    id: 'deal-1',
+    savedAt: '2026-04-22T12:00:00.000Z',
+    seriesId: 'series-1',
+    revisionNumber: 1,
+    basedOnDealId: null,
+    dealershipName: 'Pattern Auto',
+  };
+  const insight = buildPersonalizedInsight(
+    [savedDeal, { ...savedDeal, id: 'deal-2', revisionNumber: 2 }],
+    [
+      { id: 'incident-1', flag: 'paymentShift', dealershipName: 'Pattern Auto', notedAt: '2026-04-22T12:01:00.000Z' },
+      { id: 'incident-2', flag: 'paymentShift', dealershipName: 'Pattern Auto', notedAt: '2026-04-22T12:02:00.000Z' },
+    ],
+    [
+      { id: 'promise-1', dealershipName: 'Pattern Auto', text: 'We will remove the fee.', status: 'broken', notedAt: '2026-04-22T12:03:00.000Z', resolvedAt: '2026-04-22T12:10:00.000Z' },
+    ],
+    'Pattern Auto'
+  );
+
+  assert.match(insight.headline, /history/i);
+  assert.ok(insight.bullets.some((item) => item.includes('pressure')));
+
+  const flow = buildGuidedSessionFlow(true, { recent: [{ id: 'incident-1', flag: 'paymentShift', dealershipName: 'Pattern Auto', notedAt: '2026-04-22T12:01:00.000Z' }] }, {
+    headline: 'Hold',
+    detail: 'Not ready',
+    tone: 'warn',
+    readyToSign: false,
+    blockers: ['Need contract review'],
+    greenLights: [],
+    checklist: ['Check paperwork'],
+  }, {
+    headline: 'Promise summary',
+    openCount: 1,
+    keptCount: 0,
+    brokenCount: 0,
+    recent: [{ id: 'promise-2', dealershipName: 'Pattern Auto', text: 'Call me back', status: 'open', notedAt: '2026-04-22T12:05:00.000Z', resolvedAt: null }],
+  });
+
+  assert.equal(flow.steps.length, 4);
+  assert.ok(flow.steps.some((item) => item.status === 'active' || item.status === 'done'));
 });
 
 test('live coaching changes meaningfully for multiple pressure tactics', () => {
@@ -432,6 +505,47 @@ test('buildSavingsOpportunity surfaces a concrete savings hook when leverage exi
   assert.match(result.headline, /save about/i);
 });
 
+test('buildSavingsProof combines current upside with scenario protection', () => {
+  const proof = buildSavingsProof(
+    {
+      tier: 'free',
+      upgradedAt: null,
+      usage: {
+        ocrImports: 1,
+        reportsShared: 0,
+        dealsSaved: 2,
+        tacticsLogged: 1,
+        referralShares: 0,
+        whatIfRuns: 3,
+        checkpointPasses: 1,
+      },
+    },
+    {
+      headline: 'Potential savings',
+      detail: 'Use it as leverage',
+      estimatedSavings: 1200,
+      strongestLever: 'Remove add-ons',
+      tone: 'good',
+    },
+    {
+      headline: 'Scenario impact',
+      detail: 'Modeled scenario',
+      tone: 'good',
+      currentMonthlyPayment: 600,
+      scenarioMonthlyPayment: 540,
+      monthlyDifference: -60,
+      currentTotalPaid: 36000,
+      scenarioTotalPaid: 32400,
+      totalDifference: -3600,
+      fieldChanges: [],
+      strongestMove: 'Rework it',
+    }
+  );
+
+  assert.ok(proof.totalProtectedEstimate >= 4800);
+  assert.ok(proof.proofPoints.some((item) => item.includes('what-if')));
+});
+
 test('buildQuickStartGuide gives a low-friction first-use path', () => {
   const guide = buildQuickStartGuide();
 
@@ -471,6 +585,8 @@ test('sanitizeAppData preserves subscription defaults and accepts pro state', ()
         reportsShared: 2,
         dealsSaved: 5,
         tacticsLogged: 4,
+        whatIfRuns: 2,
+        checkpointPasses: 1,
       },
     },
   });
@@ -478,6 +594,7 @@ test('sanitizeAppData preserves subscription defaults and accepts pro state', ()
   assert.equal(upgraded.subscription.tier, 'pro');
   assert.equal(upgraded.subscription.usage.reportsShared, 2);
   assert.equal(upgraded.subscription.usage.referralShares, 0);
+  assert.equal(upgraded.subscription.usage.whatIfRuns, 2);
 });
 
 test('buildDealActionRecommendation chooses counter for negotiable risky deals', () => {

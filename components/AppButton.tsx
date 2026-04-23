@@ -3,6 +3,16 @@ import { StyleSheet, Text, TouchableOpacity } from 'react-native';
 
 type Variant = 'primary' | 'secondary' | 'danger';
 
+const colors = {
+  primary: '#155eef',
+  primaryDark: '#0f4bd6',
+  secondaryBg: '#eef4ff',
+  secondaryBorder: '#bfd3ff',
+  secondaryText: '#123a84',
+  danger: '#b42318',
+  white: '#ffffff',
+};
+
 export default function AppButton({
   label,
   onPress,
@@ -51,31 +61,31 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   primary: {
-    backgroundColor: '#0f172a',
+    backgroundColor: colors.primary,
   },
   secondary: {
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.secondaryBg,
     borderWidth: 1,
-    borderColor: '#cbd5e1',
+    borderColor: colors.secondaryBorder,
   },
   danger: {
-    backgroundColor: '#7f1d1d',
+    backgroundColor: colors.danger,
   },
   disabled: {
     opacity: 0.45,
   },
   primaryText: {
-    color: '#ffffff',
+    color: colors.white,
     fontWeight: '700',
     fontSize: 16,
   },
   secondaryText: {
-    color: '#0f172a',
+    color: colors.secondaryText,
     fontWeight: '700',
     fontSize: 16,
   },
   dangerText: {
-    color: '#ffffff',
+    color: colors.white,
     fontWeight: '700',
     fontSize: 16,
   },

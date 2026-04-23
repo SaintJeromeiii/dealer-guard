@@ -42,6 +42,17 @@ test('sanitizeAppData preserves valid records and falls back for invalid fields'
       addOnItems: [{ id: 'addon-1', label: 'Warranty', amount: '1200' }],
       months: '72',
     },
+    preferences: {
+      experienceMode: 'firstTimeBuyer',
+      onboardingComplete: true,
+      buyerStage: 'firstCar',
+      financingNeed: 'finance',
+      creditBand: 'good',
+      hasTrade: true,
+    },
+    analyticsEvents: [
+      { id: 'event-1', type: 'quote_imported', label: 'Quote imported', createdAt: '2026-04-19T12:10:00.000Z', detail: 'Imported a printed quote.' },
+    ],
   });
 
   assert.deepEqual(sanitized.answers, { budget: 'Under $300' });
@@ -63,6 +74,9 @@ test('sanitizeAppData preserves valid records and falls back for invalid fields'
   assert.equal(sanitized.deal.feeItems.length, 1);
   assert.equal(sanitized.deal.addOnItems.length, 1);
   assert.deepEqual(sanitized.deal.importReviewNotes, []);
+  assert.equal(sanitized.preferences.onboardingComplete, true);
+  assert.equal(sanitized.preferences.buyerStage, 'firstCar');
+  assert.equal(sanitized.analyticsEvents.length, 1);
 });
 
 test('sanitizeSavedDeals only keeps complete saved offers', () => {
@@ -93,4 +107,10 @@ test('createInitialAppData returns the version-safe default shape', () => {
   assert.equal(initial.visitTimeline.length, 0);
   assert.equal(initial.savedDeals.length, 0);
   assert.equal(initial.billing.provider, 'mock');
+  assert.equal(initial.billing.entitlementStatus, 'inactive');
+  assert.equal(initial.subscription.usage.whatIfRuns, 0);
+  assert.equal(initial.subscription.usage.checkpointPasses, 0);
+  assert.equal(initial.preferences.onboardingComplete, false);
+  assert.equal(initial.preferences.buyerStage, 'undecided');
+  assert.equal(initial.analyticsEvents.length, 0);
 });

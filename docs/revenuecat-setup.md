@@ -6,6 +6,7 @@ Replace the local mock paywall with a real subscription entitlement flow.
 ## Current App State
 - The app already contains a billing abstraction in `utils/billing.ts`.
 - If `expo.extra.revenueCatApiKey` is present in `app.json` or environment-backed config, the UI switches to a RevenueCat-ready status message.
+- The app now also exposes placeholder `offeringId`, `packageId`, entitlement status, and customer-info notes in the upgrade hub.
 - Purchase and restore actions are still mocked until the real SDK is installed and wired.
 
 ## Next Production Steps
@@ -18,6 +19,8 @@ Replace the local mock paywall with a real subscription entitlement flow.
 ## Runtime Config
 Set:
 - `expo.extra.revenueCatApiKey`
+- `expo.extra.revenueCatOfferingId`
+- `expo.extra.revenueCatPackageId`
 
 ## Purchase Rules
 - Free users keep core deal review, OCR import, and second-opinion sharing.

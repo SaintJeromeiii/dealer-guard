@@ -14,6 +14,7 @@ import type {
   DealLineItem,
   DealState,
   DealVerdict,
+  GuidedSessionFlow,
   HonestyScore,
   HonestyScorePart,
   ImportFieldReview,
@@ -27,8 +28,10 @@ import type {
   NegotiationPlan,
   NegotiationFlag,
   NegotiationSimulationTurn,
+  OcrRecoverySuggestion,
   PaperworkAudit,
   PaperworkAuditItem,
+  PersonalizedInsight,
   PremiumTier,
   PressureIncident,
   PromiseRecord,
@@ -41,6 +44,7 @@ import type {
   SigningReadiness,
   VisitTimelineEntry,
   SavingsOpportunity,
+  SavingsProof,
   SessionPlaybook,
   SessionPlaybookStep,
   SubscriptionState,
@@ -531,6 +535,48 @@ export function importQuoteText(rawText: string): QuoteImportResult {
   }
 
   return { parsedDeal, reviewNotes, matchedFields, missingFields, fieldReviews, feeItemReviews, addOnItemReviews };
+}
+
+export function buildOcrRecoverySuggestion(result: QuoteImportResult | null): OcrRecoverySuggestion | null {
+  if (!result) return null;
+
+  const lowConfidenceFields = result.fieldReviews.filter((item) => item.confidence === 'medium').map((item) => item.field);
+  const suggestions: string[] = [];
+
+  if (lowConfidenceFields.some((item) => item === 'Term')) {
+    suggestions.push('Double-check the term carefully. OCR often confuses 60, 66, 68, and GO/80-style text.');
+  }
+  if (lowConfidenceFields.some((item) => item === 'Vehicle price' || item === 'Down payment' || item === 'Trade-in')) {
+    suggestions.push('Large money fields should be checked digit by digit before you apply them.');
+  }
+  if (result.missingFields.includes('APR')) {
+    suggestions.push('If APR did not import, ask for the exact written rate instead of relying on payment-only talk.');
+  }
+  if (result.missingFields.includes('Down payment or trade-in')) {
+    suggestions.push('If the quote includes cash down or a trade, add it manually so the payment analysis is not distorted.');
+  }
+  if (!result.feeItemReviews.length) {
+    suggestions.push('If the worksheet lists doc, title, registration, prep, or tax lines, add them manually so the compare and audit screens stay accurate.');
+  }
+
+  if (!lowConfidenceFields.length && !result.missingFields.length && result.feeItemReviews.length > 0) {
+    return {
+      headline: 'OCR captured the important fields cleanly.',
+      detail: 'This import looks relatively clean. A quick manual scan before applying should be enough.',
+      lowConfidenceFields: [],
+      suggestions: ['Confirm the biggest money fields once, then apply the import.'],
+    };
+  }
+
+  return {
+    headline: lowConfidenceFields.length > 0 ? 'OCR found likely fields that should be confirmed' : 'OCR still needs a little manual help',
+    detail:
+      lowConfidenceFields.length > 0
+        ? 'These fields were recovered from OCR-like text, so a quick confirmation step is worth doing before you rely on them.'
+        : 'The import is still useful, but filling the missing fields manually will make the recommendation much more trustworthy.',
+    lowConfidenceFields,
+    suggestions: suggestions.length > 0 ? suggestions : ['Review the extracted fields and compare them against the original quote before applying.'],
+  };
 }
 
 export function buildDealAnalysis(deal: DealState, readinessLabel: ReadinessLabel): DealAnalysis {
@@ -1572,6 +1618,57 @@ export function buildPressureSummary(incidents: PressureIncident[], activeFlags:
   };
 }
 
+export function buildPersonalizedInsight(
+  savedDeals: SavedDeal[],
+  incidents: PressureIncident[],
+  promises: PromiseRecord[],
+  dealershipName: string
+): PersonalizedInsight {
+  const normalizedDealer = dealershipName.trim().toLowerCase();
+  const relatedDeals = normalizedDealer
+    ? savedDeals.filter((deal) => deal.dealershipName.trim().toLowerCase() === normalizedDealer)
+    : savedDeals;
+  const relatedIncidents = normalizedDealer
+    ? incidents.filter((incident) => incident.dealershipName.trim().toLowerCase() === normalizedDealer)
+    : incidents;
+  const relatedPromises = normalizedDealer
+    ? promises.filter((promise) => promise.dealershipName.trim().toLowerCase() === normalizedDealer)
+    : promises;
+
+  const bullets: string[] = [];
+
+  if (relatedDeals.length >= 2) {
+    bullets.push(`You have already saved ${relatedDeals.length} offer revisions for this dealership, so compare what actually changed before trusting a “new” quote.`);
+  }
+  if (relatedIncidents.length >= 2) {
+    bullets.push(`This dealership has logged ${relatedIncidents.length} pressure incidents in your history. Slow the pace down and keep asking for written numbers.`);
+  }
+  if (relatedPromises.some((promise) => promise.status === 'broken')) {
+    bullets.push('At least one prior promise has already been marked broken here. Do not rely on verbal reassurance.');
+  }
+
+  const allIncidentCounts = new Map<NegotiationFlag, number>();
+  incidents.forEach((incident) => {
+    allIncidentCounts.set(incident.flag, (allIncidentCounts.get(incident.flag) ?? 0) + 1);
+  });
+  const topPattern = Array.from(allIncidentCounts.entries()).sort((left, right) => right[1] - left[1])[0] ?? null;
+  if (topPattern && topPattern[1] >= 2) {
+    bullets.push(`Your most common pressure pattern so far is "${topPattern[0]}". Be ready for it early.`);
+  }
+
+  if (!bullets.length) {
+    bullets.push('You do not have much pattern history yet, so focus on capturing this visit cleanly with imports, pressure logs, and the signing checkpoint.');
+  }
+
+  return {
+    headline: normalizedDealer ? 'What your history says about this dealership' : 'What your recent deal history suggests',
+    detail: normalizedDealer
+      ? 'Dealer Guard is starting to build memory across revisions, promises, and pressure tactics so you do not have to rely on instinct alone.'
+      : 'Dealer Guard is starting to learn where your negotiation friction tends to happen.',
+    bullets: bullets.slice(0, 4),
+  };
+}
+
 export function buildPromiseSummary(promises: PromiseRecord[], dealershipName: string): PromiseSummary {
   const normalizedDealer = dealershipName.trim().toLowerCase();
   const filtered = normalizedDealer
@@ -1792,6 +1889,40 @@ export function buildSavingsOpportunity(
   };
 }
 
+export function buildSavingsProof(
+  subscription: SubscriptionState,
+  savingsOpportunity: SavingsOpportunity,
+  whatIfComparison: WhatIfComparison | null
+): SavingsProof {
+  const scenarioProtected = whatIfComparison && whatIfComparison.totalDifference < 0 ? Math.abs(whatIfComparison.totalDifference) : 0;
+  const currentProtected = Math.max(0, savingsOpportunity.estimatedSavings);
+  const totalProtectedEstimate = currentProtected + scenarioProtected;
+
+  return {
+    headline:
+      totalProtectedEstimate > 0
+        ? `Dealer Guard is currently helping protect about ${currency(totalProtectedEstimate)} in visible deal value.`
+        : 'Dealer Guard is helping turn hidden risk into something you can actually inspect before you sign.',
+    detail:
+      totalProtectedEstimate > 0
+        ? 'This is not a guaranteed savings number. It is a simple estimate of the dollars you can now see, question, and negotiate because the structure is clearer.'
+        : 'Even without a giant savings number, the app still creates value by surfacing bad structure, contract changes, and pressure before you commit.',
+    totalProtectedEstimate,
+    proofPoints: [
+      currentProtected > 0
+        ? `Current deal review shows about ${currency(currentProtected)} in visible upside.`
+        : 'The current review is still useful because it can stop bad structure and paperwork drift.',
+      scenarioProtected > 0
+        ? `Your what-if lab is modeling about ${currency(scenarioProtected)} in scenario-based protection.`
+        : 'Try the what-if lab to turn a vague counter into a dollar-backed scenario.',
+      `You have saved ${subscription.usage.dealsSaved} offer${subscription.usage.dealsSaved === 1 ? '' : 's'} and modeled ${subscription.usage.whatIfRuns} what-if scenario${subscription.usage.whatIfRuns === 1 ? '' : 's'} so far.`,
+      subscription.usage.checkpointPasses > 0
+        ? `The signing checkpoint has already helped you clear ${subscription.usage.checkpointPasses} pre-sign review${subscription.usage.checkpointPasses === 1 ? '' : 's'}.`
+        : 'The signing checkpoint is there to stop rushed signing when the contract still needs review.',
+    ],
+  };
+}
+
 export function buildQuickStartGuide(): QuickStartGuide {
   return {
     headline: 'New here? Start with the fastest path to a useful answer.',
@@ -1800,6 +1931,72 @@ export function buildQuickStartGuide(): QuickStartGuide {
       'Review the verdict, savings opportunity, and biggest warning before looking at the deeper screens.',
       'Share the second-opinion message with someone you trust before signing anything.',
     ],
+  };
+}
+
+export function buildOnboardingSummary(preferences: {
+  experienceMode: 'standard' | 'firstTimeBuyer';
+  onboardingComplete: boolean;
+  buyerStage: 'firstCar' | 'replacingCar' | 'tradeShopper' | 'undecided';
+  financingNeed: 'finance' | 'cash' | 'undecided';
+  creditBand: 'unknown' | 'building' | 'fair' | 'good' | 'excellent';
+  hasTrade: boolean;
+}) {
+  const buyerStageLabel =
+    preferences.buyerStage === 'firstCar'
+      ? 'first car'
+      : preferences.buyerStage === 'replacingCar'
+        ? 'replacement purchase'
+        : preferences.buyerStage === 'tradeShopper'
+          ? 'trade-in focused purchase'
+          : 'general deal review';
+  const financingLabel =
+    preferences.financingNeed === 'finance' ? 'financing-focused' : preferences.financingNeed === 'cash' ? 'cash-buyer' : 'still deciding about financing';
+  const creditLabel =
+    preferences.creditBand === 'unknown'
+      ? 'unknown credit profile'
+      : `${preferences.creditBand} credit profile`;
+
+  return {
+    headline: preferences.onboardingComplete ? 'Your guided setup is active.' : 'Finish this 30-second setup for sharper guidance.',
+    detail: `Dealer Guard is currently tuned for a ${buyerStageLabel}, ${financingLabel}, ${creditLabel}${preferences.hasTrade ? ', and a trade-in' : ''}.`,
+  };
+}
+
+export function buildGuidedSessionFlow(
+  hasImportedQuote: boolean,
+  pressureSummary: { recent: PressureIncident[] },
+  signingReadiness: SigningReadiness,
+  promiseSummary: PromiseSummary
+): GuidedSessionFlow {
+  const steps: GuidedSessionFlow['steps'] = [
+    {
+      title: 'Capture the quote',
+      detail: 'Import or enter the written numbers first so everything else is grounded in the actual deal.',
+      status: hasImportedQuote ? 'done' : 'active',
+    },
+    {
+      title: 'Log pressure live',
+      detail: 'Mark tactics when they happen so the coaching and history stay specific to this visit.',
+      status: pressureSummary.recent.length > 0 ? 'done' : hasImportedQuote ? 'active' : 'todo',
+    },
+    {
+      title: 'Save promises',
+      detail: 'Anything they say they will remove, change, or fix should be written down here before you trust it.',
+      status: promiseSummary.recent.length > 0 ? 'done' : pressureSummary.recent.length > 0 ? 'active' : 'todo',
+    },
+    {
+      title: 'Run the signing checkpoint',
+      detail: 'Before signing, compare the contract against the reviewed offer and clear every blocker on paper.',
+      status: signingReadiness.readyToSign ? 'done' : signingReadiness.blockers.length > 0 ? 'active' : 'todo',
+    },
+  ];
+  const currentStep = steps.find((step) => step.status === 'active') ?? steps.find((step) => step.status === 'todo') ?? steps[steps.length - 1];
+
+  return {
+    headline: 'Use this live order when you are physically at the dealership.',
+    currentStepLabel: currentStep?.title ?? 'Run the signing checkpoint',
+    steps,
   };
 }
 

@@ -18,10 +18,14 @@ export type Tone = 'good' | 'warn' | 'bad';
 export type PremiumTier = 'free' | 'pro';
 export type ExperienceMode = 'standard' | 'firstTimeBuyer';
 export type BillingProvider = 'mock' | 'revenuecat';
+export type BillingEntitlementStatus = 'inactive' | 'trial' | 'active';
 export type ReadinessLabel = 'Strong' | 'Almost Ready' | 'Not Ready';
 export type DealVerdict = 'Fair Deal' | 'Review Carefully' | 'Bad Deal' | 'Walk Away';
 export type NegotiationFlag = 'paymentShift' | 'todayOnly' | 'managerTrip' | 'bundleAddOn' | 'wontPrint' | 'tradeMix';
 export type PromiseStatus = 'open' | 'kept' | 'broken';
+export type BuyerStage = 'firstCar' | 'replacingCar' | 'tradeShopper' | 'undecided';
+export type FinancingNeed = 'finance' | 'cash' | 'undecided';
+export type CreditBand = 'unknown' | 'building' | 'fair' | 'good' | 'excellent';
 export type PressureIncident = {
   id: string;
   flag: NegotiationFlag;
@@ -449,6 +453,8 @@ export type SubscriptionUsage = {
   dealsSaved: number;
   tacticsLogged: number;
   referralShares: number;
+  whatIfRuns: number;
+  checkpointPasses: number;
 };
 
 export type SubscriptionState = {
@@ -462,6 +468,10 @@ export type BillingState = {
   isConfigured: boolean;
   offeringsLoaded: boolean;
   packageLabel: string;
+  entitlementStatus: BillingEntitlementStatus;
+  offeringId: string | null;
+  packageId: string | null;
+  customerInfoNote: string | null;
   lastSyncAt: string | null;
 };
 
@@ -511,6 +521,51 @@ export type ReferralLoop = {
 
 export type AppPreferences = {
   experienceMode: ExperienceMode;
+  onboardingComplete: boolean;
+  buyerStage: BuyerStage;
+  financingNeed: FinancingNeed;
+  creditBand: CreditBand;
+  hasTrade: boolean;
+};
+
+export type AnalyticsEvent = {
+  id: string;
+  type: string;
+  label: string;
+  createdAt: string;
+  detail: string;
+};
+
+export type OcrRecoverySuggestion = {
+  headline: string;
+  detail: string;
+  lowConfidenceFields: string[];
+  suggestions: string[];
+};
+
+export type PersonalizedInsight = {
+  headline: string;
+  detail: string;
+  bullets: string[];
+};
+
+export type SavingsProof = {
+  headline: string;
+  detail: string;
+  totalProtectedEstimate: number;
+  proofPoints: string[];
+};
+
+export type GuidedSessionStep = {
+  title: string;
+  detail: string;
+  status: 'todo' | 'active' | 'done';
+};
+
+export type GuidedSessionFlow = {
+  headline: string;
+  currentStepLabel: string;
+  steps: GuidedSessionStep[];
 };
 
 export type DealerGuardAppData = {
@@ -526,4 +581,5 @@ export type DealerGuardAppData = {
   subscription: SubscriptionState;
   billing: BillingState;
   preferences: AppPreferences;
+  analyticsEvents: AnalyticsEvent[];
 };

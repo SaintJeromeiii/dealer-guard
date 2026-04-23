@@ -1,6 +1,13 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity } from 'react-native';
 
+const colors = {
+  activeBg: '#e8f0ff',
+  activeBorder: '#bfd3ff',
+  activeText: '#123a84',
+  text: '#526581',
+};
+
 export default function MainTabButton({
   label,
   active,
@@ -24,18 +31,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minHeight: 40,
     borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
   active: {
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.activeBg,
+    borderColor: colors.activeBorder,
   },
   text: {
     fontSize: 12,
-    color: '#475569',
+    color: colors.text,
     fontWeight: '700',
   },
   activeText: {
     fontSize: 12,
-    color: '#0f172a',
+    color: colors.activeText,
     fontWeight: '800',
   },
 });

@@ -1,6 +1,6 @@
-import type { BillingState, DealLineItem, DealState, DealerGuardAppData, NegotiationFlag, PressureIncident, PromiseRecord, SavedDeal, SubscriptionState, VisitTimelineEntry } from './types.ts';
+import type { AnalyticsEvent, BillingState, DealLineItem, DealState, DealerGuardAppData, NegotiationFlag, PressureIncident, PromiseRecord, SavedDeal, SubscriptionState, VisitTimelineEntry } from './types.ts';
 
-export const STORAGE_VERSION = 8;
+export const STORAGE_VERSION = 9;
 export const STORAGE_KEY = 'dealerGuard_state';
 
 export const LEGACY_STORAGE_KEYS = {
@@ -96,7 +96,13 @@ export function createInitialAppData(): DealerGuardAppData {
     billing: createInitialBillingState(),
     preferences: {
       experienceMode: 'standard',
+      onboardingComplete: false,
+      buyerStage: 'undecided',
+      financingNeed: 'undecided',
+      creditBand: 'unknown',
+      hasTrade: false,
     },
+    analyticsEvents: [],
   };
 }
 
@@ -110,6 +116,8 @@ function createInitialSubscription(): SubscriptionState {
       dealsSaved: 0,
       tacticsLogged: 0,
       referralShares: 0,
+      whatIfRuns: 0,
+      checkpointPasses: 0,
     },
   };
 }
@@ -120,8 +128,30 @@ function createInitialBillingState(): BillingState {
     isConfigured: false,
     offeringsLoaded: false,
     packageLabel: 'Dealer Guard Pro',
+    entitlementStatus: 'inactive',
+    offeringId: null,
+    packageId: null,
+    customerInfoNote: null,
     lastSyncAt: null,
   };
+}
+
+function sanitizeAnalyticsEvents(value: unknown): AnalyticsEvent[] {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .map((item) => {
+      if (!item || typeof item !== 'object' || Array.isArray(item)) return null;
+      return {
+        id: safeString((item as AnalyticsEvent).id),
+        type: safeString((item as AnalyticsEvent).type),
+        label: safeString((item as AnalyticsEvent).label),
+        createdAt: safeString((item as AnalyticsEvent).createdAt),
+        detail: safeString((item as AnalyticsEvent).detail),
+      };
+    })
+    .filter((item): item is AnalyticsEvent => !!item && !!item.id && !!item.type && !!item.label && !!item.createdAt)
+    .slice(0, 120);
 }
 
 function sanitizePressureIncidents(value: unknown): PressureIncident[] {
@@ -275,6 +305,8 @@ export function sanitizeAppData(value: unknown): DealerGuardAppData {
         dealsSaved: Math.max(0, Number(usageRaw && typeof usageRaw === 'object' ? (usageRaw as SubscriptionState['usage']).dealsSaved || 0 : 0)),
         tacticsLogged: Math.max(0, Number(usageRaw && typeof usageRaw === 'object' ? (usageRaw as SubscriptionState['usage']).tacticsLogged || 0 : 0)),
         referralShares: Math.max(0, Number(usageRaw && typeof usageRaw === 'object' ? (usageRaw as SubscriptionState['usage']).referralShares || 0 : 0)),
+        whatIfRuns: Math.max(0, Number(usageRaw && typeof usageRaw === 'object' ? (usageRaw as SubscriptionState['usage']).whatIfRuns || 0 : 0)),
+        checkpointPasses: Math.max(0, Number(usageRaw && typeof usageRaw === 'object' ? (usageRaw as SubscriptionState['usage']).checkpointPasses || 0 : 0)),
       },
     },
     billing: {
@@ -282,10 +314,35 @@ export function sanitizeAppData(value: unknown): DealerGuardAppData {
       isConfigured: !!billingRaw?.isConfigured,
       offeringsLoaded: !!billingRaw?.offeringsLoaded,
       packageLabel: safeString(billingRaw?.packageLabel, 'Dealer Guard Pro'),
+      entitlementStatus: billingRaw?.entitlementStatus === 'active' ? 'active' : billingRaw?.entitlementStatus === 'trial' ? 'trial' : 'inactive',
+      offeringId: safeString(billingRaw?.offeringId) || null,
+      packageId: safeString(billingRaw?.packageId) || null,
+      customerInfoNote: safeString(billingRaw?.customerInfoNote) || null,
       lastSyncAt: safeString(billingRaw?.lastSyncAt) || null,
     },
     preferences: {
       experienceMode: (raw as DealerGuardAppData).preferences?.experienceMode === 'firstTimeBuyer' ? 'firstTimeBuyer' : 'standard',
+      onboardingComplete: !!(raw as DealerGuardAppData).preferences?.onboardingComplete,
+      buyerStage:
+        (raw as DealerGuardAppData).preferences?.buyerStage === 'firstCar' ||
+        (raw as DealerGuardAppData).preferences?.buyerStage === 'replacingCar' ||
+        (raw as DealerGuardAppData).preferences?.buyerStage === 'tradeShopper'
+          ? (raw as DealerGuardAppData).preferences.buyerStage
+          : 'undecided',
+      financingNeed:
+        (raw as DealerGuardAppData).preferences?.financingNeed === 'finance' ||
+        (raw as DealerGuardAppData).preferences?.financingNeed === 'cash'
+          ? (raw as DealerGuardAppData).preferences.financingNeed
+          : 'undecided',
+      creditBand:
+        (raw as DealerGuardAppData).preferences?.creditBand === 'building' ||
+        (raw as DealerGuardAppData).preferences?.creditBand === 'fair' ||
+        (raw as DealerGuardAppData).preferences?.creditBand === 'good' ||
+        (raw as DealerGuardAppData).preferences?.creditBand === 'excellent'
+          ? (raw as DealerGuardAppData).preferences.creditBand
+          : 'unknown',
+      hasTrade: !!(raw as DealerGuardAppData).preferences?.hasTrade,
     },
+    analyticsEvents: sanitizeAnalyticsEvents((raw as DealerGuardAppData).analyticsEvents),
   };
 }

@@ -33,7 +33,7 @@ import {
 import { questions } from '@/data/questions';
 import { quickScripts } from '@/data/scripts';
 import { trapCards } from '@/data/traps';
-import { createInitialAppData } from '@/utils/app-state';
+import { createInitialAppData, sanitizeAppData } from '@/utils/app-state';
 import {
   buildComparisonInsights,
   buildComparisonSummary,
@@ -55,14 +55,19 @@ import {
   buildNegotiationPlan,
   buildNegotiationPlanSummary,
   buildNegotiationSimulator,
+  buildOcrRecoverySuggestion,
+  buildOnboardingSummary,
   buildOfferTimeline,
   buildPaperworkAudit,
   buildPaperworkAuditSummary,
+  buildPersonalizedInsight,
   buildPressureSummary,
   buildPromiseSummary,
   buildQuickStartGuide,
   buildReferralLoop,
+  buildSavingsProof,
   buildSavingsOpportunity,
+  buildGuidedSessionFlow,
   buildSigningReadiness,
   buildSecondOpinionShare,
   buildSessionPlaybook,
@@ -80,7 +85,7 @@ import {
 } from '@/utils/deals';
 import { initializeBilling, purchaseProEntitlement, restoreProEntitlement } from '@/utils/billing';
 import { loadAppData, resetStoredAppData, saveAppData } from '@/utils/storage';
-import type { DealLineItem, DealState, ExperienceMode, MainTab, NegotiationFlag, PremiumTier, PromiseRecord, QuoteImportResult, SavedDeal, Screen, SelectedComparePair, Tone, VisitTimelineEntry, VisitTimelineEventType } from '@/utils/types';
+import type { AnalyticsEvent, DealLineItem, DealState, ExperienceMode, MainTab, NegotiationFlag, PremiumTier, PromiseRecord, QuoteImportResult, SavedDeal, Screen, SelectedComparePair, Tone, VisitTimelineEntry, VisitTimelineEventType } from '@/utils/types';
 
 function makeId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -114,6 +119,16 @@ function createTimelineEntry(type: VisitTimelineEventType, dealershipName: strin
     dealershipName: dealershipName.trim() || 'Unnamed dealership',
     type,
     title,
+    detail,
+    createdAt: new Date().toISOString(),
+  };
+}
+
+function createAnalyticsEvent(type: string, label: string, detail: string): AnalyticsEvent {
+  return {
+    id: makeId(),
+    type,
+    label,
     detail,
     createdAt: new Date().toISOString(),
   };
@@ -261,6 +276,7 @@ export default function App() {
   const [editableContractFields, setEditableContractFields] = useState<Record<string, string>>({});
   const [loadedDealId, setLoadedDealId] = useState<string | null>(null);
   const [whatIfDeal, setWhatIfDeal] = useState<DealState>(createInitialAppData().deal);
+  const [backupDraft, setBackupDraft] = useState('');
   const [promiseDraft, setPromiseDraft] = useState('');
   const [billingBusy, setBillingBusy] = useState(false);
   const [showProActivatedBanner, setShowProActivatedBanner] = useState(false);
@@ -358,6 +374,17 @@ export default function App() {
     () => buildSigningReadiness(appData.deal, paperworkAudit, appData.promises, appData.pressureIncidents, appData.deal.dealershipName),
     [appData.deal, appData.pressureIncidents, appData.promises, paperworkAudit]
   );
+  const onboardingSummary = useMemo(() => buildOnboardingSummary(appData.preferences), [appData.preferences]);
+  const ocrRecovery = useMemo(() => buildOcrRecoverySuggestion(pendingImport), [pendingImport]);
+  const contractOcrRecovery = useMemo(() => buildOcrRecoverySuggestion(pendingContractImport), [pendingContractImport]);
+  const personalizedInsight = useMemo(
+    () => buildPersonalizedInsight(appData.savedDeals, appData.pressureIncidents, appData.promises, appData.deal.dealershipName),
+    [appData.deal.dealershipName, appData.pressureIncidents, appData.promises, appData.savedDeals]
+  );
+  const guidedSessionFlow = useMemo(
+    () => buildGuidedSessionFlow(!!appData.deal.importedQuoteText.trim() || !!appData.deal.importedPhotoUri, pressureSummary, signingReadiness, promiseSummary),
+    [appData.deal.importedPhotoUri, appData.deal.importedQuoteText, pressureSummary, promiseSummary, signingReadiness]
+  );
   const sessionPlaybook = useMemo(
     () =>
       buildSessionPlaybook(
@@ -387,6 +414,10 @@ export default function App() {
   const savingsOpportunity = useMemo(
     () => buildSavingsOpportunity(dealAnalysis, negotiationPlan, actionRecommendation),
     [actionRecommendation, dealAnalysis, negotiationPlan]
+  );
+  const savingsProof = useMemo(
+    () => buildSavingsProof(appData.subscription, savingsOpportunity, whatIfComparison),
+    [appData.subscription, savingsOpportunity, whatIfComparison]
   );
   const quickStartGuide = useMemo(() => buildQuickStartGuide(), []);
   const activeSeriesId = useMemo(() => {
@@ -467,6 +498,7 @@ export default function App() {
     setEditableFeeItems(result.feeItemReviews.map((item) => ({ id: item.id, label: item.label, amount: item.amount })));
     setEditableAddOnItems(result.addOnItemReviews.map((item) => ({ id: item.id, label: item.label, amount: item.amount })));
     appendTimelineEntry('quoteImported', 'Imported quote for review', `Matched ${result.matchedFields.length} field(s) from ${sourceLabel}.`);
+    trackEvent('quote_imported', 'Quote imported', `Matched ${result.matchedFields.length} field(s) from ${sourceLabel}.`);
 
     if (!result.matchedFields.length) {
       Alert.alert('Import review', result.reviewNotes.join('\n'));
@@ -535,6 +567,7 @@ export default function App() {
     }));
     incrementUsage('ocrImports');
     appendTimelineEntry('quoteImported', 'Applied reviewed quote fields', 'Imported quote values were reviewed and applied to the active deal.');
+    trackEvent('ocr_applied', 'OCR fields applied', 'Reviewed OCR values were applied to the active deal.');
     setPendingImport(null);
     setEditableImportFields({});
     setEditableFeeItems([]);
@@ -568,6 +601,7 @@ export default function App() {
     setPendingContractImport(null);
     setEditableContractFields({});
     appendTimelineEntry('paperworkChecked', 'Contract OCR applied', 'Imported contract values were applied to the paperwork audit.');
+    trackEvent('contract_ocr_applied', 'Contract OCR applied', 'Imported contract values were applied to the paperwork audit.');
     Alert.alert('Contract fields applied', 'The imported contract values are now loaded into the paperwork audit.');
   }
 
@@ -591,6 +625,13 @@ export default function App() {
     }));
   }
 
+  function trackEvent(type: string, label: string, detail: string) {
+    setAppData((prev) => ({
+      ...prev,
+      analyticsEvents: [createAnalyticsEvent(type, label, detail), ...prev.analyticsEvents].slice(0, 120),
+    }));
+  }
+
   function setPremiumTier(tier: PremiumTier) {
     setAppData((prev) => ({
       ...prev,
@@ -599,11 +640,16 @@ export default function App() {
         tier,
         upgradedAt: tier === 'pro' ? prev.subscription.upgradedAt ?? new Date().toISOString() : null,
       },
+      billing: {
+        ...prev.billing,
+        entitlementStatus: tier === 'pro' ? 'active' : 'inactive',
+      },
     }));
   }
 
   function enableLocalPreview() {
     setPremiumTier('pro');
+    trackEvent('pro_preview', 'Local Pro preview enabled', 'Unlocked the local Pro preview path on this device.');
     setMainTab('dealReview');
     setScreen('dealReview');
     setShowProActivatedBanner(true);
@@ -620,12 +666,23 @@ export default function App() {
     }));
   }
 
+  function updatePreference<K extends keyof typeof appData.preferences>(key: K, value: (typeof appData.preferences)[K]) {
+    setAppData((prev) => ({
+      ...prev,
+      preferences: {
+        ...prev.preferences,
+        [key]: value,
+      },
+    }));
+  }
+
   async function startPaywallPurchase() {
     setBillingBusy(true);
 
     try {
       const result = await purchaseProEntitlement();
       setPremiumTier(result.tier);
+      trackEvent('purchase_started', 'Dealer Guard Pro purchase', result.note);
       Alert.alert('Dealer Guard Pro', result.note);
     } finally {
       setBillingBusy(false);
@@ -638,6 +695,7 @@ export default function App() {
     try {
       const result = await restoreProEntitlement(appData.subscription.tier);
       setPremiumTier(result.tier);
+      trackEvent('purchase_restored', 'Restore purchase', result.note);
       Alert.alert('Restore purchase', result.note);
     } finally {
       setBillingBusy(false);
@@ -876,6 +934,8 @@ export default function App() {
 
   function openWhatIfLab() {
     setWhatIfDeal(cloneDealState(appData.deal));
+    incrementUsage('whatIfRuns');
+    trackEvent('what_if_opened', 'What-if lab opened', 'Opened the what-if lab to model a cleaner scenario.');
     setScreen('whatIfLab');
   }
 
@@ -896,8 +956,39 @@ export default function App() {
       deal: cloneDealState(whatIfDeal),
     }));
     appendTimelineEntry('offerSaved', 'What-if scenario applied', 'Applied the current what-if lab scenario back into Deal review.');
+    trackEvent('what_if_applied', 'Scenario applied to deal review', 'Applied a modeled scenario back into the active deal review.');
     Alert.alert('Scenario applied', 'The what-if scenario is now loaded into Deal review.');
     setScreen('dealReview');
+  }
+
+  function completeSigningCheckpoint() {
+    incrementUsage('checkpointPasses');
+    trackEvent('checkpoint_completed', 'Signing checkpoint completed', 'Marked the signing checkpoint as clean for this review.');
+    Alert.alert('Checkpoint logged', 'This clean pre-sign review was added to your local product signals.');
+  }
+
+  function exportLocalBackup() {
+    const backup = JSON.stringify(appData, null, 2);
+    void copyText('Dealer Guard backup', backup);
+    trackEvent('backup_exported', 'Local backup exported', 'Copied a full local backup of the current app state.');
+  }
+
+  function importLocalBackup() {
+    if (!backupDraft.trim()) {
+      Alert.alert('Paste a backup first', 'Paste the exported Dealer Guard backup JSON before trying to import it.');
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(backupDraft);
+      const sanitized = sanitizeAppData(parsed);
+      setAppData(sanitized);
+      setBackupDraft('');
+      trackEvent('backup_imported', 'Local backup imported', 'Imported a local backup into the current app state.');
+      Alert.alert('Backup imported', 'The local backup was imported into this device.');
+    } catch (error) {
+      Alert.alert('Import failed', `That backup could not be imported: ${error instanceof Error ? error.message : 'Invalid JSON'}`);
+    }
   }
 
   function startQuestionFlow() {
@@ -1060,6 +1151,7 @@ export default function App() {
     }));
     incrementUsage('dealsSaved');
     appendTimelineEntry('offerSaved', 'Offer saved to timeline', `Saved revision ${revisionNumber} for ${newDeal.dealershipName}.`, newDeal.dealershipName);
+    trackEvent('deal_saved', 'Offer saved', `Saved revision ${revisionNumber} for ${newDeal.dealershipName}.`);
     setLoadedDealId(newDeal.id);
 
     Alert.alert(
@@ -1163,6 +1255,9 @@ export default function App() {
     `Strongest move: ${whatIfComparison.strongestMove}`,
   ].join('\n');
   const secondOpinionShare = buildSecondOpinionShare(appData.deal, dealAnalysis, actionRecommendation, negotiationPlan);
+  const spouseShare = `${secondOpinionShare}\n\nI want your opinion before I sign anything. Can you look at this like a co-buyer with me?`;
+  const advisorShare = `${secondOpinionShare}\n\nCan you review this like an outside advisor and tell me what looks off before I commit?`;
+  const contractReviewShare = `${secondOpinionShare}\n\nI am close to signing. Can you sanity-check the contract terms with me before I finalize this?`;
   const referralLoop = buildReferralLoop(appData.deal, dealAnalysis, actionRecommendation, secondOpinionShare);
   const visitCaseSummary = buildVisitCaseSummary(appData.visitTimeline, appData.deal.dealershipName);
   const buyerReport = buildBuyerReport(
@@ -1261,6 +1356,11 @@ export default function App() {
             <Card>
               <Text style={styles.menuTitle}>Start here</Text>
               <Text style={styles.detailText}>This version is tuned to get a useful answer quickly, even if the buyer only has a screenshot or a rushed quote in front of them.</Text>
+              <View style={styles.stackGap}>
+                <AppButton label="I have a quote to check" onPress={startQuickQuoteCheck} />
+                <AppButton label="I am at the dealership now" variant="secondary" onPress={() => setScreen('liveMode')} />
+                <AppButton label="I am about to sign" variant="secondary" onPress={() => setScreen('dealReview')} />
+              </View>
               <View style={styles.onboardingGrid}>
                 <View style={styles.onboardingStepCard}>
                   <Text style={styles.onboardingStepNumber}>1</Text>
@@ -1276,6 +1376,77 @@ export default function App() {
                   <Text style={styles.onboardingStepNumber}>3</Text>
                   <Text style={styles.bold}>Share before signing</Text>
                   <Text style={styles.infoBoxText}>Use the second-opinion share so another person can sanity-check the deal with you.</Text>
+                </View>
+              </View>
+            </Card>
+
+            <Card>
+              <View style={styles.rowBetween}>
+                <Text style={styles.menuTitle}>Guided buyer setup</Text>
+                <StatusBadge label={appData.preferences.onboardingComplete ? 'Ready' : 'Incomplete'} tone={appData.preferences.onboardingComplete ? 'good' : 'warn'} />
+              </View>
+              <Text style={styles.detailText}>{onboardingSummary.headline}</Text>
+              <Text style={styles.detailText}>{onboardingSummary.detail}</Text>
+              <Text style={styles.subheading}>Buyer stage</Text>
+              <View style={styles.comparePickWrap}>
+                {[
+                  ['firstCar', 'First car'],
+                  ['replacingCar', 'Replacing'],
+                  ['tradeShopper', 'With trade'],
+                  ['undecided', 'Undecided'],
+                ].map(([value, label]) => {
+                  const active = appData.preferences.buyerStage === value;
+                  return (
+                    <TouchableOpacity key={value} activeOpacity={0.85} onPress={() => updatePreference('buyerStage', value as typeof appData.preferences.buyerStage)} style={[styles.comparePickButton, active && styles.comparePickButtonActive]}>
+                      <Text style={active ? styles.comparePickButtonTextActive : styles.comparePickButtonText}>{label}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+              <Text style={styles.subheading}>Financing plan</Text>
+              <View style={styles.comparePickWrap}>
+                {[
+                  ['finance', 'Financing'],
+                  ['cash', 'Cash'],
+                  ['undecided', 'Not sure'],
+                ].map(([value, label]) => {
+                  const active = appData.preferences.financingNeed === value;
+                  return (
+                    <TouchableOpacity key={value} activeOpacity={0.85} onPress={() => updatePreference('financingNeed', value as typeof appData.preferences.financingNeed)} style={[styles.comparePickButton, active && styles.comparePickButtonActive]}>
+                      <Text style={active ? styles.comparePickButtonTextActive : styles.comparePickButtonText}>{label}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+              <Text style={styles.subheading}>Credit profile</Text>
+              <View style={styles.comparePickWrap}>
+                {[
+                  ['unknown', 'Unknown'],
+                  ['building', 'Building'],
+                  ['fair', 'Fair'],
+                  ['good', 'Good'],
+                  ['excellent', 'Excellent'],
+                ].map(([value, label]) => {
+                  const active = appData.preferences.creditBand === value;
+                  return (
+                    <TouchableOpacity key={value} activeOpacity={0.85} onPress={() => updatePreference('creditBand', value as typeof appData.preferences.creditBand)} style={[styles.comparePickButton, active && styles.comparePickButtonActive]}>
+                      <Text style={active ? styles.comparePickButtonTextActive : styles.comparePickButtonText}>{label}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+              <View style={styles.doubleButtons}>
+                <View style={styles.flexOne}>
+                  <AppButton label={appData.preferences.hasTrade ? 'Trade-in: Yes' : 'Trade-in: No'} variant="secondary" onPress={() => updatePreference('hasTrade', !appData.preferences.hasTrade)} />
+                </View>
+                <View style={styles.flexOne}>
+                  <AppButton
+                    label={appData.preferences.onboardingComplete ? 'Update setup' : 'Finish setup'}
+                    onPress={() => {
+                      updatePreference('onboardingComplete', true);
+                      trackEvent('onboarding_completed', 'Guided setup completed', 'Completed the guided buyer setup on the home screen.');
+                    }}
+                  />
                 </View>
               </View>
             </Card>
@@ -1609,6 +1780,25 @@ export default function App() {
             </Card>
 
             <Card>
+              <View style={styles.rowBetween}>
+                <Text style={styles.menuTitle}>Live dealership flow</Text>
+                <StatusBadge label={guidedSessionFlow.currentStepLabel} tone="warn" />
+              </View>
+              <Text style={styles.detailText}>{guidedSessionFlow.headline}</Text>
+              <View style={styles.stackGapSmall}>
+                {guidedSessionFlow.steps.map((step) => (
+                  <View key={step.title} style={styles.infoBox}>
+                    <View style={styles.rowBetween}>
+                      <Text style={styles.bold}>{step.title}</Text>
+                      <StatusBadge label={step.status === 'done' ? 'Done' : step.status === 'active' ? 'Now' : 'Later'} tone={step.status === 'done' ? 'good' : step.status === 'active' ? 'warn' : 'bad'} />
+                    </View>
+                    <Text style={styles.infoBoxText}>{step.detail}</Text>
+                  </View>
+                ))}
+              </View>
+            </Card>
+
+            <Card>
               <Text style={styles.menuTitle}>Live coaching</Text>
               <Text style={styles.detailText}>{liveCoachingPlan.headline}</Text>
               <View style={styles.scriptBox}>
@@ -1894,6 +2084,33 @@ export default function App() {
               </Card>
             )}
 
+            {ocrRecovery ? (
+              <Card>
+                <Text style={styles.menuTitle}>OCR recovery help</Text>
+                <Text style={styles.detailText}>{ocrRecovery.headline}</Text>
+                <Text style={styles.detailText}>{ocrRecovery.detail}</Text>
+                {ocrRecovery.lowConfidenceFields.length > 0 ? (
+                  <>
+                    <Text style={styles.subheading}>Low-confidence fields</Text>
+                    <View style={styles.stackGapSmall}>
+                      {ocrRecovery.lowConfidenceFields.map((item) => (
+                        <Text key={item} style={styles.detailText}>
+                          • {item}
+                        </Text>
+                      ))}
+                    </View>
+                  </>
+                ) : null}
+                <View style={styles.stackGapSmall}>
+                  {ocrRecovery.suggestions.map((item) => (
+                    <Text key={item} style={styles.detailText}>
+                      • {item}
+                    </Text>
+                  ))}
+                </View>
+              </Card>
+            ) : null}
+
             <Card>
               <Text style={styles.menuTitle}>Offer details</Text>
               <DealInput label="Dealership name" value={appData.deal.dealershipName} onChangeText={(text) => updateDeal('dealershipName', text)} placeholder="Example Auto Group" numeric={false} />
@@ -2048,6 +2265,21 @@ export default function App() {
               </Card>
             ) : null}
 
+            {contractOcrRecovery ? (
+              <Card>
+                <Text style={styles.menuTitle}>Contract OCR recovery help</Text>
+                <Text style={styles.detailText}>{contractOcrRecovery.headline}</Text>
+                <Text style={styles.detailText}>{contractOcrRecovery.detail}</Text>
+                <View style={styles.stackGapSmall}>
+                  {contractOcrRecovery.suggestions.map((item) => (
+                    <Text key={item} style={styles.detailText}>
+                      • {item}
+                    </Text>
+                  ))}
+                </View>
+              </Card>
+            ) : null}
+
             <Card>
               <Text style={styles.menuTitle}>Final paperwork audit</Text>
               <Text style={styles.detailText}>Before signing, enter the numbers from the buyer&apos;s order or finance contract here. Dealer Guard will compare them against the reviewed offer and flag late changes.</Text>
@@ -2139,6 +2371,7 @@ export default function App() {
                   </Text>
                 ))}
               </View>
+              {signingReadiness.readyToSign ? <AppButton label="Count clean checkpoint" variant="secondary" onPress={completeSigningCheckpoint} /> : null}
             </Card>
 
             <Card>
@@ -2156,6 +2389,22 @@ export default function App() {
                   <Text style={styles.bold}>Move to try next: </Text>
                   {savingsOpportunity.strongestLever}
                 </Text>
+              </View>
+            </Card>
+
+            <Card>
+              <View style={styles.rowBetween}>
+                <Text style={styles.menuTitle}>Savings proved</Text>
+                <StatusBadge label={savingsProof.totalProtectedEstimate > 0 ? currency(savingsProof.totalProtectedEstimate) : 'Trust layer'} tone={savingsProof.totalProtectedEstimate > 0 ? 'good' : 'warn'} />
+              </View>
+              <Text style={styles.detailText}>{savingsProof.headline}</Text>
+              <Text style={styles.detailText}>{savingsProof.detail}</Text>
+              <View style={styles.stackGapSmall}>
+                {savingsProof.proofPoints.map((item) => (
+                  <Text key={item} style={styles.detailText}>
+                    • {item}
+                  </Text>
+                ))}
               </View>
             </Card>
 
@@ -2273,6 +2522,9 @@ export default function App() {
                     void shareText('Help me review this deal', secondOpinionShare);
                   }}
                 />
+                <AppButton label="Copy spouse/co-buyer version" variant="secondary" onPress={() => void copyText('Spouse review text', spouseShare)} />
+                <AppButton label="Copy advisor version" variant="secondary" onPress={() => void copyText('Advisor review text', advisorShare)} />
+                <AppButton label="Copy contract review version" variant="secondary" onPress={() => void copyText('Contract review text', contractReviewShare)} />
               </View>
             </Card>
 
@@ -2361,6 +2613,19 @@ export default function App() {
               ) : (
                 <Text style={styles.detailText}>You already have enough written structure for a stronger review. Now focus on negotiating the weak spots or checking the final contract.</Text>
               )}
+            </Card>
+
+            <Card>
+              <Text style={styles.menuTitle}>Negotiation memory</Text>
+              <Text style={styles.detailText}>{personalizedInsight.headline}</Text>
+              <Text style={styles.detailText}>{personalizedInsight.detail}</Text>
+              <View style={styles.stackGapSmall}>
+                {personalizedInsight.bullets.map((item) => (
+                  <Text key={item} style={styles.detailText}>
+                    • {item}
+                  </Text>
+                ))}
+              </View>
             </Card>
 
             {marketBenchmarkAssessment && (
@@ -3145,6 +3410,10 @@ export default function App() {
               <Text style={styles.detailText}>
                 Billing provider: {appData.billing.provider === 'revenuecat' ? 'RevenueCat-ready configuration detected' : 'Local mock paywall active'}.
               </Text>
+              <Text style={styles.detailText}>Entitlement status: {appData.billing.entitlementStatus}.</Text>
+              {appData.billing.offeringId ? <Text style={styles.detailText}>Offering: {appData.billing.offeringId}</Text> : null}
+              {appData.billing.packageId ? <Text style={styles.detailText}>Package: {appData.billing.packageId}</Text> : null}
+              {appData.billing.customerInfoNote ? <Text style={styles.detailText}>{appData.billing.customerInfoNote}</Text> : null}
               <Text style={styles.detailText}>
                 Offerings synced: {appData.billing.offeringsLoaded ? 'Yes' : 'No'}{appData.billing.lastSyncAt ? ` • Last sync ${new Date(appData.billing.lastSyncAt).toLocaleString()}` : ''}
               </Text>
@@ -3200,6 +3469,32 @@ export default function App() {
                   <Text style={styles.statLabel}>Referral shares</Text>
                   <Text style={styles.statValue}>{appData.subscription.usage.referralShares}</Text>
                 </View>
+                <View style={styles.statCard}>
+                  <Text style={styles.statLabel}>What-if runs</Text>
+                  <Text style={styles.statValue}>{appData.subscription.usage.whatIfRuns}</Text>
+                </View>
+                <View style={styles.statCard}>
+                  <Text style={styles.statLabel}>Checkpoint passes</Text>
+                  <Text style={styles.statValue}>{appData.subscription.usage.checkpointPasses}</Text>
+                </View>
+              </View>
+            </Card>
+
+            <Card>
+              <Text style={styles.menuTitle}>Recent product signals</Text>
+              <Text style={styles.detailText}>These local analytics events help show which moments are actually becoming product value and future conversion hooks.</Text>
+              <View style={styles.stackGapSmall}>
+                {appData.analyticsEvents.length > 0 ? (
+                  appData.analyticsEvents.slice(0, 8).map((event) => (
+                    <View key={event.id} style={styles.infoBox}>
+                      <Text style={styles.bold}>{event.label}</Text>
+                      <Text style={styles.infoBoxText}>{event.detail}</Text>
+                      <Text style={styles.infoBoxText}>{new Date(event.createdAt).toLocaleString()}</Text>
+                    </View>
+                  ))
+                ) : (
+                  <Text style={styles.detailText}>No product signals captured yet. Imports, saves, what-if runs, clean checkpoints, and Pro flows will start showing up here.</Text>
+                )}
               </View>
             </Card>
           </>
@@ -3236,6 +3531,23 @@ export default function App() {
                   appendTimelineEntry('noteAdded', 'Visit note saved', text);
                 }}
               />
+            </Card>
+            <Card>
+              <Text style={styles.menuTitle}>Backup and move your data</Text>
+              <Text style={styles.detailText}>Until full account sync exists, you can copy a local backup from one device and paste it into another Dealer Guard install.</Text>
+              <View style={styles.stackGap}>
+                <AppButton label="Copy local backup" variant="secondary" onPress={exportLocalBackup} />
+              </View>
+              <TextInput
+                style={styles.notesInput}
+                value={backupDraft}
+                onChangeText={setBackupDraft}
+                placeholder="Paste a Dealer Guard backup JSON here to import it on this device."
+                placeholderTextColor="#94a3b8"
+                multiline
+                textAlignVertical="top"
+              />
+              <AppButton label="Import local backup" onPress={importLocalBackup} />
             </Card>
             <Card>
               <Text style={styles.menuTitle}>Dealership visit timeline</Text>
@@ -3332,10 +3644,30 @@ export default function App() {
   );
 }
 
+const theme = {
+  bg: '#f4f8ff',
+  surface: '#ffffff',
+  surfaceMuted: '#f7faff',
+  border: '#d7e3f7',
+  text: '#10233f',
+  textMuted: '#526581',
+  textSoft: '#6b7f99',
+  primary: '#155eef',
+  primarySoft: '#e8f0ff',
+  primaryText: '#123a84',
+  successSoft: '#dcfae6',
+  successText: '#166534',
+  warnSoft: '#fff1cc',
+  warnText: '#9a6700',
+  dangerSoft: '#ffe2df',
+  dangerText: '#b42318',
+  shadow: '#0b1f44',
+};
+
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: theme.bg,
   },
   loadingWrap: {
     flex: 1,
@@ -3356,33 +3688,33 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   headerSubtitle: {
-    color: '#475569',
+    color: theme.textMuted,
     fontSize: 15,
     lineHeight: 22,
   },
   eyebrow: {
     fontSize: 11,
     letterSpacing: 2,
-    color: '#64748b',
+    color: theme.textSoft,
     fontWeight: '700',
     marginBottom: 4,
   },
   headerTitle: {
     fontSize: 28,
     fontWeight: '800',
-    color: '#0f172a',
+    color: theme.text,
     marginBottom: 4,
   },
   resetPill: {
-    backgroundColor: '#ffffff',
+    backgroundColor: theme.surface,
     borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: theme.border,
   },
   resetPillText: {
-    color: '#334155',
+    color: theme.textMuted,
     fontWeight: '600',
   },
   tabBar: {
@@ -3396,26 +3728,26 @@ const styles = StyleSheet.create({
     fontSize: 26,
     lineHeight: 32,
     fontWeight: '800',
-    color: '#0f172a',
+    color: theme.text,
   },
   heroText: {
-    color: '#475569',
+    color: theme.textMuted,
     fontSize: 15,
     lineHeight: 22,
   },
   heroWarningBox: {
-    backgroundColor: '#eff6ff',
+    backgroundColor: theme.primarySoft,
     borderRadius: 20,
     padding: 16,
     gap: 8,
   },
   heroWarningTitle: {
-    color: '#0f172a',
+    color: theme.text,
     fontWeight: '800',
     fontSize: 15,
   },
   heroWarningText: {
-    color: '#1e3a8a',
+    color: theme.primaryText,
     fontSize: 14,
   },
   proofRow: {
@@ -3426,21 +3758,21 @@ const styles = StyleSheet.create({
   proofPill: {
     flexGrow: 1,
     minWidth: 96,
-    backgroundColor: '#ffffff',
+    backgroundColor: theme.surface,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#dbeafe',
+    borderColor: theme.border,
     paddingHorizontal: 12,
     paddingVertical: 10,
     gap: 2,
   },
   proofPillValue: {
-    color: '#0f172a',
+    color: theme.text,
     fontWeight: '800',
     fontSize: 13,
   },
   proofPillLabel: {
-    color: '#475569',
+    color: theme.textMuted,
     fontSize: 12,
     lineHeight: 16,
   },
@@ -3451,11 +3783,13 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   menuCard: {
-    backgroundColor: '#ffffff',
+    backgroundColor: theme.surface,
     borderRadius: 24,
     padding: 18,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
+    borderWidth: 1,
+    borderColor: theme.border,
+    shadowColor: theme.shadow,
+    shadowOpacity: 0.06,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 4 },
     elevation: 2,
@@ -3464,7 +3798,7 @@ const styles = StyleSheet.create({
   menuTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#0f172a',
+    color: theme.text,
   },
   menuTitleActive: {
     fontSize: 18,
@@ -3472,7 +3806,7 @@ const styles = StyleSheet.create({
     color: '#ffffff',
   },
   menuDesc: {
-    color: '#475569',
+    color: theme.textMuted,
     fontSize: 15,
     lineHeight: 22,
   },
@@ -3481,14 +3815,14 @@ const styles = StyleSheet.create({
   },
   onboardingStepCard: {
     borderRadius: 18,
-    backgroundColor: '#f8fafc',
+    backgroundColor: theme.surfaceMuted,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: theme.border,
     padding: 14,
     gap: 6,
   },
   onboardingStepNumber: {
-    color: '#2563eb',
+    color: theme.primary,
     fontWeight: '800',
     fontSize: 22,
     lineHeight: 24,
@@ -3502,24 +3836,24 @@ const styles = StyleSheet.create({
   screenTitle: {
     fontSize: 24,
     fontWeight: '800',
-    color: '#0f172a',
+    color: theme.text,
   },
   linkText: {
-    color: '#2563eb',
+    color: theme.primary,
     fontWeight: '700',
   },
   sectionLabel: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#64748b',
+    color: theme.textSoft,
   },
   questionTitle: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#0f172a',
+    color: theme.text,
   },
   questionSubtitle: {
-    color: '#475569',
+    color: theme.textMuted,
     fontSize: 15,
     lineHeight: 22,
   },
@@ -3757,6 +4091,11 @@ const styles = StyleSheet.create({
   comparePickName: {
     fontWeight: '700',
     color: '#0f172a',
+  },
+  comparePickWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
   },
   comparePickButton: {
     borderRadius: 14,
