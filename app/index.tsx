@@ -807,7 +807,7 @@ export default function App() {
       console.log(error);
       Alert.alert(
         'PDF export unavailable',
-        'PDF export needs a development build that includes Expo Print. You can keep testing the rest of the app now, then rebuild the Android development build when you are ready to test PDF export on your phone.'
+        'PDF export needs a development build that includes Expo Print. The rest of the app should still work, and you can use copy or share in the meantime until you rebuild your Android development build.'
       );
     }
   }
@@ -957,7 +957,7 @@ export default function App() {
       await Clipboard.setStringAsync(text);
       Alert.alert('Copied', `${label} copied to your clipboard.`);
     } catch {
-      Alert.alert('Copy failed', `Could not copy ${label.toLowerCase()} right now.`);
+      Alert.alert('Copy failed', `Could not copy ${label.toLowerCase()} right now. You can still read it on screen and share it manually.`);
     }
   }
 
@@ -965,7 +965,7 @@ export default function App() {
     try {
       await Share.share({ title, message });
     } catch {
-      Alert.alert('Share failed', 'Could not open the share sheet right now.');
+      Alert.alert('Share failed', 'Could not open the share sheet right now. Try the copy button instead.');
     }
   }
 
@@ -1204,6 +1204,13 @@ export default function App() {
                   <Text style={styles.infoBoxText}>Use the second-opinion share so another person can sanity-check the deal with you.</Text>
                 </View>
               </View>
+            </Card>
+
+            <Card>
+              <Text style={styles.menuTitle}>Important note</Text>
+              <Text style={styles.detailText}>
+                Dealer Guard is a buyer-protection tool that helps you review numbers, pressure tactics, and paperwork. It is not legal, tax, credit, or financial advice, so use it as a second set of eyes before you decide what to sign.
+              </Text>
             </Card>
 
             <Card>
@@ -1948,6 +1955,7 @@ export default function App() {
             <Card>
               <Text style={styles.menuTitle}>Final paperwork audit</Text>
               <Text style={styles.detailText}>Before signing, enter the numbers from the buyer&apos;s order or finance contract here. Dealer Guard will compare them against the reviewed offer and flag late changes.</Text>
+              <Text style={styles.detailText}>If OCR misses something, the manual fields below are still the source of truth for the audit.</Text>
               <DealInput label="Contract vehicle price" value={appData.deal.contractVehiclePrice} onChangeText={(text) => updateDeal('contractVehiclePrice', text)} placeholder="25000" />
               <DealInput label="Contract fees" value={appData.deal.contractFees} onChangeText={(text) => updateDeal('contractFees', text)} placeholder="995" />
               <DealInput label="Contract add-ons" value={appData.deal.contractAddOns} onChangeText={(text) => updateDeal('contractAddOns', text)} placeholder="0" />
@@ -2535,7 +2543,10 @@ export default function App() {
 
             {appData.savedDeals.length === 0 ? (
               <Card>
-                <Text style={styles.heroText}>No saved deals yet. Save an offer from the Deal review screen to compare it here.</Text>
+                <Text style={styles.heroText}>No saved deals yet. Start in Deal review, enter or import one quote, then save it here so you can compare dealerships side by side.</Text>
+                <View style={styles.stackGap}>
+                  <AppButton label="Go to Deal review" onPress={() => setScreen('dealReview')} />
+                </View>
               </Card>
             ) : (
               <>
@@ -2966,7 +2977,7 @@ export default function App() {
                     </View>
                   ))
                 ) : (
-                  <Text style={styles.detailText}>No visit timeline entries yet. Import a quote, save an offer, log pressure, or save a note to start the case file.</Text>
+                  <Text style={styles.detailText}>No visit timeline entries yet. Your first entries usually appear automatically after you import a quote, save an offer, log pressure, or save a note.</Text>
                 )}
               </View>
             </Card>
@@ -3016,7 +3027,7 @@ export default function App() {
                     </View>
                   ))
                 ) : (
-                  <Text style={styles.detailText}>No promises logged yet.</Text>
+                  <Text style={styles.detailText}>No promises logged yet. Save anything the dealership says it will fix, remove, discount, or send later so you can track whether it actually happens.</Text>
                 )}
               </View>
             </Card>
@@ -3033,7 +3044,7 @@ export default function App() {
                     </View>
                   ))
                 ) : (
-                  <Text style={styles.detailText}>No pressure incidents saved yet.</Text>
+                  <Text style={styles.detailText}>No pressure incidents saved yet. Log them in Live dealership mode and this history will start building automatically.</Text>
                 )}
               </View>
             </Card>
