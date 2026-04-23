@@ -8,6 +8,7 @@ import type {
   DealActionRecommendation,
   DealAnalysisBreakdownItem,
   DealConfidence,
+  DealInputGuidance,
   DealerReputationReport,
   DealerScorecard,
   DealLineItem,
@@ -659,6 +660,66 @@ export function buildDealConfidence(deal: DealState): DealConfidence {
     presentFields,
     missingFields,
     detail,
+  };
+}
+
+export function buildDealInputGuidance(deal: DealState, confidence: DealConfidence): DealInputGuidance {
+  const prompts: Record<string, { question: string; reason: string }> = {
+    'Vehicle price': {
+      question: 'What is the written vehicle selling price before fees and add-ons?',
+      reason: 'This keeps the store from hiding markup inside the out-the-door total.',
+    },
+    Fees: {
+      question: 'Can you show every dealer fee line by line on paper?',
+      reason: 'Fee detail is where padded or duplicated charges often show up.',
+    },
+    'Add-ons': {
+      question: 'Which products are optional add-ons, and what does each one cost?',
+      reason: 'This helps separate the car price from extras you may not want.',
+    },
+    APR: {
+      question: 'What APR are you using on this offer, in writing?',
+      reason: 'A payment can look manageable while the rate quietly drives up total cost.',
+    },
+    Term: {
+      question: 'How many months is this loan written for?',
+      reason: 'Longer terms can hide a weak deal by lowering the monthly payment.',
+    },
+    'Down payment or trade-in': {
+      question: 'What down payment or trade value are you assuming in these numbers?',
+      reason: 'Cash down and trade value can change the payment without improving the deal itself.',
+    },
+    'Dealership name': {
+      question: 'Which dealership and location is this quote from?',
+      reason: 'Saving the store name makes comparison, timeline history, and follow-up much easier.',
+    },
+  };
+
+  const questions = confidence.missingFields.map((label) => ({
+    label,
+    question: prompts[label]?.question ?? `Can you confirm the written ${label.toLowerCase()} for this offer?`,
+    reason: prompts[label]?.reason ?? 'This missing field could still change the recommendation.',
+  }));
+
+  if (questions.length === 0) {
+    return {
+      headline: 'You have the core deal numbers.',
+      detail: deal.dealershipName.trim()
+        ? 'This quote has enough structure for a stronger review. Focus on negotiating or checking the final contract against the saved offer.'
+        : 'This quote has enough structure for a stronger review. Adding the dealership name will make your saved history and comparisons easier to read later.',
+      tone: 'good',
+      questions: [],
+    };
+  }
+
+  return {
+    headline: questions.length >= 3 ? 'Ask for these missing numbers next' : 'A few key fields are still missing',
+    detail:
+      questions.length >= 3
+        ? 'The recommendation is still useful, but these missing written numbers could change the outcome. Ask for them before you rely on the deal.'
+        : 'You are close to a solid review. Filling these last gaps should make the recommendation more trustworthy.',
+    tone: questions.length >= 3 ? 'bad' : 'warn',
+    questions,
   };
 }
 

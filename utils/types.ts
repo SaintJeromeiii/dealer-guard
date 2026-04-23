@@ -169,6 +169,19 @@ export type DealConfidence = {
   detail: string;
 };
 
+export type DealInputQuestion = {
+  label: string;
+  question: string;
+  reason: string;
+};
+
+export type DealInputGuidance = {
+  headline: string;
+  detail: string;
+  tone: Tone;
+  questions: DealInputQuestion[];
+};
+
 export type PromiseSummary = {
   headline: string;
   openCount: number;

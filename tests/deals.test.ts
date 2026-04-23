@@ -8,6 +8,7 @@ import {
   buildBuyerReport,
   buildCurrentDealSummary,
   buildDealConfidence,
+  buildDealInputGuidance,
   buildDealerScorecards,
   buildDealerReputationReports,
   buildDealActionRecommendation,
@@ -210,6 +211,34 @@ test('summary builders include decision context', () => {
     'Offer Two'
   );
   assert.match(visitCaseSummary, /visit case file/i);
+});
+
+test('buildDealInputGuidance turns missing fields into actionable next questions', () => {
+  const partialDeal = {
+    ...createInitialDeal(),
+    dealershipName: 'Question Mark Auto',
+    vehiclePrice: '24500',
+    apr: '6.9',
+  };
+
+  const confidence = buildDealConfidence(partialDeal);
+  const guidance = buildDealInputGuidance(partialDeal, confidence);
+
+  assert.equal(guidance.tone, 'bad');
+  assert.ok(guidance.questions.some((item) => item.label === 'Fees'));
+  assert.ok(guidance.questions.some((item) => item.question.includes('line by line')));
+  assert.ok(guidance.questions.some((item) => item.label === 'Down payment or trade-in'));
+
+  const completeConfidence = buildDealConfidence({
+    ...partialDeal,
+    dealerFees: '499',
+    addOns: '0',
+    months: '60',
+    downPayment: '3000',
+  });
+  const completeGuidance = buildDealInputGuidance(partialDeal, completeConfidence);
+  assert.equal(completeGuidance.questions.length, 0);
+  assert.equal(completeGuidance.tone, 'good');
 });
 
 test('live coaching changes meaningfully for multiple pressure tactics', () => {

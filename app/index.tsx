@@ -42,6 +42,7 @@ import {
   buildCurrentDealSummary,
   buildDealAnalysis,
   buildDealConfidence,
+  buildDealInputGuidance,
   buildDealerScorecards,
   buildDealerReputationReports,
   buildDealActionRecommendation,
@@ -1088,6 +1089,7 @@ export default function App() {
   const currentDealSummary = buildCurrentDealSummary(appData.deal, dealAnalysis);
   const negotiationPlanSummary = buildNegotiationPlanSummary(appData.deal, dealAnalysis, negotiationPlan);
   const paperworkAuditSummary = paperworkAudit ? buildPaperworkAuditSummary(appData.deal, paperworkAudit) : '';
+  const dealInputGuidance = buildDealInputGuidance(appData.deal, dealConfidence);
   const secondOpinionShare = buildSecondOpinionShare(appData.deal, dealAnalysis, actionRecommendation, negotiationPlan);
   const referralLoop = buildReferralLoop(appData.deal, dealAnalysis, actionRecommendation, secondOpinionShare);
   const visitCaseSummary = buildVisitCaseSummary(appData.visitTimeline, appData.deal.dealershipName);
@@ -2183,6 +2185,46 @@ export default function App() {
                   </View>
                 </>
               ) : null}
+            </Card>
+
+            <Card>
+              <View style={styles.rowBetween}>
+                <Text style={styles.menuTitle}>Ask for these next</Text>
+                <StatusBadge label={dealInputGuidance.questions.length === 0 ? 'Covered' : `${dealInputGuidance.questions.length} left`} tone={dealInputGuidance.tone} />
+              </View>
+              <Text style={styles.detailText}>{dealInputGuidance.headline}</Text>
+              <Text style={styles.detailText}>{dealInputGuidance.detail}</Text>
+              {dealInputGuidance.questions.length > 0 ? (
+                <>
+                  <View style={styles.stackGapSmall}>
+                    {dealInputGuidance.questions.map((item) => (
+                      <View key={item.label} style={styles.infoBox}>
+                        <Text style={styles.bold}>{item.label}</Text>
+                        <Text style={styles.infoBoxText}>{item.question}</Text>
+                        <Text style={styles.infoBoxText}>{item.reason}</Text>
+                      </View>
+                    ))}
+                  </View>
+                  <View style={styles.stackGap}>
+                    <AppButton
+                      label="Copy next questions"
+                      variant="secondary"
+                      onPress={() =>
+                        void copyText(
+                          'Next questions',
+                          [
+                            'Questions to ask the dealership next:',
+                            '',
+                            ...dealInputGuidance.questions.map((item) => `- ${item.question}`),
+                          ].join('\n')
+                        )
+                      }
+                    />
+                  </View>
+                </>
+              ) : (
+                <Text style={styles.detailText}>You already have enough written structure for a stronger review. Now focus on negotiating the weak spots or checking the final contract.</Text>
+              )}
             </Card>
 
             {marketBenchmarkAssessment && (
