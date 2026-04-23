@@ -348,6 +348,16 @@ export type PaperworkAudit = {
   items: PaperworkAuditItem[];
 };
 
+export type SigningReadiness = {
+  headline: string;
+  detail: string;
+  tone: Tone;
+  readyToSign: boolean;
+  blockers: string[];
+  greenLights: string[];
+  checklist: string[];
+};
+
 export type MarketBenchmarkAssessment = {
   headline: string;
   tone: Tone;

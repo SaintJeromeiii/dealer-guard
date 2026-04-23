@@ -38,6 +38,7 @@ import type {
   ReferralLoop,
   SavedDeal,
   SalesTacticItem,
+  SigningReadiness,
   VisitTimelineEntry,
   SavingsOpportunity,
   SessionPlaybook,
@@ -1934,6 +1935,97 @@ export function buildPaperworkAuditSummary(deal: DealState, audit: PaperworkAudi
     '',
     ...audit.items.map((item) => `${item.label}: reviewed ${item.expectedValue} vs contract ${item.contractValue}. ${item.detail}`),
   ].join('\n');
+}
+
+export function buildSigningReadiness(
+  deal: DealState,
+  paperworkAudit: PaperworkAudit | null,
+  promises: PromiseRecord[],
+  pressureIncidents: PressureIncident[],
+  dealershipName: string
+): SigningReadiness {
+  const normalizedDealer = dealershipName.trim().toLowerCase();
+  const relatedPromises = normalizedDealer
+    ? promises.filter((promise) => promise.dealershipName.trim().toLowerCase() === normalizedDealer)
+    : promises;
+  const relatedPressure = normalizedDealer
+    ? pressureIncidents.filter((incident) => incident.dealershipName.trim().toLowerCase() === normalizedDealer)
+    : pressureIncidents;
+
+  const openPromises = relatedPromises.filter((promise) => promise.status === 'open');
+  const brokenPromises = relatedPromises.filter((promise) => promise.status === 'broken');
+  const badAuditItems = paperworkAudit?.items.filter((item) => item.tone === 'bad') ?? [];
+  const missingContractFields = [
+    !deal.contractVehiclePrice.trim() ? 'Contract vehicle price' : null,
+    !deal.contractApr.trim() ? 'Contract APR' : null,
+    !deal.contractMonths.trim() ? 'Contract term' : null,
+  ].filter((item): item is string => !!item);
+
+  const blockers: string[] = [];
+  const greenLights: string[] = [];
+  const checklist: string[] = [];
+
+  if (badAuditItems.length > 0) {
+    blockers.push(`The contract still has ${badAuditItems.length} mismatch${badAuditItems.length === 1 ? '' : 'es'} against the reviewed offer.`);
+  }
+  if (openPromises.length > 0) {
+    blockers.push(`${openPromises.length} dealership promise${openPromises.length === 1 ? '' : 's'} is still unresolved.`);
+  }
+  if (brokenPromises.length > 0) {
+    blockers.push(`${brokenPromises.length} promise${brokenPromises.length === 1 ? '' : 's'} has already been marked broken for this dealership.`);
+  }
+  if (relatedPressure.length >= 3) {
+    blockers.push('Multiple pressure incidents were logged during this session.');
+  }
+  if (missingContractFields.length > 0) {
+    blockers.push(`You are still missing key contract fields: ${missingContractFields.join(', ')}.`);
+  }
+
+  if (paperworkAudit?.readyToSign) {
+    greenLights.push('The entered contract numbers currently match the reviewed offer.');
+  }
+  if (openPromises.length === 0 && relatedPromises.length > 0) {
+    greenLights.push('There are no unresolved dealership promises hanging over this deal.');
+  }
+  if (relatedPressure.length === 0) {
+    greenLights.push('No pressure incidents were logged for this dealership session.');
+  }
+  if (missingContractFields.length === 0) {
+    greenLights.push('The core contract fields are filled in for a real pre-sign review.');
+  }
+
+  checklist.push('Match vehicle price, fees, add-ons, APR, term, cash down, and trade line against the contract.');
+  checklist.push('Do not rely on verbal promises. Anything important should be fixed on paper before signing.');
+  checklist.push('If the dealership resists printing, revising, or explaining the contract, pause the deal.');
+  if (openPromises.length > 0) {
+    checklist.push('Resolve the open promises first or stop treating them as part of the deal.');
+  }
+  if (relatedPressure.length > 0) {
+    checklist.push('Slow the pace down and use the written numbers, not the monthly payment pitch, to decide.');
+  }
+
+  const readyToSign = blockers.length === 0 && !!paperworkAudit?.readyToSign;
+  const tone: Tone = readyToSign ? 'good' : badAuditItems.length > 0 || brokenPromises.length > 0 ? 'bad' : 'warn';
+  const headline = readyToSign
+    ? 'This looks signable if the final contract stays exactly like this.'
+    : blockers.length > 0
+      ? 'Not ready to sign yet.'
+      : 'Close, but still verify a few things before signing.';
+  const detail = readyToSign
+    ? 'The contract check is clean, the major fields are present, and there are no obvious unresolved issues blocking the deal.'
+    : blockers.length > 0
+      ? 'One or more pre-sign blockers are still active. Clear them on paper before you make a final decision.'
+      : 'The deal is approaching signable, but the safest move is still to double-check the final written contract.';
+
+  return {
+    headline,
+    detail,
+    tone,
+    readyToSign,
+    blockers,
+    greenLights,
+    checklist: Array.from(new Set(checklist)),
+  };
 }
 
 export function buildComparisonSummary(firstDeal: SavedDeal, secondDeal: SavedDeal, firstAnalysis: DealAnalysis, secondAnalysis: DealAnalysis) {

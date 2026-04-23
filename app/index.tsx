@@ -63,6 +63,7 @@ import {
   buildQuickStartGuide,
   buildReferralLoop,
   buildSavingsOpportunity,
+  buildSigningReadiness,
   buildSecondOpinionShare,
   buildSessionPlaybook,
   buildTradeInAssessment,
@@ -352,6 +353,10 @@ export default function App() {
   const whatIfComparison = useMemo(
     () => buildWhatIfComparison(appData.deal, whatIfDeal, readinessLabel),
     [appData.deal, whatIfDeal, readinessLabel]
+  );
+  const signingReadiness = useMemo(
+    () => buildSigningReadiness(appData.deal, paperworkAudit, appData.promises, appData.pressureIncidents, appData.deal.dealershipName),
+    [appData.deal, appData.pressureIncidents, appData.promises, paperworkAudit]
   );
   const sessionPlaybook = useMemo(
     () =>
@@ -2093,6 +2098,47 @@ export default function App() {
               ) : (
                 <Text style={styles.detailText}>Enter any contract numbers above to start the audit.</Text>
               )}
+            </Card>
+
+            <Card>
+              <View style={styles.rowBetween}>
+                <Text style={styles.menuTitle}>Signing checkpoint</Text>
+                <StatusBadge label={signingReadiness.readyToSign ? 'Ready to sign' : 'Hold'} tone={signingReadiness.tone} />
+              </View>
+              <Text style={styles.detailText}>{signingReadiness.headline}</Text>
+              <Text style={styles.detailText}>{signingReadiness.detail}</Text>
+              {signingReadiness.blockers.length > 0 ? (
+                <>
+                  <Text style={styles.subheading}>Blockers</Text>
+                  <View style={styles.stackGapSmall}>
+                    {signingReadiness.blockers.map((item) => (
+                      <Text key={item} style={styles.warningText}>
+                        • {item}
+                      </Text>
+                    ))}
+                  </View>
+                </>
+              ) : null}
+              {signingReadiness.greenLights.length > 0 ? (
+                <>
+                  <Text style={styles.subheading}>Green lights</Text>
+                  <View style={styles.stackGapSmall}>
+                    {signingReadiness.greenLights.map((item) => (
+                      <Text key={item} style={styles.detailText}>
+                        • {item}
+                      </Text>
+                    ))}
+                  </View>
+                </>
+              ) : null}
+              <Text style={styles.subheading}>Before signing</Text>
+              <View style={styles.stackGapSmall}>
+                {signingReadiness.checklist.map((item) => (
+                  <Text key={item} style={styles.detailText}>
+                    • {item}
+                  </Text>
+                ))}
+              </View>
             </Card>
 
             <Card>

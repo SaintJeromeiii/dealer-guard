@@ -28,6 +28,7 @@ import {
   buildQuickStartGuide,
   buildReferralLoop,
   buildSavingsOpportunity,
+  buildSigningReadiness,
   buildSecondOpinionShare,
   buildNegotiationSimulator,
   buildVisitCaseSummary,
@@ -704,6 +705,70 @@ test('buildPaperworkAudit catches late contract changes', () => {
   assert.ok(audit?.items.some((item) => item.label === 'Fees' && item.tone === 'bad'));
   assert.ok(audit?.items.some((item) => item.label === 'APR' && item.tone === 'bad'));
   assert.ok(buildPaperworkAuditSummary(deal, audit!).includes('paperwork audit'));
+});
+
+test('buildSigningReadiness blocks signing when contract or promises are unresolved', () => {
+  const deal = {
+    ...createInitialDeal(),
+    dealershipName: 'Checkpoint Auto',
+    vehiclePrice: '25000',
+    dealerFees: '995',
+    addOns: '0',
+    apr: '6.9',
+    months: '60',
+    contractVehiclePrice: '25500',
+    contractFees: '995',
+    contractAddOns: '0',
+    contractApr: '6.9',
+    contractMonths: '60',
+  };
+
+  const audit = buildPaperworkAudit(deal);
+  const readiness = buildSigningReadiness(
+    deal,
+    audit,
+    [
+      {
+        id: 'promise-1',
+        dealershipName: 'Checkpoint Auto',
+        text: 'We will remove the prep fee.',
+        status: 'open',
+        notedAt: '2026-04-22T12:00:00.000Z',
+        resolvedAt: null,
+      },
+    ],
+    [{ id: 'incident-1', flag: 'todayOnly', dealershipName: 'Checkpoint Auto', notedAt: '2026-04-22T12:01:00.000Z' }],
+    'Checkpoint Auto'
+  );
+
+  assert.equal(readiness.readyToSign, false);
+  assert.equal(readiness.tone, 'bad');
+  assert.ok(readiness.blockers.some((item) => item.includes('mismatch')));
+  assert.ok(readiness.blockers.some((item) => item.includes('unresolved')));
+});
+
+test('buildSigningReadiness turns positive when contract matches and blockers are clear', () => {
+  const deal = {
+    ...createInitialDeal(),
+    dealershipName: 'Clean Close Auto',
+    vehiclePrice: '25000',
+    dealerFees: '995',
+    addOns: '0',
+    apr: '6.9',
+    months: '60',
+    contractVehiclePrice: '25000',
+    contractFees: '995',
+    contractAddOns: '0',
+    contractApr: '6.9',
+    contractMonths: '60',
+  };
+
+  const audit = buildPaperworkAudit(deal);
+  const readiness = buildSigningReadiness(deal, audit, [], [], 'Clean Close Auto');
+
+  assert.equal(readiness.readyToSign, true);
+  assert.equal(readiness.tone, 'good');
+  assert.ok(readiness.greenLights.some((item) => item.includes('match')));
 });
 
 test('buildMarketBenchmarkAssessment flags overpriced deals against research targets', () => {
