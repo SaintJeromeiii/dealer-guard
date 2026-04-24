@@ -145,7 +145,7 @@ function PremiumPreviewCard({
 }) {
   return (
     <Card>
-      <StatusBadge label="Dealer Guard Pro" tone="warn" />
+      <StatusBadge label="DealShield Pro" tone="warn" />
       <Text style={styles.menuTitle}>{title}</Text>
       <Text style={styles.detailText}>{detail}</Text>
       <AppButton label="Open Pro preview" onPress={onPress} />
@@ -653,7 +653,7 @@ export default function App() {
     setMainTab('dealReview');
     setScreen('dealReview');
     setShowProActivatedBanner(true);
-    Alert.alert('Dealer Guard Pro preview', 'Pro preview is now active on this device. Pro-only tools are unlocked locally for testing.');
+    Alert.alert('DealShield Pro preview', 'Pro preview is now active on this device. Pro-only tools are unlocked locally for testing.');
   }
 
   function setExperienceMode(mode: ExperienceMode) {
@@ -682,8 +682,8 @@ export default function App() {
     try {
       const result = await purchaseProEntitlement();
       setPremiumTier(result.tier);
-      trackEvent('purchase_started', 'Dealer Guard Pro purchase', result.note);
-      Alert.alert('Dealer Guard Pro', result.note);
+      trackEvent('purchase_started', 'DealShield Pro purchase', result.note);
+      Alert.alert('DealShield Pro', result.note);
     } finally {
       setBillingBusy(false);
     }
@@ -873,7 +873,7 @@ export default function App() {
       const html = `
         <html>
           <body style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; padding: 24px;">
-            <h1>Dealer Guard Buyer Case File</h1>
+            <h1>DealShield Buyer Case File</h1>
             <pre style="white-space: pre-wrap; font-size: 13px;">${buyerReport.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</pre>
             <hr />
             <pre style="white-space: pre-wrap; font-size: 12px;">${visitCaseSummary.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</pre>
@@ -969,13 +969,13 @@ export default function App() {
 
   function exportLocalBackup() {
     const backup = JSON.stringify(appData, null, 2);
-    void copyText('Dealer Guard backup', backup);
+    void copyText('DealShield backup', backup);
     trackEvent('backup_exported', 'Local backup exported', 'Copied a full local backup of the current app state.');
   }
 
   function importLocalBackup() {
     if (!backupDraft.trim()) {
-      Alert.alert('Paste a backup first', 'Paste the exported Dealer Guard backup JSON before trying to import it.');
+      Alert.alert('Paste a backup first', 'Paste the exported DealShield backup JSON before trying to import it.');
       return;
     }
 
@@ -1235,7 +1235,7 @@ export default function App() {
   const paperworkAuditSummary = paperworkAudit ? buildPaperworkAuditSummary(appData.deal, paperworkAudit) : '';
   const dealInputGuidance = buildDealInputGuidance(appData.deal, dealConfidence);
   const whatIfSummary = [
-    `Dealer Guard what-if lab${appData.deal.dealershipName ? `: ${appData.deal.dealershipName}` : ''}`,
+    `DealShield what-if lab${appData.deal.dealershipName ? `: ${appData.deal.dealershipName}` : ''}`,
     '',
     whatIfComparison.headline,
     whatIfComparison.detail,
@@ -1370,7 +1370,7 @@ export default function App() {
                 <View style={styles.onboardingStepCard}>
                   <Text style={styles.onboardingStepNumber}>2</Text>
                   <Text style={styles.bold}>Read the verdict</Text>
-                  <Text style={styles.infoBoxText}>Dealer Guard highlights the biggest risks, the cleanest counter move, and the likely savings lever.</Text>
+                  <Text style={styles.infoBoxText}>DealShield highlights the biggest risks, the cleanest counter move, and the likely savings lever.</Text>
                 </View>
                 <View style={styles.onboardingStepCard}>
                   <Text style={styles.onboardingStepNumber}>3</Text>
@@ -1454,7 +1454,7 @@ export default function App() {
             <Card>
               <Text style={styles.menuTitle}>Important note</Text>
               <Text style={styles.detailText}>
-                Dealer Guard is a buyer-protection tool that helps you review numbers, pressure tactics, and paperwork. It is not legal, tax, credit, or financial advice, so use it as a second set of eyes before you decide what to sign.
+                DealShield is a buyer-protection tool that helps you review numbers, pressure tactics, and paperwork. It is not legal, tax, credit, or financial advice, so use it as a second set of eyes before you decide what to sign.
               </Text>
             </Card>
 
@@ -1503,7 +1503,7 @@ export default function App() {
                 </View>
                 <View style={styles.infoBox}>
                   <Text style={styles.bold}>It catches structure, not just price</Text>
-                  <Text style={styles.infoBoxText}>A deal can look affordable monthly while still being bad overall. Dealer Guard surfaces payment-stretching, padded extras, and weak trade handling.</Text>
+                  <Text style={styles.infoBoxText}>A deal can look affordable monthly while still being bad overall. DealShield surfaces payment-stretching, padded extras, and weak trade handling.</Text>
                 </View>
                 <View style={styles.infoBox}>
                   <Text style={styles.bold}>It helps you slow the moment down</Text>
@@ -1514,7 +1514,7 @@ export default function App() {
 
             <View style={styles.stackGap}>
               <TouchableOpacity style={styles.menuCard} onPress={() => setScreen('upgradeHub')} activeOpacity={0.85}>
-                <Text style={styles.menuTitle}>Dealer Guard Pro</Text>
+                <Text style={styles.menuTitle}>DealShield Pro</Text>
                 <Text style={styles.menuDesc}>
                   {isPro
                     ? 'Pro preview is active. Open your upgrade hub to review premium positioning and pricing.'
@@ -1906,7 +1906,7 @@ export default function App() {
                   <Text style={styles.menuTitle}>Pro preview active</Text>
                   <StatusBadge label="Unlocked" tone="good" />
                 </View>
-                <Text style={styles.detailText}>Dealer Guard Pro tools are now unlocked locally on this device for testing.</Text>
+                <Text style={styles.detailText}>DealShield Pro tools are now unlocked locally on this device for testing.</Text>
                 <AppButton label="Continue" variant="secondary" onPress={() => setShowProActivatedBanner(false)} />
               </Card>
             ) : null}
@@ -1915,8 +1915,8 @@ export default function App() {
               <Text style={styles.menuTitle}>Paste quote text</Text>
               <Text style={styles.heroText}>
                 {experienceMode === 'firstTimeBuyer'
-                  ? 'Start here if you just want the app to check whether the quote feels clean or risky. Paste a worksheet, text message, or email quote and Dealer Guard will pull out the important numbers.'
-                  : 'Paste a worksheet, text message, or email quote. Dealer Guard will try to pull out price, APR, term, trade, and fee/add-on lines.'}
+                  ? 'Start here if you just want the app to check whether the quote feels clean or risky. Paste a worksheet, text message, or email quote and DealShield will pull out the important numbers.'
+                  : 'Paste a worksheet, text message, or email quote. DealShield will try to pull out price, APR, term, trade, and fee/add-on lines.'}
               </Text>
               <View style={styles.infoBox}>
                 <Text style={styles.bold}>Best results</Text>
@@ -2213,7 +2213,7 @@ export default function App() {
 
             <Card>
               <Text style={styles.menuTitle}>Contract photo audit</Text>
-              <Text style={styles.detailText}>Choose a buyer&apos;s order or contract photo and let Dealer Guard prefill the paperwork audit from OCR before you sign.</Text>
+              <Text style={styles.detailText}>Choose a buyer&apos;s order or contract photo and let DealShield prefill the paperwork audit from OCR before you sign.</Text>
               <View style={styles.doubleButtons}>
                 <View style={styles.flexOne}>
                   <AppButton label="Choose contract photo" variant="secondary" onPress={() => void pickContractPhoto()} />
@@ -2282,7 +2282,7 @@ export default function App() {
 
             <Card>
               <Text style={styles.menuTitle}>Final paperwork audit</Text>
-              <Text style={styles.detailText}>Before signing, enter the numbers from the buyer&apos;s order or finance contract here. Dealer Guard will compare them against the reviewed offer and flag late changes.</Text>
+              <Text style={styles.detailText}>Before signing, enter the numbers from the buyer&apos;s order or finance contract here. DealShield will compare them against the reviewed offer and flag late changes.</Text>
               <Text style={styles.detailText}>If OCR misses something, the manual fields below are still the source of truth for the audit.</Text>
               <DealInput label="Contract vehicle price" value={appData.deal.contractVehiclePrice} onChangeText={(text) => updateDeal('contractVehiclePrice', text)} placeholder="25000" />
               <DealInput label="Contract fees" value={appData.deal.contractFees} onChangeText={(text) => updateDeal('contractFees', text)} placeholder="995" />
@@ -2322,7 +2322,7 @@ export default function App() {
                       label="Share paperwork audit"
                       onPress={() => {
                         appendTimelineEntry('paperworkChecked', 'Paperwork audit shared', 'Shared the paperwork audit summary.');
-                        void shareText('Dealer Guard paperwork audit', paperworkAuditSummary);
+                        void shareText('DealShield paperwork audit', paperworkAuditSummary);
                       }}
                     />
                   </View>
@@ -2465,7 +2465,7 @@ export default function App() {
                 <AppButton label="Save this offer" onPress={saveCurrentDeal} />
                 <AppButton label="Open what-if lab" variant="secondary" onPress={openWhatIfLab} />
                 <AppButton label="Copy offer summary" variant="secondary" onPress={() => void copyText('Offer summary', currentDealSummary)} />
-                <AppButton label="Share offer summary" variant="secondary" onPress={() => void shareText('Dealer Guard offer review', currentDealSummary)} />
+                <AppButton label="Share offer summary" variant="secondary" onPress={() => void shareText('DealShield offer review', currentDealSummary)} />
               </View>
             </Card>
 
@@ -2487,7 +2487,7 @@ export default function App() {
                     onPress={() => {
                       incrementUsage('reportsShared');
                       appendTimelineEntry('reportShared', 'Buyer report shared', 'Shared the full buyer report with someone else.');
-                      void shareText('Dealer Guard buyer report', buyerReport);
+                      void shareText('DealShield buyer report', buyerReport);
                     }}
                   />
                   <AppButton label="Export buyer case file PDF" variant="secondary" onPress={() => void exportBuyerCasePdf()} />
@@ -2529,7 +2529,7 @@ export default function App() {
             </Card>
 
             <Card>
-              <Text style={styles.menuTitle}>Invite someone else into Dealer Guard</Text>
+              <Text style={styles.menuTitle}>Invite someone else into DealShield</Text>
               <Text style={styles.detailText}>{referralLoop.headline}</Text>
               <Text style={styles.detailText}>{referralLoop.detail}</Text>
               <View style={styles.stackGap}>
@@ -2538,8 +2538,8 @@ export default function App() {
                   variant="secondary"
                   onPress={() => {
                     incrementUsage('referralShares');
-                    appendTimelineEntry('referralShared', 'Invite message shared', 'Shared a Dealer Guard invite after the second-opinion flow.');
-                    void shareText('Try Dealer Guard', referralLoop.inviteMessage);
+                    appendTimelineEntry('referralShared', 'Invite message shared', 'Shared a DealShield invite after the second-opinion flow.');
+                    void shareText('Try DealShield', referralLoop.inviteMessage);
                   }}
                 />
                 <AppButton
@@ -2805,7 +2805,7 @@ export default function App() {
 
               <View style={styles.stackGap}>
                 <AppButton label="Copy negotiation blueprint" variant="secondary" onPress={() => void copyText('Negotiation blueprint', negotiationPlanSummary)} />
-                <AppButton label="Share negotiation blueprint" onPress={() => void shareText('Dealer Guard negotiation blueprint', negotiationPlanSummary)} />
+                <AppButton label="Share negotiation blueprint" onPress={() => void shareText('DealShield negotiation blueprint', negotiationPlanSummary)} />
               </View>
             </Card>
 
@@ -2933,7 +2933,7 @@ export default function App() {
                   <AppButton label="Copy scenario" variant="secondary" onPress={() => void copyText('What-if summary', whatIfSummary)} />
                 </View>
                 <View style={styles.flexOne}>
-                  <AppButton label="Share scenario" onPress={() => void shareText('Dealer Guard what-if lab', whatIfSummary)} />
+                  <AppButton label="Share scenario" onPress={() => void shareText('DealShield what-if lab', whatIfSummary)} />
                 </View>
               </View>
             </Card>
@@ -3227,7 +3227,7 @@ export default function App() {
                           onPress={() => {
                             if (!selectedDealsForCompare.first || !selectedDealsForCompare.second || !manualCompareAnalyses.first || !manualCompareAnalyses.second) return;
                             void shareText(
-                              'Dealer Guard comparison summary',
+                              'DealShield comparison summary',
                               buildComparisonSummary(
                                 selectedDealsForCompare.first,
                                 selectedDealsForCompare.second,
@@ -3363,7 +3363,7 @@ export default function App() {
         {screen === 'upgradeHub' && (
           <>
             <View style={styles.rowBetween}>
-              <Text style={styles.screenTitle}>Dealer Guard Pro</Text>
+              <Text style={styles.screenTitle}>DealShield Pro</Text>
               <TouchableOpacity onPress={() => setScreen('home')}>
                 <Text style={styles.linkText}>Home</Text>
               </TouchableOpacity>
@@ -3391,7 +3391,7 @@ export default function App() {
                   <AppButton label="Use free plan" variant="secondary" onPress={() => setPremiumTier('free')} />
                 </View>
                 <View style={styles.flexOne}>
-                  <AppButton label={billingBusy ? 'Processing...' : 'Unlock Dealer Guard Pro'} onPress={() => void startPaywallPurchase()} disabled={billingBusy} />
+                  <AppButton label={billingBusy ? 'Processing...' : 'Unlock DealShield Pro'} onPress={() => void startPaywallPurchase()} disabled={billingBusy} />
                 </View>
               </View>
               <View style={styles.doubleButtons}>
@@ -3534,7 +3534,7 @@ export default function App() {
             </Card>
             <Card>
               <Text style={styles.menuTitle}>Backup and move your data</Text>
-              <Text style={styles.detailText}>Until full account sync exists, you can copy a local backup from one device and paste it into another Dealer Guard install.</Text>
+              <Text style={styles.detailText}>Until full account sync exists, you can copy a local backup from one device and paste it into another DealShield install.</Text>
               <View style={styles.stackGap}>
                 <AppButton label="Copy local backup" variant="secondary" onPress={exportLocalBackup} />
               </View>
@@ -3542,7 +3542,7 @@ export default function App() {
                 style={styles.notesInput}
                 value={backupDraft}
                 onChangeText={setBackupDraft}
-                placeholder="Paste a Dealer Guard backup JSON here to import it on this device."
+                placeholder="Paste a DealShield backup JSON here to import it on this device."
                 placeholderTextColor="#94a3b8"
                 multiline
                 textAlignVertical="top"

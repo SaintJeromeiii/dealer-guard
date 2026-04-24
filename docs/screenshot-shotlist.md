@@ -1,7 +1,7 @@
 # Screenshot Shot List
 
 ## Goal
-Show that Dealer Guard helps buyers understand a real deal quickly, avoid pressure, and bring another person into the decision.
+Show that DealShield helps buyers understand a real deal quickly, avoid pressure, and bring another person into the decision.
 
 ## Screenshot 1
 Title: Don't get played at the dealership
@@ -10,7 +10,7 @@ Screen: Home hero plus quick quote check.
 
 ## Screenshot 2
 Title: See the biggest savings lever first
-Caption: Dealer Guard highlights where the deal can improve before you negotiate.
+Caption: DealShield highlights where the deal can improve before you negotiate.
 Screen: Deal review with deal savings counter and verdict.
 
 ## Screenshot 3

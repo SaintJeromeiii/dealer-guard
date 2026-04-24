@@ -1,10 +1,10 @@
-# Dealer Guard Legal And Product Disclaimer Draft
+# DealShield Legal And Product Disclaimer Draft
 
 ## Core disclaimer
-Dealer Guard helps users inspect vehicle deal structure, negotiation tactics, promises, and contract mismatches. It does not replace careful document review by the buyer.
+DealShield helps users inspect vehicle deal structure, negotiation tactics, promises, and contract mismatches. It does not replace careful document review by the buyer.
 
 ## Not professional advice
-Dealer Guard does not provide:
+DealShield does not provide:
 - legal advice
 - tax advice
 - lending advice
@@ -12,7 +12,7 @@ Dealer Guard does not provide:
 - dealership compliance advice
 
 ## User-facing language to keep in product
-- Use Dealer Guard as a second set of eyes before signing.
+- Use DealShield as a second set of eyes before signing.
 - Confirm every important number on the written contract.
 - Do not rely on verbal promises if they are not reflected on paper.
 

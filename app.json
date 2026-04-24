@@ -1,12 +1,12 @@
 {
   "expo": {
-    "name": "dealer-guard",
+    "name": "DealShield",
     "slug": "dealer-guard",
-    "description": "Spot bad car deals, compare offers, and protect yourself from dealership pressure tactics before you sign.",
+    "description": "Spot bad car deals, compare offers, and protect yourself from dealership pressure tactics before you sign with DealShield.",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "dealerguard",
+    "scheme": "dealshield",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
@@ -35,8 +35,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Dealer Guard uses your photos so you can import a dealership quote image.",
-          "cameraPermission": "Dealer Guard uses your camera so you can capture a dealership quote image."
+          "photosPermission": "DealShield uses your photos so you can import a dealership quote image.",
+          "cameraPermission": "DealShield uses your camera so you can capture a dealership quote image."
         }
       ],
       [

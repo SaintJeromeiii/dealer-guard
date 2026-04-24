@@ -1,7 +1,7 @@
-# Dealer Guard Store Listing
+# DealShield Store Listing
 
 ## Positioning
-Dealer Guard helps car buyers spot bad deal structure, compare offers, and slow down dealership pressure before they sign.
+DealShield helps car buyers spot bad deal structure, compare offers, and slow down dealership pressure before they sign.
 
 ## One-line Pitch
 Catch padded fees, compare quotes, and get a second opinion before you sign a car deal.
@@ -10,9 +10,9 @@ Catch padded fees, compare quotes, and get a second opinion before you sign a ca
 Spot risky car deals fast. Review quotes, compare offers, catch pressure tactics, and share a second opinion before signing.
 
 ## Full Description
-Dealer Guard is built for car buyers who want clarity before they agree to a dealership deal.
+DealShield is built for car buyers who want clarity before they agree to a dealership deal.
 
-Use Dealer Guard to:
+Use DealShield to:
 - import a quote from pasted text or photo OCR
 - break down vehicle price, fees, add-ons, APR, term, trade, and down payment
 - see whether the deal looks fair, risky, or worth walking away from
@@ -21,7 +21,7 @@ Use Dealer Guard to:
 - audit the final paperwork against the reviewed deal
 - share a second-opinion summary with someone you trust before signing
 
-Dealer Guard focuses on the written numbers, not the sales pitch. That means buyers can spot stretched loan terms, suspicious fees, late add-ons, weak trade handling, and paperwork changes before a rushed signature.
+DealShield focuses on the written numbers, not the sales pitch. That means buyers can spot stretched loan terms, suspicious fees, late add-ons, weak trade handling, and paperwork changes before a rushed signature.
 
 ## Keywords
 - car buying

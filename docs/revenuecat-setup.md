@@ -11,7 +11,7 @@ Replace the local mock paywall with a real subscription entitlement flow.
 
 ## Next Production Steps
 1. Install the RevenueCat SDK compatible with your Expo workflow.
-2. Create the `Dealer Guard Pro` entitlement and at least one current offering in RevenueCat.
+2. Create the `DealShield Pro` entitlement and at least one current offering in RevenueCat.
 3. Add the API key to runtime config.
 4. Replace the mock `purchaseProEntitlement` and `restoreProEntitlement` implementations with real SDK calls.
 5. Return the entitlement state through `initializeBilling`.
