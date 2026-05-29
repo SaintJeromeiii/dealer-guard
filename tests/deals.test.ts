@@ -201,10 +201,10 @@ test('summary builders include decision context', () => {
   assert.match(buyerReport, /Recommendation/);
   const secondOpinionShare = buildSecondOpinionShare(secondDeal, secondAnalysis, recommendation, negotiationPlan);
   assert.match(secondOpinionShare, /sanity-check this car deal/i);
-  assert.match(secondOpinionShare, /Dealer Guard/i);
+  assert.match(secondOpinionShare, /DealShield/i);
   const referralLoop = buildReferralLoop(secondDeal, secondAnalysis, recommendation, secondOpinionShare);
   assert.match(referralLoop.headline, /before you sign/i);
-  assert.match(referralLoop.inviteMessage, /Dealer Guard/i);
+  assert.match(referralLoop.inviteMessage, /DealShield/i);
   const visitCaseSummary = buildVisitCaseSummary(
     [
       {

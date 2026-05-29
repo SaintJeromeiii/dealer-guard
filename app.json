@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "DealShield",
-    "slug": "dealer-guard",
+    "slug": "dealshield",
     "description": "Spot bad car deals, compare offers, and protect yourself from dealership pressure tactics before you sign with DealShield.",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -10,7 +10,8 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.jleonanderson.dealshield"
     },
     "android": {
       "adaptiveIcon": {
@@ -24,7 +25,7 @@
       "permissions": [
         "android.permission.RECORD_AUDIO"
       ],
-      "package": "com.jleonanderson.dealerguard"
+      "package": "com.jleonanderson.dealshield"
     },
     "web": {
       "output": "static",

@@ -1,6 +1,6 @@
-# Dealer Guard
+# DealShield
 
-Dealer Guard is an Expo / React Native app for car buyers who want help preparing for dealership negotiations, reviewing financing offers, spotting pressure tactics, and comparing saved offers side by side.
+DealShield is an Expo / React Native app for car buyers who want help preparing for dealership negotiations, reviewing financing offers, spotting pressure tactics, and comparing saved offers side by side.
 
 ## What the app does
 
