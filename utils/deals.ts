@@ -1838,8 +1838,8 @@ export function buildMonetizationSummary(
       tier === 'pro'
         ? 'Premium tools are unlocked: shareable buyer report, dealer scorecards, and your in-store session playbook.'
         : 'Core quote review stays free. Upgrade when you need a full report to share, dealership scorecards, or a step-by-step plan for live negotiations.',
-    monthlyPriceLabel: '$9.99 / month',
-    annualPriceLabel: '$79.99 / year',
+    monthlyPriceLabel: 'One-time purchase',
+    annualPriceLabel: 'Lifetime unlock',
     reasons,
     featureCards: [
       createFeatureCard(

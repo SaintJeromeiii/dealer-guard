@@ -86,7 +86,24 @@ import {
 } from '@/utils/deals';
 import { initializeBilling, purchaseProEntitlement, restoreProEntitlement } from '@/utils/billing';
 import { loadAppData, resetStoredAppData, saveAppData } from '@/utils/storage';
-import type { AnalyticsEvent, DealLineItem, DealState, ExperienceMode, MainTab, NegotiationFlag, PremiumTier, PromiseRecord, QuoteImportResult, SavedDeal, Screen, SelectedComparePair, Tone, VisitTimelineEntry, VisitTimelineEventType } from '@/utils/types';
+import type {
+  AnalyticsEvent,
+  BillingState,
+  DealLineItem,
+  DealState,
+  ExperienceMode,
+  MainTab,
+  NegotiationFlag,
+  PremiumTier,
+  PromiseRecord,
+  QuoteImportResult,
+  SavedDeal,
+  Screen,
+  SelectedComparePair,
+  Tone,
+  VisitTimelineEntry,
+  VisitTimelineEventType,
+} from '@/utils/types';
 
 function makeId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -283,6 +300,24 @@ export default function App() {
   const [showProActivatedBanner, setShowProActivatedBanner] = useState(false);
   const [simulatorIndex, setSimulatorIndex] = useState(0);
 
+  function applyBillingState(billing: BillingState, tierOverride?: PremiumTier) {
+    setAppData((prev) => {
+      const revenueCatTier =
+        billing.provider === 'revenuecat' ? (billing.entitlementStatus === 'active' ? 'pro' : 'free') : prev.subscription.tier;
+      const nextTier = tierOverride ?? revenueCatTier;
+
+      return {
+        ...prev,
+        billing,
+        subscription: {
+          ...prev.subscription,
+          tier: nextTier,
+          upgradedAt: nextTier === 'pro' ? prev.subscription.upgradedAt ?? new Date().toISOString() : null,
+        },
+      };
+    });
+  }
+
   useEffect(() => {
     let active = true;
 
@@ -312,10 +347,7 @@ export default function App() {
     initializeBilling(appData.subscription.tier)
       .then((billing) => {
         if (!active) return;
-        setAppData((prev) => ({
-          ...prev,
-          billing,
-        }));
+        applyBillingState(billing);
       })
       .catch(() => {
         console.log('Billing init error');
@@ -682,9 +714,13 @@ export default function App() {
 
     try {
       const result = await purchaseProEntitlement();
-      setPremiumTier(result.tier);
+      const billing = await initializeBilling(result.tier);
+      applyBillingState(billing, result.tier);
       trackEvent('purchase_started', 'DealShield Pro purchase', result.note);
       Alert.alert('DealShield Pro', result.note);
+      if (result.tier === 'pro') {
+        setShowProActivatedBanner(true);
+      }
     } finally {
       setBillingBusy(false);
     }
@@ -695,7 +731,8 @@ export default function App() {
 
     try {
       const result = await restoreProEntitlement(appData.subscription.tier);
-      setPremiumTier(result.tier);
+      const billing = await initializeBilling(result.tier);
+      applyBillingState(billing, result.tier);
       trackEvent('purchase_restored', 'Restore purchase', result.note);
       Alert.alert('Restore purchase', result.note);
     } finally {
@@ -3419,21 +3456,25 @@ export default function App() {
               <Text style={styles.detailText}>{monetizationSummary.detail}</Text>
               <View style={styles.statsRow}>
                 <View style={styles.statCard}>
-                  <Text style={styles.statLabel}>Monthly</Text>
-                  <Text style={styles.statValue}>{monetizationSummary.monthlyPriceLabel}</Text>
-                </View>
-                <View style={styles.statCard}>
-                  <Text style={styles.statLabel}>Annual</Text>
-                  <Text style={styles.statValue}>{monetizationSummary.annualPriceLabel}</Text>
+                  <Text style={styles.statLabel}>Lifetime access</Text>
+                  <Text style={styles.statValue}>
+                    {appData.billing.provider === 'revenuecat' && appData.billing.offeringsLoaded
+                      ? appData.billing.packageLabel
+                      : monetizationSummary.monthlyPriceLabel}
+                  </Text>
                 </View>
               </View>
-              <Text style={styles.detailText}>Subscriptions renew automatically until canceled in your App Store or Google Play account.</Text>
+              <Text style={styles.detailText}>One-time purchase unlocks DealShield Pro on this account. Restore purchases if you reinstall or switch devices.</Text>
               <View style={styles.doubleButtons}>
                 <View style={styles.flexOne}>
                   <AppButton label="Use free plan" variant="secondary" onPress={() => setPremiumTier('free')} />
                 </View>
                 <View style={styles.flexOne}>
-                  <AppButton label={billingBusy ? 'Processing...' : 'Unlock DealShield Pro'} onPress={() => void startPaywallPurchase()} disabled={billingBusy} />
+                  <AppButton
+                    label={billingBusy ? 'Processing...' : 'Unlock lifetime Pro'}
+                    onPress={() => void startPaywallPurchase()}
+                    disabled={billingBusy}
+                  />
                 </View>
               </View>
               <View style={styles.doubleButtons}>

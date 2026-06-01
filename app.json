@@ -60,6 +60,10 @@
     "extra": {
       "router": {},
       "revenueCatApiKey": "",
+      "revenueCatApiKeyAndroid": "",
+      "revenueCatApiKeyIos": "",
+      "revenueCatEntitlementId": "pro",
+      "revenueCatLifetimeProductId": "ds_premium_lifetime",
       "revenueCatOfferingId": "",
       "revenueCatPackageId": "",
       "privacyPolicyUrl": "https://saintjeromeiii.github.io/dealshield-legal/privacy-policy.html",
