@@ -6,21 +6,21 @@ type LegalExtra = {
   legalDisclaimerUrl?: string;
 };
 
+const LIVE_LEGAL_SITE_URL = 'https://saintjeromeiii.github.io/dealshield-legal/';
+const LIVE_PRIVACY_POLICY_URL = 'https://saintjeromeiii.github.io/dealshield-legal/privacy-policy.html';
+
 function getExtra(): LegalExtra {
   return (Constants.expoConfig?.extra ?? {}) as LegalExtra;
 }
 
-const DEFAULT_PRIVACY_POLICY_URL = 'https://github.com/SaintJeromeiii/dealer-guard/blob/main/docs/privacy-policy.md';
-const DEFAULT_LEGAL_DISCLAIMER_URL = 'https://github.com/SaintJeromeiii/dealer-guard/blob/main/docs/legal-disclaimer.md';
-
 export function getPrivacyPolicyUrl() {
   const configured = getExtra().privacyPolicyUrl?.trim();
-  return configured || DEFAULT_PRIVACY_POLICY_URL;
+  return configured || LIVE_PRIVACY_POLICY_URL;
 }
 
 export function getLegalDisclaimerUrl() {
   const configured = getExtra().legalDisclaimerUrl?.trim();
-  return configured || DEFAULT_LEGAL_DISCLAIMER_URL;
+  return configured || LIVE_LEGAL_SITE_URL;
 }
 
 export function getManageSubscriptionsUrl() {

@@ -1,0 +1,11 @@
+{
+  "configVersion": 0,
+  "apple": {
+    "info": {
+      "en-US": {
+        "privacyPolicyUrl": "https://saintjeromeiii.github.io/dealshield-legal/privacy-policy.html",
+        "supportUrl": "https://saintjeromeiii.github.io/dealshield-legal/"
+      }
+    }
+  }
+}

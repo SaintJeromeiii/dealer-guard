@@ -62,8 +62,8 @@
       "revenueCatApiKey": "",
       "revenueCatOfferingId": "",
       "revenueCatPackageId": "",
-      "privacyPolicyUrl": "",
-      "legalDisclaimerUrl": "",
+      "privacyPolicyUrl": "https://saintjeromeiii.github.io/dealshield-legal/privacy-policy.html",
+      "legalDisclaimerUrl": "https://saintjeromeiii.github.io/dealshield-legal/",
       "eas": {
         "projectId": "1ed5833e-a11a-4ddd-b4b0-7685d67fe870"
       }
