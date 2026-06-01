@@ -1817,37 +1817,46 @@ export function buildMonetizationSummary(
   const reasons: string[] = [];
 
   if (savedDeals.length >= 2) {
-    reasons.push(`You already have ${savedDeals.length} saved offer${savedDeals.length === 1 ? '' : 's'}, which makes premium comparison tools easier to justify.`);
+    reasons.push(`You already have ${savedDeals.length} saved offers, so Pro comparison tools and dealer scorecards can help you choose between them.`);
   }
 
   if (pressureIncidents.length > 0) {
-    reasons.push(`You have logged ${pressureIncidents.length} pressure incident${pressureIncidents.length === 1 ? '' : 's'}, so live coaching history is becoming part of the product value.`);
+    reasons.push(`You have logged ${pressureIncidents.length} pressure incident${pressureIncidents.length === 1 ? '' : 's'}, so Pro can turn that history into a clearer dealership scorecard.`);
   }
 
   if (promises.length > 0) {
-    reasons.push(`Promise tracking is active, which supports a stronger “dealer accountability” premium story.`);
+    reasons.push('You are tracking dealer promises, which Pro can fold into a stronger accountability view before you sign.');
   }
 
   if (!reasons.length) {
-    reasons.push('The strongest monetization pitch is still protecting the buyer from bad deal structure before they sign.');
+    reasons.push('Pro helps you share a full buyer report, compare dealerships over time, and stay on script when the pressure starts.');
   }
 
   return {
-    headline:
-      tier === 'pro'
-        ? 'DealShield Pro preview is active on this device.'
-        : 'DealShield is ready for a clear free-to-Pro upgrade path.',
+    headline: tier === 'pro' ? 'DealShield Pro is active' : 'You are on DealShield Free',
     detail:
       tier === 'pro'
-        ? 'This local Pro preview unlocks the most differentiated decision tools so you can test what the paid experience should feel like.'
-        : 'Keep the core deal review free, then charge for the features that help buyers justify, compare, and share a high-stakes decision.',
+        ? 'Premium tools are unlocked: shareable buyer report, dealer scorecards, and your in-store session playbook.'
+        : 'Core quote review stays free. Upgrade when you need a full report to share, dealership scorecards, or a step-by-step plan for live negotiations.',
     monthlyPriceLabel: '$9.99 / month',
     annualPriceLabel: '$79.99 / year',
     reasons,
     featureCards: [
-      createFeatureCard('Shareable buyer report', 'Turns a deal into a polished summary a spouse, friend, or advisor can review quickly.', tier),
-      createFeatureCard('Dealer scorecards', 'Combines deal quality, pressure tactics, and broken promises into one dealership reputation view.', tier),
-      createFeatureCard('Session playbook', 'Transforms the analysis into a real in-store action sequence instead of passive information.', tier),
+      createFeatureCard(
+        'Shareable buyer report',
+        'Package the verdict, negotiation plan, and key risk checks into one summary you can text or export before anyone signs.',
+        tier
+      ),
+      createFeatureCard(
+        'Dealer scorecards',
+        'See how each dealership stacks up across offer quality, pressure tactics, and kept or broken promises.',
+        tier
+      ),
+      createFeatureCard(
+        'Session playbook',
+        'Get a step-by-step visit plan for live negotiations so you know what to say and ask in order.',
+        tier
+      ),
     ],
   };
 }

@@ -22,6 +22,7 @@ import Card from '@/components/Card';
 import MainTabButton from '@/components/MainTabButton';
 import ProgressBar from '@/components/ProgressBar';
 import StatusBadge from '@/components/StatusBadge';
+import { getLegalDisclaimerUrl, getManageSubscriptionsUrl, getPrivacyPolicyUrl, openExternalLink } from '@/constants/legal-links';
 import { checklistSections } from '@/data/checklist';
 import {
   financeOfficeChecklist,
@@ -148,7 +149,7 @@ function PremiumPreviewCard({
       <StatusBadge label="DealShield Pro" tone="warn" />
       <Text style={styles.menuTitle}>{title}</Text>
       <Text style={styles.detailText}>{detail}</Text>
-      <AppButton label="Open Pro preview" onPress={onPress} />
+      <AppButton label="See DealShield Pro" onPress={onPress} />
     </Card>
   );
 }
@@ -653,7 +654,7 @@ export default function App() {
     setMainTab('dealReview');
     setScreen('dealReview');
     setShowProActivatedBanner(true);
-    Alert.alert('DealShield Pro preview', 'Pro preview is now active on this device. Pro-only tools are unlocked locally for testing.');
+    Alert.alert('DealShield Pro', 'Pro tools are now unlocked on this device for testing.');
   }
 
   function setExperienceMode(mode: ExperienceMode) {
@@ -761,6 +762,28 @@ export default function App() {
             ? 'Photo selected. Run OCR to extract text from the image.'
             : 'Photo selected. OCR is not supported in Expo Go on native yet, so use the pasted text importer or run this flow on web.',
         ],
+      },
+    }));
+  }
+
+  function removeQuotePhoto() {
+    setAppData((prev) => ({
+      ...prev,
+      deal: {
+        ...prev.deal,
+        importedPhotoUri: '',
+        importReviewNotes: prev.deal.importReviewNotes.filter((note) => !note.startsWith('Photo selected')),
+      },
+    }));
+  }
+
+  function removeContractPhoto() {
+    setAppData((prev) => ({
+      ...prev,
+      deal: {
+        ...prev.deal,
+        contractImportedPhotoUri: '',
+        contractImportReviewNotes: prev.deal.contractImportReviewNotes.filter((note) => !note.startsWith('Contract photo selected')),
       },
     }));
   }
@@ -1276,7 +1299,7 @@ export default function App() {
       <ScrollView contentContainerStyle={styles.container}>
         <View style={styles.header}>
           <View style={styles.flexOne}>
-            <Text style={styles.eyebrow}>DEALER GUARD</Text>
+            <Text style={styles.eyebrow}>DEALSHIELD</Text>
             <Text style={styles.headerTitle}>Car buyer protection</Text>
             <Text style={styles.headerSubtitle}>Prep, review, compare, and keep pressure tactics from steering the deal.</Text>
           </View>
@@ -1459,6 +1482,22 @@ export default function App() {
             </Card>
 
             <Card>
+              <Text style={styles.menuTitle}>Legal and subscriptions</Text>
+              <Text style={styles.detailText}>Review how DealShield handles your data and the limits of what the app can advise before you rely on it at the dealership.</Text>
+              <View style={styles.stackGap}>
+                <AppButton label="Privacy policy" variant="secondary" onPress={() => void openExternalLink(getPrivacyPolicyUrl(), 'Privacy policy')} />
+                <AppButton label="Terms and disclaimer" variant="secondary" onPress={() => void openExternalLink(getLegalDisclaimerUrl(), 'Terms and disclaimer')} />
+                {getManageSubscriptionsUrl() ? (
+                  <AppButton
+                    label="Manage subscription"
+                    variant="secondary"
+                    onPress={() => void openExternalLink(getManageSubscriptionsUrl()!, 'Manage subscription')}
+                  />
+                ) : null}
+              </View>
+            </Card>
+
+            <Card>
               <View style={styles.rowBetween}>
                 <Text style={styles.menuTitle}>First-time buyer mode</Text>
                 <StatusBadge label={experienceMode === 'firstTimeBuyer' ? 'On' : 'Standard'} tone={experienceMode === 'firstTimeBuyer' ? 'good' : 'warn'} />
@@ -1517,8 +1556,8 @@ export default function App() {
                 <Text style={styles.menuTitle}>DealShield Pro</Text>
                 <Text style={styles.menuDesc}>
                   {isPro
-                    ? 'Pro preview is active. Open your upgrade hub to review premium positioning and pricing.'
-                    : 'Shape a premium tier around buyer reports, dealer scorecards, and live session playbooks.'}
+                    ? 'Pro is active. Open your upgrade hub to review premium tools and subscription options.'
+                    : 'Unlock the full buyer report, dealer scorecards, and a step-by-step session playbook for live negotiations.'}
                 </Text>
               </TouchableOpacity>
 
@@ -1859,8 +1898,8 @@ export default function App() {
               </Card>
             ) : (
               <PremiumPreviewCard
-                title="Session playbook is a premium coaching feature"
-                detail="This is one of the clearest upgrade moments in the app because it converts scattered analysis into the exact order the buyer should use in the dealership conversation."
+                title="Session playbook"
+                detail="At the lot, pressure moves fast and it's easy to forget what to ask next. DealShield Pro turns your deal into a step-by-step visit plan—what to say first, which numbers to push, the questions to ask, and what to verify before you sign."
                 onPress={() => setScreen('upgradeHub')}
               />
             )}
@@ -1903,10 +1942,10 @@ export default function App() {
             {showProActivatedBanner ? (
               <Card>
                 <View style={styles.rowBetween}>
-                  <Text style={styles.menuTitle}>Pro preview active</Text>
+                  <Text style={styles.menuTitle}>DealShield Pro active</Text>
                   <StatusBadge label="Unlocked" tone="good" />
                 </View>
-                <Text style={styles.detailText}>DealShield Pro tools are now unlocked locally on this device for testing.</Text>
+                <Text style={styles.detailText}>DealShield Pro tools are unlocked on this device.</Text>
                 <AppButton label="Continue" variant="secondary" onPress={() => setShowProActivatedBanner(false)} />
               </Card>
             ) : null}
@@ -1967,6 +2006,7 @@ export default function App() {
                         ? 'Selected photo preview is saved. To run OCR on your phone, open this app in a rebuilt development build instead of Expo Go.'
                         : 'Selected photo is ready for native ML Kit OCR in this development build.'}
                   </Text>
+                  <AppButton label="Remove photo" variant="secondary" onPress={removeQuotePhoto} />
                 </View>
               ) : null}
               {appData.deal.importReviewNotes.length > 0 && (
@@ -2230,6 +2270,7 @@ export default function App() {
                 <View style={styles.stackGapSmall}>
                   <Image source={{ uri: appData.deal.contractImportedPhotoUri }} style={styles.quotePreview} resizeMode="cover" />
                   <Text style={styles.detailText}>Selected contract photo is ready for OCR and paperwork audit review.</Text>
+                  <AppButton label="Remove photo" variant="secondary" onPress={removeContractPhoto} />
                 </View>
               ) : null}
               {appData.deal.contractImportReviewNotes.length > 0 ? (
@@ -2495,8 +2536,8 @@ export default function App() {
               </Card>
             ) : (
               <PremiumPreviewCard
-                title="Buyer report belongs in Pro"
-                detail="It is an easy premium sell because buyers want a clean second-opinion summary they can text to someone they trust before signing."
+                title="Shareable buyer report"
+                detail="The free second-opinion text is a quick heads-up. DealShield Pro packages the full picture—verdict, recommended move, negotiation plan, market and trade checks, and paperwork gaps—into one report you can text, share, or export as a PDF before anyone signs."
                 onPress={() => setScreen('upgradeHub')}
               />
             )}
@@ -3141,8 +3182,8 @@ export default function App() {
                     </Card>
                   ) : (
                     <PremiumPreviewCard
-                      title="Dealer scorecards are a premium trust layer"
-                      detail="This is the kind of historical accountability view buyers cannot easily build on their own, which makes it strong subscription material."
+                      title="Dealer scorecards"
+                      detail="When you are comparing multiple offers, Pro shows how each dealership stacks up on deal quality, pressure tactics, and kept or broken promises—so patterns are easier to spot before you sign."
                       onPress={() => setScreen('upgradeHub')}
                     />
                   ))}
@@ -3372,7 +3413,7 @@ export default function App() {
             <Card>
               <View style={styles.rowBetween}>
                 <Text style={styles.menuTitle}>Current plan</Text>
-                <StatusBadge label={isPro ? 'Pro preview' : 'Free plan'} tone={isPro ? 'good' : 'warn'} />
+                <StatusBadge label={isPro ? 'Pro active' : 'Free plan'} tone={isPro ? 'good' : 'warn'} />
               </View>
               <Text style={styles.detailText}>{monetizationSummary.headline}</Text>
               <Text style={styles.detailText}>{monetizationSummary.detail}</Text>
@@ -3386,6 +3427,7 @@ export default function App() {
                   <Text style={styles.statValue}>{monetizationSummary.annualPriceLabel}</Text>
                 </View>
               </View>
+              <Text style={styles.detailText}>Subscriptions renew automatically until canceled in your App Store or Google Play account.</Text>
               <View style={styles.doubleButtons}>
                 <View style={styles.flexOne}>
                   <AppButton label="Use free plan" variant="secondary" onPress={() => setPremiumTier('free')} />
@@ -3398,40 +3440,35 @@ export default function App() {
                 <View style={styles.flexOne}>
                   <AppButton label="Restore purchase" variant="secondary" onPress={() => void restorePurchase()} disabled={billingBusy} />
                 </View>
-                <View style={styles.flexOne}>
-                  <AppButton
-                    label={isPro ? 'Local preview active' : 'Use local preview'}
-                    variant="secondary"
-                    onPress={enableLocalPreview}
-                    disabled={isPro}
-                  />
-                </View>
+                {getManageSubscriptionsUrl() ? (
+                  <View style={styles.flexOne}>
+                    <AppButton
+                      label="Manage subscription"
+                      variant="secondary"
+                      onPress={() => void openExternalLink(getManageSubscriptionsUrl()!, 'Manage subscription')}
+                    />
+                  </View>
+                ) : null}
               </View>
-              <Text style={styles.detailText}>
-                Billing provider: {appData.billing.provider === 'revenuecat' ? 'RevenueCat-ready configuration detected' : 'Local mock paywall active'}.
-              </Text>
-              <Text style={styles.detailText}>Entitlement status: {appData.billing.entitlementStatus}.</Text>
-              {appData.billing.offeringId ? <Text style={styles.detailText}>Offering: {appData.billing.offeringId}</Text> : null}
-              {appData.billing.packageId ? <Text style={styles.detailText}>Package: {appData.billing.packageId}</Text> : null}
-              {appData.billing.customerInfoNote ? <Text style={styles.detailText}>{appData.billing.customerInfoNote}</Text> : null}
-              <Text style={styles.detailText}>
-                Offerings synced: {appData.billing.offeringsLoaded ? 'Yes' : 'No'}{appData.billing.lastSyncAt ? ` • Last sync ${new Date(appData.billing.lastSyncAt).toLocaleString()}` : ''}
-              </Text>
-            </Card>
-
-            <Card>
-              <Text style={styles.menuTitle}>Why this app can charge</Text>
-              <View style={styles.stackGapSmall}>
-                {monetizationSummary.reasons.map((reason) => (
-                  <Text key={reason} style={styles.detailText}>
-                    • {reason}
+              {__DEV__ ? (
+                <>
+                  <AppButton label={isPro ? 'Local Pro test active' : 'Unlock local Pro test'} variant="secondary" onPress={enableLocalPreview} disabled={isPro} />
+                  <Text style={styles.detailText}>
+                    Billing provider: {appData.billing.provider === 'revenuecat' ? 'RevenueCat' : 'Mock (dev)'} • Entitlement: {appData.billing.entitlementStatus}
                   </Text>
-                ))}
+                  {appData.billing.customerInfoNote ? <Text style={styles.detailText}>{appData.billing.customerInfoNote}</Text> : null}
+                </>
+              ) : appData.billing.provider === 'revenuecat' && appData.billing.customerInfoNote ? (
+                <Text style={styles.detailText}>{appData.billing.customerInfoNote}</Text>
+              ) : null}
+              <View style={styles.stackGap}>
+                <AppButton label="Privacy policy" variant="secondary" onPress={() => void openExternalLink(getPrivacyPolicyUrl(), 'Privacy policy')} />
+                <AppButton label="Terms and disclaimer" variant="secondary" onPress={() => void openExternalLink(getLegalDisclaimerUrl(), 'Terms and disclaimer')} />
               </View>
             </Card>
 
             <Card>
-              <Text style={styles.menuTitle}>Premium feature stack</Text>
+              <Text style={styles.menuTitle}>What&apos;s included in Pro</Text>
               <View style={styles.stackGapSmall}>
                 {monetizationSummary.featureCards.map((card) => (
                   <View key={card.title} style={styles.infoBox}>
@@ -3442,59 +3479,6 @@ export default function App() {
                     <Text style={styles.infoBoxText}>{card.detail}</Text>
                   </View>
                 ))}
-              </View>
-            </Card>
-
-            <Card>
-              <Text style={styles.menuTitle}>Usage signals</Text>
-              <Text style={styles.detailText}>These are the moments most likely to support conversion once you connect real billing.</Text>
-              <View style={styles.statsRow}>
-                <View style={styles.statCard}>
-                  <Text style={styles.statLabel}>OCR imports</Text>
-                  <Text style={styles.statValue}>{appData.subscription.usage.ocrImports}</Text>
-                </View>
-                <View style={styles.statCard}>
-                  <Text style={styles.statLabel}>Buyer reports</Text>
-                  <Text style={styles.statValue}>{appData.subscription.usage.reportsShared}</Text>
-                </View>
-                <View style={styles.statCard}>
-                  <Text style={styles.statLabel}>Deals saved</Text>
-                  <Text style={styles.statValue}>{appData.subscription.usage.dealsSaved}</Text>
-                </View>
-                <View style={styles.statCard}>
-                  <Text style={styles.statLabel}>Tactics logged</Text>
-                  <Text style={styles.statValue}>{appData.subscription.usage.tacticsLogged}</Text>
-                </View>
-                <View style={styles.statCard}>
-                  <Text style={styles.statLabel}>Referral shares</Text>
-                  <Text style={styles.statValue}>{appData.subscription.usage.referralShares}</Text>
-                </View>
-                <View style={styles.statCard}>
-                  <Text style={styles.statLabel}>What-if runs</Text>
-                  <Text style={styles.statValue}>{appData.subscription.usage.whatIfRuns}</Text>
-                </View>
-                <View style={styles.statCard}>
-                  <Text style={styles.statLabel}>Checkpoint passes</Text>
-                  <Text style={styles.statValue}>{appData.subscription.usage.checkpointPasses}</Text>
-                </View>
-              </View>
-            </Card>
-
-            <Card>
-              <Text style={styles.menuTitle}>Recent product signals</Text>
-              <Text style={styles.detailText}>These local analytics events help show which moments are actually becoming product value and future conversion hooks.</Text>
-              <View style={styles.stackGapSmall}>
-                {appData.analyticsEvents.length > 0 ? (
-                  appData.analyticsEvents.slice(0, 8).map((event) => (
-                    <View key={event.id} style={styles.infoBox}>
-                      <Text style={styles.bold}>{event.label}</Text>
-                      <Text style={styles.infoBoxText}>{event.detail}</Text>
-                      <Text style={styles.infoBoxText}>{new Date(event.createdAt).toLocaleString()}</Text>
-                    </View>
-                  ))
-                ) : (
-                  <Text style={styles.detailText}>No product signals captured yet. Imports, saves, what-if runs, clean checkpoints, and Pro flows will start showing up here.</Text>
-                )}
               </View>
             </Card>
           </>
@@ -3712,6 +3696,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderWidth: 1,
     borderColor: theme.border,
+    marginTop: 36,
   },
   resetPillText: {
     color: theme.textMuted,

@@ -480,7 +480,7 @@ test('buildMonetizationSummary highlights premium value around existing usage', 
     [{ id: 'promise-1', dealershipName: 'Metro Auto', text: 'We will remove the prep fee.', status: 'open', notedAt: '2026-04-20T10:06:00.000Z', resolvedAt: null }]
   );
 
-  assert.match(summary.headline, /free-to-pro/i);
+  assert.match(summary.headline, /DealShield Free/i);
   assert.equal(summary.featureCards.length, 3);
   assert.ok(summary.reasons.some((reason) => reason.includes('saved offer')));
 });
