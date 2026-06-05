@@ -6,8 +6,8 @@ type LegalExtra = {
   legalDisclaimerUrl?: string;
 };
 
-const LIVE_LEGAL_SITE_URL = 'https://saintjeromeiii.github.io/dealshield-legal/';
-const LIVE_PRIVACY_POLICY_URL = 'https://saintjeromeiii.github.io/dealshield-legal/privacy-policy.html';
+const LIVE_LEGAL_SITE_URL = 'https://saintjeromeiii.github.io/dealshield-legal/#disclaimer';
+const LIVE_PRIVACY_POLICY_URL = 'https://saintjeromeiii.github.io/dealshield-legal/#privacy';
 
 function getExtra(): LegalExtra {
   return (Constants.expoConfig?.extra ?? {}) as LegalExtra;
