@@ -22,6 +22,8 @@ type PurchasesSdk = {
     purchaseStoreProduct: (product: StoreProduct) => Promise<PurchaseResult>;
     purchasePackage: (pkg: PurchasesPackage) => Promise<PurchaseResult>;
     restorePurchases: () => Promise<CustomerInfo>;
+    addCustomerInfoUpdateListener: (listener: (customerInfo: CustomerInfo) => void) => void;
+    removeCustomerInfoUpdateListener: (listener: (customerInfo: CustomerInfo) => void) => void;
   };
   PRODUCT_CATEGORY: {
     NON_SUBSCRIPTION: string;
@@ -339,6 +341,40 @@ export async function purchaseProEntitlement(): Promise<{ tier: PremiumTier; not
       note: `Purchase did not complete: ${error instanceof Error ? error.message : 'Unknown error'}`,
     };
   }
+}
+
+export function subscribeToBillingUpdates(onUpdate: (billing: BillingState) => void, currentTier: PremiumTier = 'free') {
+  const config = getRuntimeConfig();
+  if (!usesRevenueCat(config)) {
+    return () => {};
+  }
+
+  let cancelled = false;
+  let activeListener: ((customerInfo: CustomerInfo) => void) | null = null;
+  let sdkRef: PurchasesSdk | null = null;
+
+  void (async () => {
+    const apiKey = getRevenueCatApiKey(config);
+    const sdk = await ensurePurchasesConfigured(apiKey);
+    if (!sdk || cancelled) return;
+
+    sdkRef = sdk;
+    activeListener = (customerInfo) => {
+      const tier = inferTierFromCustomerInfo(customerInfo, getEntitlementId(config));
+      void syncRevenueCatBillingState(tier).then((billing) => {
+        if (!cancelled) onUpdate(billing);
+      });
+    };
+
+    sdk.Purchases.addCustomerInfoUpdateListener(activeListener);
+  })();
+
+  return () => {
+    cancelled = true;
+    if (sdkRef && activeListener) {
+      sdkRef.Purchases.removeCustomerInfoUpdateListener(activeListener);
+    }
+  };
 }
 
 export async function restoreProEntitlement(currentTier: PremiumTier): Promise<{ tier: PremiumTier; note: string }> {

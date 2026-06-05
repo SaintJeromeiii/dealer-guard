@@ -84,7 +84,7 @@ import {
   importQuoteText,
   scoreAnswers,
 } from '@/utils/deals';
-import { initializeBilling, purchaseProEntitlement, restoreProEntitlement } from '@/utils/billing';
+import { initializeBilling, purchaseProEntitlement, restoreProEntitlement, subscribeToBillingUpdates } from '@/utils/billing';
 import { loadAppData, resetStoredAppData, saveAppData } from '@/utils/storage';
 import type {
   AnalyticsEvent,
@@ -353,8 +353,14 @@ export default function App() {
         console.log('Billing init error');
       });
 
+    const unsubscribe = subscribeToBillingUpdates((billing) => {
+      if (!active) return;
+      applyBillingState(billing);
+    }, appData.subscription.tier);
+
     return () => {
       active = false;
+      unsubscribe();
     };
   }, [appData.subscription.tier]);
 
