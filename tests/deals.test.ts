@@ -37,6 +37,7 @@ import {
   buildSecondOpinionShare,
   buildNegotiationSimulator,
   buildVisitCaseSummary,
+  buildSuggestedWhatIfDeal,
   buildWhatIfComparison,
   buildSessionPlaybook,
   buildTradeInAssessment,
@@ -270,6 +271,27 @@ test('buildOnboardingSummary reflects the current buyer setup', () => {
 
   assert.match(summary.headline, /active|ready/i);
   assert.match(summary.detail, /trade-in focused purchase/i);
+});
+
+test('buildSuggestedWhatIfDeal stacks the strongest negotiation levers into one scenario', () => {
+  const deal = {
+    ...createInitialDeal(),
+    vehiclePrice: '30000',
+    dealerFees: '1200',
+    addOns: '1800',
+    apr: '9.5',
+    outsideLenderApr: '6.4',
+    months: '72',
+  };
+
+  const suggested = buildSuggestedWhatIfDeal(deal);
+
+  assert.ok(Number(suggested.deal.vehiclePrice) < 30000);
+  assert.equal(suggested.deal.addOns, '0');
+  assert.equal(suggested.deal.dealerFees, '500');
+  assert.equal(suggested.deal.apr, '6.4');
+  assert.equal(suggested.deal.months, '60');
+  assert.match(suggested.headline, /Smart counter loaded/i);
 });
 
 test('buildWhatIfComparison shows scenario savings and strongest move', () => {

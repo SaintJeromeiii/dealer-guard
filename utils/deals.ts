@@ -1567,6 +1567,66 @@ export function buildWhatIfComparison(currentDeal: DealState, scenarioDeal: Deal
   };
 }
 
+function cloneDealForScenario(deal: DealState): DealState {
+  return {
+    ...deal,
+    feeItems: deal.feeItems.map((item) => ({ ...item })),
+    addOnItems: deal.addOnItems.map((item) => ({ ...item })),
+    importReviewNotes: [...deal.importReviewNotes],
+    contractImportReviewNotes: [...deal.contractImportReviewNotes],
+  };
+}
+
+export function buildSuggestedWhatIfDeal(deal: DealState): { deal: DealState; headline: string } {
+  const scenario = cloneDealForScenario(deal);
+  const applied: string[] = [];
+
+  const vehiclePrice = Number(deal.vehiclePrice || 0);
+  if (vehiclePrice > 0) {
+    const targetDiscount = Math.max(500, Math.min(1500, Math.round(vehiclePrice * 0.02)));
+    scenario.vehiclePrice = String(Math.max(0, vehiclePrice - targetDiscount));
+    applied.push(`${currency(targetDiscount)} price cut`);
+  }
+
+  const addOnTotal = getAddOnTotal(deal);
+  if (addOnTotal > 0) {
+    scenario.addOns = '0';
+    scenario.addOnItems = [];
+    applied.push(`remove ${currency(addOnTotal)} in add-ons`);
+  }
+
+  const feeTotal = getFeeTotal(deal);
+  if (feeTotal > 500) {
+    scenario.dealerFees = '500';
+    scenario.feeItems = [];
+    applied.push(`trim fees toward ${currency(500)}`);
+  }
+
+  const apr = Number(deal.apr || 0);
+  const outsideApr = Number(deal.outsideLenderApr || 0);
+  if (outsideApr > 0 && apr > outsideApr) {
+    scenario.apr = deal.outsideLenderApr;
+    applied.push(`match outside lender rate of ${outsideApr}%`);
+  } else if (apr > 5.9) {
+    const targetApr = Math.max(3.9, Number((apr - (apr >= 8 ? 2 : 1)).toFixed(1)));
+    scenario.apr = String(targetApr);
+    applied.push(`push APR toward ${targetApr}%`);
+  }
+
+  const months = Number(deal.months || 0);
+  if (months > 60) {
+    scenario.months = '60';
+    applied.push('shorten term to 60 months');
+  }
+
+  const headline =
+    applied.length > 0
+      ? `Smart counter loaded: ${applied.slice(0, 3).join(', ')}. Adjust any field below.`
+      : 'Deal structure looks fairly clean—edit fields below to test the counter you want in writing.';
+
+  return { deal: scenario, headline };
+}
+
 export function buildPressureSummary(incidents: PressureIncident[], activeFlags: NegotiationFlag[], dealershipName: string) {
   const normalizedDealer = dealershipName.trim().toLowerCase();
   const filtered = normalizedDealer
