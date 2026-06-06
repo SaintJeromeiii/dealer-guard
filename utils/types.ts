@@ -108,6 +108,7 @@ export type DealState = {
   tradeReferenceValue: string;
   tradePayoff: string;
   contractImportedPhotoUri: string;
+  contractScannedText: string;
   contractImportReviewNotes: string[];
   contractVehiclePrice: string;
   contractFees: string;
@@ -353,6 +354,21 @@ export type PaperworkAudit = {
   summaryTone: Tone;
   readyToSign: boolean;
   items: PaperworkAuditItem[];
+};
+
+export type DealShieldAuditItem = {
+  id: string;
+  label: string;
+  costLabel: string;
+  amount: string | null;
+  explanation: string;
+  removalTip: string;
+  sourceLine: string;
+};
+
+export type DealShieldAuditDashboard = {
+  flaggedCount: number;
+  items: DealShieldAuditItem[];
 };
 
 export type SigningReadiness = {

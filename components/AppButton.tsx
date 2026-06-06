@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity } from 'react-native';
 
-import { SHIELD_THEME } from '@/constants/shield-theme';
+import { SHIELD_SURFACE, SHIELD_THEME } from '@/constants/shield-theme';
 
 type Variant = 'primary' | 'secondary' | 'danger';
 
@@ -60,11 +60,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     elevation: 4,
   },
-  secondary: {
-    backgroundColor: SHIELD_THEME.surface,
-    borderWidth: 1,
-    borderColor: SHIELD_THEME.border,
-  },
+  secondary: SHIELD_SURFACE.card,
   danger: {
     backgroundColor: SHIELD_THEME.dangerText,
   },

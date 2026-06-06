@@ -26,7 +26,7 @@ import ProgressBar from '@/components/ProgressBar';
 import ProFeatureBadge from '@/components/ProFeatureBadge';
 import StatusBadge from '@/components/StatusBadge';
 import { getLegalDisclaimerUrl, getManageSubscriptionsUrl, getPrivacyPolicyUrl, openExternalLink } from '@/constants/legal-links';
-import { SHIELD_THEME } from '@/constants/shield-theme';
+import { SHIELD_SURFACE, SHIELD_THEME } from '@/constants/shield-theme';
 import { checklistSections } from '@/data/checklist';
 import {
   financeOfficeChecklist,
@@ -88,6 +88,7 @@ import {
   importQuoteText,
   scoreAnswers,
 } from '@/utils/deals';
+import { buildDealShieldAuditDashboard } from '@/utils/audit-dashboard';
 import { initializeBilling, purchaseProEntitlement, restoreProEntitlement, subscribeToBillingUpdates } from '@/utils/billing';
 import { loadAppData, resetStoredAppData, saveAppData } from '@/utils/storage';
 import type {
@@ -164,6 +165,7 @@ function cloneDealState(deal: DealState): DealState {
     feeItems: deal.feeItems.map((item) => ({ ...item })),
     addOnItems: deal.addOnItems.map((item) => ({ ...item })),
     importReviewNotes: [...deal.importReviewNotes],
+    contractScannedText: deal.contractScannedText,
     contractImportReviewNotes: [...deal.contractImportReviewNotes],
   };
 }
@@ -378,9 +380,7 @@ export default function DealShieldApp() {
 
   useEffect(() => {
     if (!loaded) return;
-    saveAppData(appData).catch(() => {
-      console.log('Save error');
-    });
+    saveAppData(appData).catch(() => undefined);
   }, [appData, loaded]);
 
   useEffect(() => {
@@ -391,9 +391,7 @@ export default function DealShieldApp() {
         if (!active) return;
         applyBillingState(billing);
       })
-      .catch(() => {
-        console.log('Billing init error');
-      });
+      .catch(() => undefined);
 
     const unsubscribe = subscribeToBillingUpdates((billing) => {
       if (!active) return;
@@ -427,6 +425,12 @@ export default function DealShieldApp() {
   );
   const marketCompSnapshot = useMemo(() => buildMarketCompSnapshot(appData.deal, dealAnalysis), [appData.deal, dealAnalysis]);
   const paperworkAudit = useMemo(() => buildPaperworkAudit(appData.deal), [appData.deal]);
+  const dealShieldAuditDashboard = useMemo(
+    () => buildDealShieldAuditDashboard(appData.deal.contractScannedText),
+    [appData.deal.contractScannedText]
+  );
+  const showContractScanResults =
+    !!pendingContractImport || appData.deal.contractImportReviewNotes.some((note) => /ocr/i.test(note));
   const pressureSummary = useMemo(
     () => buildPressureSummary(appData.pressureIncidents, appData.negotiationFlags, appData.deal.dealershipName),
     [appData.deal.dealershipName, appData.negotiationFlags, appData.pressureIncidents]
@@ -595,6 +599,7 @@ export default function DealShieldApp() {
 
   function queueContractImport(rawText: string, sourceLabel = 'contract OCR') {
     const result = importQuoteText(rawText);
+    updateDeal('contractScannedText', rawText.trim());
     const contractFields = {
       contractVehiclePrice: result.parsedDeal.vehiclePrice ?? '',
       contractApr: result.parsedDeal.apr ?? '',
@@ -868,6 +873,7 @@ export default function DealShieldApp() {
       deal: {
         ...prev.deal,
         contractImportedPhotoUri: '',
+        contractScannedText: '',
         contractImportReviewNotes: prev.deal.contractImportReviewNotes.filter((note) => !note.startsWith('Contract photo selected')),
       },
     }));
@@ -930,7 +936,6 @@ export default function DealShieldApp() {
 
       queueQuoteImport(text, Platform.OS === 'web' ? 'photo OCR' : 'native photo OCR');
     } catch (error) {
-      console.log(error);
       Alert.alert(
         'OCR failed',
         error instanceof Error && error.message === 'expo-go-contract-ocr'
@@ -962,7 +967,6 @@ export default function DealShieldApp() {
 
       queueContractImport(text, Platform.OS === 'web' ? 'contract photo OCR' : 'native contract OCR');
     } catch (error) {
-      console.log(error);
       Alert.alert(
         'Contract OCR failed',
         error instanceof Error && error.message === 'expo-go-contract-ocr'
@@ -997,7 +1001,6 @@ export default function DealShieldApp() {
         Alert.alert('PDF exported', `Saved buyer case file to ${result.uri}`);
       }
     } catch (error) {
-      console.log(error);
       Alert.alert(
         'PDF export unavailable',
         'PDF export needs a development build that includes Expo Print. The rest of the app should still work, and you can use copy or share in the meantime until you rebuild your Android development build.'
@@ -1433,8 +1436,6 @@ export default function DealShieldApp() {
         {screen === 'scanHub' && (
           <>
             <Card>
-              <Text style={styles.menuTitle}>The Shield — contract and photo scanning</Text>
-              <Text style={styles.detailText}>Your home base for importing quotes, running photo OCR, and scanning contract paperwork before you sign.</Text>
               <View style={styles.stackGap}>
                 <AppButton label="Quick quote check" onPress={startQuickQuoteCheck} />
                 <AppButton label="Open deal review and OCR" variant="secondary" onPress={() => openScreen('dealReview', 'scan')} />
@@ -1451,12 +1452,6 @@ export default function DealShieldApp() {
         )}
 
         {screen === 'analyzerHub' && (
-          <>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionHeaderText}>
-                Deal Analyzer — Calculator and comparisons — break down pricing structure, compare saved offers, and model cleaner scenarios before you counter.
-              </Text>
-            </View>
             <View style={styles.stackGap}>
               <FeatureMenuCard
                 title="Deal review"
@@ -1503,7 +1498,6 @@ export default function DealShieldApp() {
                 onPaywall={() => void startPaywallPurchase()}
               />
             </View>
-          </>
         )}
 
         {screen === 'tacticsHub' && (
@@ -1513,8 +1507,6 @@ export default function DealShieldApp() {
                 label={readinessLabel === 'Strong' ? 'Ready to negotiate' : readinessLabel === 'Almost Ready' ? 'Some weak spots' : 'At risk'}
                 tone={readinessLabel === 'Strong' ? 'good' : readinessLabel === 'Almost Ready' ? 'warn' : 'bad'}
               />
-              <Text style={styles.menuTitle}>Tactician Guide — counter the pressure</Text>
-              <Text style={styles.detailText}>Learn pressure tactics, rehearse responses, and stay on script when the desk or finance office turns up the heat.</Text>
               <View style={styles.stackGap}>
                 <AppButton label="I am at the dealership now" onPress={() => openScreen('liveMode', 'tactics')} />
                 <AppButton label="Start readiness check" variant="secondary" onPress={startQuestionFlow} />
@@ -1556,14 +1548,7 @@ export default function DealShieldApp() {
 
         {screen === 'settingsHub' && (
           <>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionHeaderText}>
-                Settings — Legal and support — review policies, manage premium access, and tune DealShield to your buyer profile.
-              </Text>
-            </View>
-
             <Card>
-              <Text style={styles.menuTitle}>Legal and support</Text>
               <View style={styles.stackGap}>
                 <AppButton label="Privacy policy" variant="secondary" onPress={() => void openExternalLink(getPrivacyPolicyUrl(), 'Privacy policy')} />
                 <AppButton label="Terms and disclaimer" variant="secondary" onPress={() => void openExternalLink(getLegalDisclaimerUrl(), 'Terms and disclaimer')} />
@@ -2319,6 +2304,44 @@ export default function DealShieldApp() {
                 </View>
               ) : null}
             </Card>
+
+            {showContractScanResults && dealShieldAuditDashboard.flaggedCount > 0 ? (
+              isPro ? (
+                <View style={styles.auditDashboardShell}>
+                  <Card>
+                    <View style={styles.auditDashboardHeader}>
+                      <Text style={styles.auditDashboardTitle}>⚠️ DEALSHIELD AUDIT: AUDITED ITEMS</Text>
+                      <ProFeatureBadge unlocked />
+                    </View>
+                    <Text style={styles.auditDashboardSubtitle}>
+                      DealShield flagged {dealShieldAuditDashboard.flaggedCount} common dealership markup
+                      {dealShieldAuditDashboard.flaggedCount === 1 ? '' : 's'} in your scanned contract text.
+                    </Text>
+                    <View style={styles.stackGapSmall}>
+                      {dealShieldAuditDashboard.items.map((item) => (
+                        <View key={item.id} style={styles.auditDashboardItem}>
+                          <View style={styles.rowBetween}>
+                            <Text style={styles.auditDashboardItemLabel}>{item.label}</Text>
+                            <Text style={styles.auditDashboardItemCost}>{item.costLabel}</Text>
+                          </View>
+                          <Text style={styles.auditDashboardItemExplanation}>{item.explanation}</Text>
+                          <Text style={styles.auditDashboardItemTip}>
+                            <Text style={styles.bold}>Removal tip: </Text>
+                            {item.removalTip}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  </Card>
+                </View>
+              ) : (
+                <PremiumPreviewCard
+                  title="DealShield Audit Dashboard"
+                  detail={`We detected ${dealShieldAuditDashboard.flaggedCount} common dealership markup${dealShieldAuditDashboard.flaggedCount === 1 ? '' : 's'} in your contract scan—including items like etching, nitrogen, prep fees, or protection plans. Unlock Pro to see each fee, what it really is, and exactly how to request removal before signing.`}
+                  onPaywall={() => void startPaywallPurchase()}
+                />
+              )
+            ) : null}
 
             {pendingContractImport ? (
               <Card>
@@ -3827,13 +3850,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 12,
   },
-  tabBar: {
-    gap: 8,
-    paddingVertical: 4,
-  },
-  tabSlot: {
-    width: 108,
-  },
   heroTitle: {
     fontSize: 26,
     lineHeight: 32,
@@ -3870,10 +3886,7 @@ const styles = StyleSheet.create({
   proofPill: {
     flexGrow: 1,
     minWidth: 96,
-    backgroundColor: theme.surface,
-    borderRadius: theme.radius,
-    borderWidth: 1,
-    borderColor: theme.border,
+    ...SHIELD_SURFACE.card,
     paddingHorizontal: 12,
     paddingVertical: 10,
     gap: 2,
@@ -3894,34 +3907,68 @@ const styles = StyleSheet.create({
   stackGapSmall: {
     gap: 8,
   },
-  sectionHeader: {
-    marginBottom: 16,
-    paddingHorizontal: 4,
+  auditDashboardShell: {
+    borderRadius: theme.radius,
+    borderWidth: 2,
+    borderColor: theme.gold,
+    shadowColor: theme.gold,
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 5,
   },
-  sectionHeaderText: {
+  auditDashboardHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  auditDashboardTitle: {
+    flex: 1,
+    color: theme.gold,
+    fontSize: 15,
+    fontWeight: '800',
+    letterSpacing: 0.4,
+    lineHeight: 20,
+    paddingRight: 12,
+  },
+  auditDashboardSubtitle: {
     color: theme.textMuted,
     fontSize: 14,
-    fontWeight: '600',
     lineHeight: 20,
-    textTransform: 'uppercase',
   },
-  menuCard: {
-    backgroundColor: theme.surface,
-    borderRadius: theme.radius,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: theme.border,
+  auditDashboardItem: {
+    ...SHIELD_SURFACE.inset,
+    padding: 14,
     gap: 6,
+    borderColor: theme.gold,
+  },
+  auditDashboardItemLabel: {
+    color: theme.text,
+    fontSize: 16,
+    fontWeight: '800',
+    flex: 1,
+    paddingRight: 8,
+  },
+  auditDashboardItemCost: {
+    color: theme.gold,
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  auditDashboardItemExplanation: {
+    color: theme.textMuted,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  auditDashboardItemTip: {
+    color: theme.text,
+    fontSize: 14,
+    lineHeight: 20,
   },
   proPreviewCard: {
     position: 'relative',
   },
-  proPreviewBadgeCorner: {
-    position: 'absolute',
-    top: 14,
-    right: 14,
-    zIndex: 1,
-  },
+  proPreviewBadgeCorner: SHIELD_SURFACE.badgeCorner,
   proFeatureHeader: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -3929,7 +3976,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   menuTitleWithProBadge: {
-    paddingRight: 96,
+    paddingRight: 108,
   },
   menuTitle: {
     fontSize: 18,
@@ -3940,28 +3987,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '800',
     color: theme.gold,
-  },
-  menuDesc: {
-    color: theme.textMuted,
-    fontSize: 15,
-    lineHeight: 22,
-  },
-  onboardingGrid: {
-    gap: 10,
-  },
-  onboardingStepCard: {
-    borderRadius: theme.radius,
-    backgroundColor: theme.surfaceInset,
-    borderWidth: 1,
-    borderColor: theme.border,
-    padding: 14,
-    gap: 6,
-  },
-  onboardingStepNumber: {
-    color: theme.gold,
-    fontWeight: '800',
-    fontSize: 22,
-    lineHeight: 24,
   },
   rowBetween: {
     flexDirection: 'row',
@@ -3994,12 +4019,9 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   optionButton: {
-    borderRadius: theme.radius,
-    borderWidth: 1,
-    borderColor: theme.border,
+    ...SHIELD_SURFACE.card,
     paddingVertical: 16,
     paddingHorizontal: 16,
-    backgroundColor: theme.surface,
   },
   optionButtonActive: {
     backgroundColor: theme.goldSoft,
@@ -4021,10 +4043,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   infoBox: {
-    borderRadius: theme.radius,
-    backgroundColor: theme.surfaceInset,
-    borderWidth: 1,
-    borderColor: theme.border,
+    ...SHIELD_SURFACE.inset,
     padding: 14,
     gap: 4,
   },
@@ -4066,22 +4085,16 @@ const styles = StyleSheet.create({
     color: theme.text,
   },
   scriptBox: {
-    backgroundColor: theme.surfaceInset,
-    borderRadius: theme.radius,
+    ...SHIELD_SURFACE.inset,
     padding: 14,
-    borderWidth: 1,
-    borderColor: theme.border,
   },
   checkItem: {
     flexDirection: 'row',
     gap: 10,
     alignItems: 'center',
-    backgroundColor: theme.surfaceInset,
-    borderRadius: theme.radius,
+    ...SHIELD_SURFACE.inset,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    borderWidth: 1,
-    borderColor: theme.border,
   },
   checkItemActive: {
     backgroundColor: theme.successSoft,
@@ -4112,10 +4125,7 @@ const styles = StyleSheet.create({
   statCard: {
     flexGrow: 1,
     minWidth: 100,
-    backgroundColor: theme.surfaceInset,
-    borderRadius: theme.radius,
-    borderWidth: 1,
-    borderColor: theme.border,
+    ...SHIELD_SURFACE.inset,
     padding: 14,
     gap: 4,
   },
@@ -4130,10 +4140,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
   },
   flagCard: {
-    borderRadius: theme.radius,
-    borderWidth: 1,
-    borderColor: theme.border,
-    backgroundColor: theme.surfaceInset,
+    ...SHIELD_SURFACE.inset,
     padding: 14,
     gap: 6,
   },
@@ -4145,10 +4152,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   lineItemCard: {
-    borderRadius: theme.radius,
-    borderWidth: 1,
-    borderColor: theme.border,
-    backgroundColor: theme.surfaceInset,
+    ...SHIELD_SURFACE.inset,
     padding: 12,
     gap: 8,
   },
@@ -4203,9 +4207,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    backgroundColor: theme.surface,
-    borderWidth: 1,
-    borderColor: theme.border,
+    ...SHIELD_SURFACE.card,
   },
   stateChipActive: {
     backgroundColor: theme.goldSoft,
@@ -4220,10 +4222,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   gradePanel: {
-    borderRadius: theme.radius,
-    backgroundColor: theme.surfaceInset,
-    borderWidth: 1,
-    borderColor: theme.border,
+    ...SHIELD_SURFACE.inset,
     padding: 14,
     gap: 4,
   },
@@ -4242,12 +4241,9 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   comparePickButton: {
-    borderRadius: theme.radius,
-    borderWidth: 1,
-    borderColor: theme.border,
+    ...SHIELD_SURFACE.card,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    backgroundColor: theme.surface,
   },
   comparePickButtonActive: {
     backgroundColor: theme.goldSoft,
@@ -4290,10 +4286,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    backgroundColor: theme.surfaceInset,
-    borderRadius: theme.radius,
-    borderWidth: 1,
-    borderColor: theme.border,
+    ...SHIELD_SURFACE.inset,
     paddingHorizontal: 14,
     paddingVertical: 12,
   },

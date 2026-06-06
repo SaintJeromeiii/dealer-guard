@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import ProFeatureBadge from '@/components/ProFeatureBadge';
-import { SHIELD_THEME } from '@/constants/shield-theme';
+import { SHIELD_SURFACE, SHIELD_THEME } from '@/constants/shield-theme';
 
 type FeatureMenuCardProps = {
   title: string;
@@ -49,22 +49,14 @@ export default function FeatureMenuCard({
 const styles = StyleSheet.create({
   menuCard: {
     position: 'relative',
-    backgroundColor: SHIELD_THEME.surface,
-    borderRadius: SHIELD_THEME.radius,
+    ...SHIELD_SURFACE.card,
     padding: 18,
-    borderWidth: 1,
-    borderColor: SHIELD_THEME.border,
     gap: 6,
   },
   menuCardUnlocked: {
     borderColor: SHIELD_THEME.gold,
   },
-  badgeCorner: {
-    position: 'absolute',
-    top: 14,
-    right: 14,
-    zIndex: 1,
-  },
+  badgeCorner: SHIELD_SURFACE.badgeCorner,
   menuTitle: {
     fontSize: 18,
     fontWeight: '800',

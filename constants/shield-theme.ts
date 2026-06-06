@@ -20,3 +20,24 @@ export const SHIELD_THEME = {
   badgeLockedBg: '#1E293B',
   badgeLockedText: '#94A3B8',
 } as const;
+
+export const SHIELD_SURFACE = {
+  card: {
+    backgroundColor: SHIELD_THEME.surface,
+    borderRadius: SHIELD_THEME.radius,
+    borderWidth: 1,
+    borderColor: SHIELD_THEME.border,
+  },
+  badgeCorner: {
+    position: 'absolute' as const,
+    top: 14,
+    right: 14,
+    zIndex: 1,
+  },
+  inset: {
+    backgroundColor: SHIELD_THEME.surfaceInset,
+    borderRadius: SHIELD_THEME.radius,
+    borderWidth: 1,
+    borderColor: SHIELD_THEME.border,
+  },
+} as const;

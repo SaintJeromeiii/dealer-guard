@@ -61,6 +61,7 @@ export function createInitialDeal(): DealState {
     tradeReferenceValue: '',
     tradePayoff: '',
     contractImportedPhotoUri: '',
+    contractScannedText: '',
     contractImportReviewNotes: [],
     contractVehiclePrice: '',
     contractFees: '',
@@ -233,6 +234,7 @@ export function sanitizeDeal(value: unknown): DealState {
     tradeReferenceValue: safeString((raw as DealState).tradeReferenceValue),
     tradePayoff: safeString((raw as DealState).tradePayoff),
     contractImportedPhotoUri: safeString((raw as DealState).contractImportedPhotoUri),
+    contractScannedText: safeString((raw as DealState).contractScannedText),
     contractImportReviewNotes: Array.isArray((raw as DealState).contractImportReviewNotes)
       ? (raw as DealState).contractImportReviewNotes.filter((item): item is string => typeof item === 'string').slice(0, 20)
       : [],
