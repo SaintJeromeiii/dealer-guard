@@ -1,13 +1,24 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import AppButton from '@/components/AppButton';
 import Card from '@/components/Card';
+import { getBottomTabPadding, getHeaderTopPadding } from '@/utils/safe-area';
 
 export default function DealershipDeniedScreen({ onSwitchToBuyer }: { onSwitchToBuyer: () => void }) {
+  const insets = useSafeAreaInsets();
+
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
+    <View
+      style={[
+        styles.safeArea,
+        {
+          paddingTop: getHeaderTopPadding(insets),
+          paddingBottom: getBottomTabPadding(insets),
+        },
+      ]}
+    >
       <View style={styles.container}>
         <Text style={styles.errorCode}>404</Text>
         <Text style={styles.errorTitle}>Access Denied</Text>
@@ -29,7 +40,7 @@ export default function DealershipDeniedScreen({ onSwitchToBuyer }: { onSwitchTo
 
         <Text style={styles.footer}>DealShield • Hand the phone back • #BuyerSideOnly</Text>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 

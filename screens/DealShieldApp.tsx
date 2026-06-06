@@ -15,7 +15,9 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { getBottomTabBarHeight, getBottomTabPadding, getHeaderTopPadding } from '@/utils/safe-area';
 
 import AppButton from '@/components/AppButton';
 import Card from '@/components/Card';
@@ -1325,12 +1327,20 @@ export default function DealShieldApp() {
 
   if (!loaded) {
     return (
-      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
+      <View
+        style={[
+          styles.safeArea,
+          {
+            paddingTop: getHeaderTopPadding(insets),
+            paddingBottom: getBottomTabPadding(insets),
+          },
+        ]}
+      >
         <View style={styles.loadingWrap}>
           <ActivityIndicator size="large" color="#0f172a" />
           <Text style={styles.heroText}>Loading your saved dealership prep data...</Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
@@ -1375,11 +1385,18 @@ export default function DealShieldApp() {
     paperworkAudit
   );
 
+  const headerTopPadding = getHeaderTopPadding(insets);
+  const bottomTabPadding = getBottomTabPadding(insets);
+  const bottomTabBarHeight = getBottomTabBarHeight(insets);
+
   return (
-    <View style={[styles.safeArea, { paddingTop: insets.top }]}>
+    <View style={styles.safeArea}>
       <View style={styles.appShell}>
-        <ScrollView style={styles.scrollView} contentContainerStyle={styles.container}>
-          <View style={[styles.header, { paddingTop: 8 }]}>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={[styles.container, { paddingBottom: bottomTabBarHeight + 16 }]}
+        >
+          <View style={[styles.header, { paddingTop: headerTopPadding }]}>
             <View style={styles.flexOne}>
               <Text style={styles.eyebrow}>DEALSHIELD</Text>
               <Text style={styles.headerTitle}>{TAB_HEADER_COPY[mainTab].title}</Text>
@@ -3582,7 +3599,15 @@ export default function DealShieldApp() {
         )}
         </ScrollView>
 
-        <View style={[styles.bottomTabBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+        <View
+          style={[
+            styles.bottomTabBar,
+            {
+              paddingBottom: bottomTabPadding,
+              minHeight: bottomTabBarHeight,
+            },
+          ]}
+        >
           {BOTTOM_TABS.map((tab) => (
             <TouchableOpacity
               key={tab.key}

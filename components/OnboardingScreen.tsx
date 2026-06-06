@@ -1,10 +1,11 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import AppButton from '@/components/AppButton';
 import Card from '@/components/Card';
 import StatusBadge from '@/components/StatusBadge';
+import { getBottomTabPadding, getHeaderTopPadding } from '@/utils/safe-area';
 
 export default function OnboardingScreen({
   onSelectBuyer,
@@ -13,8 +14,18 @@ export default function OnboardingScreen({
   onSelectBuyer: () => void;
   onSelectDealership: () => void;
 }) {
+  const insets = useSafeAreaInsets();
+
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
+    <View
+      style={[
+        styles.safeArea,
+        {
+          paddingTop: getHeaderTopPadding(insets),
+          paddingBottom: getBottomTabPadding(insets),
+        },
+      ]}
+    >
       <View style={styles.container}>
         <View style={styles.hero}>
           <Text style={styles.eyebrow}>DEALSHIELD</Text>
@@ -38,7 +49,7 @@ export default function OnboardingScreen({
 
         <Text style={styles.footer}>No account required. No data leaves your phone.</Text>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 

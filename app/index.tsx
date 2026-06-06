@@ -1,14 +1,16 @@
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import OnboardingScreen from '@/components/OnboardingScreen';
 import { getStoredUserRole, saveUserRole } from '@/utils/onboarding';
+import { getBottomTabPadding, getHeaderTopPadding } from '@/utils/safe-area';
 
 export default function GateScreen() {
   const [loading, setLoading] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     let active = true;
@@ -48,19 +50,19 @@ export default function GateScreen() {
     router.replace('/access-denied');
   }
 
-  if (loading) {
+  if (loading || !showOnboarding) {
     return (
-      <SafeAreaView style={styles.loading} edges={['top', 'bottom', 'left', 'right']}>
+      <View
+        style={[
+          styles.loading,
+          {
+            paddingTop: getHeaderTopPadding(insets),
+            paddingBottom: getBottomTabPadding(insets),
+          },
+        ]}
+      >
         <ActivityIndicator size="large" color="#34d399" />
-      </SafeAreaView>
-    );
-  }
-
-  if (!showOnboarding) {
-    return (
-      <SafeAreaView style={styles.loading} edges={['top', 'bottom', 'left', 'right']}>
-        <ActivityIndicator size="large" color="#34d399" />
-      </SafeAreaView>
+      </View>
     );
   }
 
