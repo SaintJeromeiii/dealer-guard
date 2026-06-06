@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import AppButton from '@/components/AppButton';
 import Card from '@/components/Card';
+import { SHIELD_THEME } from '@/constants/shield-theme';
 import { getBottomTabPadding, getHeaderTopPadding } from '@/utils/safe-area';
 
 export default function DealershipDeniedScreen({ onSwitchToBuyer }: { onSwitchToBuyer: () => void }) {
@@ -47,7 +48,7 @@ export default function DealershipDeniedScreen({ onSwitchToBuyer }: { onSwitchTo
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#111827',
+    backgroundColor: SHIELD_THEME.bg,
   },
   container: {
     flex: 1,
@@ -56,30 +57,30 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   errorCode: {
-    color: '#f87171',
+    color: SHIELD_THEME.dangerText,
     fontSize: 72,
     fontWeight: '900',
     lineHeight: 76,
   },
   errorTitle: {
-    color: '#f8fafc',
+    color: SHIELD_THEME.text,
     fontSize: 30,
     fontWeight: '800',
   },
   errorSubtitle: {
-    color: '#fca5a5',
+    color: SHIELD_THEME.dangerText,
     fontSize: 16,
     lineHeight: 24,
     marginBottom: 8,
   },
   cardTitle: {
-    color: '#0f172a',
+    color: SHIELD_THEME.text,
     fontSize: 20,
     fontWeight: '800',
     marginBottom: 8,
   },
   cardText: {
-    color: '#475569',
+    color: SHIELD_THEME.textMuted,
     fontSize: 15,
     lineHeight: 22,
     marginBottom: 10,
@@ -89,7 +90,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   footer: {
-    color: '#94a3b8',
+    color: SHIELD_THEME.textMuted,
     fontSize: 13,
     textAlign: 'center',
   },

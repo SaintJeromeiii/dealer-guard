@@ -1,6 +1,8 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 
+import { SHIELD_THEME } from '@/constants/shield-theme';
+
 export default function ProgressBar({ value }: { value: number }) {
   return (
     <View style={styles.track}>
@@ -12,13 +14,13 @@ export default function ProgressBar({ value }: { value: number }) {
 const styles = StyleSheet.create({
   track: {
     height: 10,
-    backgroundColor: '#e2e8f0',
+    backgroundColor: SHIELD_THEME.border,
     borderRadius: 999,
     overflow: 'hidden',
   },
   fill: {
     height: '100%',
-    backgroundColor: '#0f172a',
+    backgroundColor: SHIELD_THEME.gold,
     borderRadius: 999,
   },
 });

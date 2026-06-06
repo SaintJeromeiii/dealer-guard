@@ -17,7 +17,7 @@ export default function RootLayout() {
           <Stack.Screen name="access-denied" />
           <Stack.Screen name="(main)" />
         </Stack>
-        <StatusBar style="auto" />
+        <StatusBar style="light" />
       </ThemeProvider>
     </SafeAreaProvider>
   );

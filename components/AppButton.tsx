@@ -1,17 +1,9 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity } from 'react-native';
 
-type Variant = 'primary' | 'secondary' | 'danger';
+import { SHIELD_THEME } from '@/constants/shield-theme';
 
-const colors = {
-  primary: '#155eef',
-  primaryDark: '#0f4bd6',
-  secondaryBg: '#eef4ff',
-  secondaryBorder: '#bfd3ff',
-  secondaryText: '#123a84',
-  danger: '#b42318',
-  white: '#ffffff',
-};
+type Variant = 'primary' | 'secondary' | 'danger';
 
 export default function AppButton({
   label,
@@ -26,7 +18,7 @@ export default function AppButton({
 }) {
   return (
     <TouchableOpacity
-      activeOpacity={0.85}
+      activeOpacity={0.88}
       disabled={disabled}
       onPress={onPress}
       style={[
@@ -55,37 +47,43 @@ export default function AppButton({
 const styles = StyleSheet.create({
   button: {
     minHeight: 52,
-    borderRadius: 18,
+    borderRadius: SHIELD_THEME.radius,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 16,
   },
   primary: {
-    backgroundColor: colors.primary,
+    backgroundColor: SHIELD_THEME.gold,
+    shadowColor: SHIELD_THEME.gold,
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
   },
   secondary: {
-    backgroundColor: colors.secondaryBg,
+    backgroundColor: SHIELD_THEME.surface,
     borderWidth: 1,
-    borderColor: colors.secondaryBorder,
+    borderColor: SHIELD_THEME.border,
   },
   danger: {
-    backgroundColor: colors.danger,
+    backgroundColor: SHIELD_THEME.dangerText,
   },
   disabled: {
     opacity: 0.45,
   },
   primaryText: {
-    color: colors.white,
-    fontWeight: '700',
+    color: SHIELD_THEME.text,
+    fontWeight: '800',
     fontSize: 16,
+    letterSpacing: 0.3,
   },
   secondaryText: {
-    color: colors.secondaryText,
+    color: SHIELD_THEME.text,
     fontWeight: '700',
     fontSize: 16,
   },
   dangerText: {
-    color: colors.white,
+    color: SHIELD_THEME.text,
     fontWeight: '700',
     fontSize: 16,
   },

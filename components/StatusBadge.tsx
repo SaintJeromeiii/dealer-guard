@@ -1,14 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text } from 'react-native';
 
-const colors = {
-  goodBg: '#dcfae6',
-  goodText: '#166534',
-  warnBg: '#fff1cc',
-  warnText: '#9a6700',
-  badBg: '#ffe2df',
-  badText: '#b42318',
-};
+import { SHIELD_THEME } from '@/constants/shield-theme';
 
 export default function StatusBadge({
   label,
@@ -30,15 +23,15 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   good: {
-    backgroundColor: colors.goodBg,
-    color: colors.goodText,
+    backgroundColor: SHIELD_THEME.successSoft,
+    color: SHIELD_THEME.successText,
   },
   warn: {
-    backgroundColor: colors.warnBg,
-    color: colors.warnText,
+    backgroundColor: SHIELD_THEME.warnSoft,
+    color: SHIELD_THEME.warnText,
   },
   bad: {
-    backgroundColor: colors.badBg,
-    color: colors.badText,
+    backgroundColor: SHIELD_THEME.dangerSoft,
+    color: SHIELD_THEME.dangerText,
   },
 });

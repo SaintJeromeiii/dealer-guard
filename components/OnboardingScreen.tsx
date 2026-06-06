@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AppButton from '@/components/AppButton';
 import Card from '@/components/Card';
 import StatusBadge from '@/components/StatusBadge';
+import { SHIELD_THEME } from '@/constants/shield-theme';
 import { getBottomTabPadding, getHeaderTopPadding } from '@/utils/safe-area';
 
 export default function OnboardingScreen({
@@ -56,7 +57,7 @@ export default function OnboardingScreen({
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#0f172a',
+    backgroundColor: SHIELD_THEME.bg,
   },
   container: {
     flex: 1,
@@ -68,30 +69,30 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   eyebrow: {
-    color: '#6ee7b7',
+    color: SHIELD_THEME.gold,
     fontSize: 12,
     fontWeight: '800',
     letterSpacing: 1.4,
   },
   title: {
-    color: '#f8fafc',
+    color: SHIELD_THEME.text,
     fontSize: 32,
     fontWeight: '800',
     lineHeight: 38,
   },
   subtitle: {
-    color: '#94a3b8',
+    color: SHIELD_THEME.textMuted,
     fontSize: 16,
     lineHeight: 24,
   },
   cardTitle: {
-    color: '#0f172a',
+    color: SHIELD_THEME.text,
     fontSize: 20,
     fontWeight: '800',
     marginBottom: 8,
   },
   cardText: {
-    color: '#475569',
+    color: SHIELD_THEME.textMuted,
     fontSize: 15,
     lineHeight: 22,
     marginBottom: 16,
@@ -100,7 +101,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   footer: {
-    color: '#64748b',
+    color: SHIELD_THEME.textMuted,
     fontSize: 13,
     textAlign: 'center',
   },

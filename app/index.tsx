@@ -61,7 +61,7 @@ export default function GateScreen() {
           },
         ]}
       >
-        <ActivityIndicator size="large" color="#34d399" />
+        <ActivityIndicator size="large" color="#F59E0B" />
       </View>
     );
   }
@@ -74,6 +74,6 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#0f172a',
+    backgroundColor: '#0B0F19',
   },
 });

@@ -21,9 +21,12 @@ import { getBottomTabBarHeight, getBottomTabPadding, getHeaderTopPadding } from 
 
 import AppButton from '@/components/AppButton';
 import Card from '@/components/Card';
+import FeatureMenuCard from '@/components/FeatureMenuCard';
 import ProgressBar from '@/components/ProgressBar';
+import ProFeatureBadge from '@/components/ProFeatureBadge';
 import StatusBadge from '@/components/StatusBadge';
 import { getLegalDisclaimerUrl, getManageSubscriptionsUrl, getPrivacyPolicyUrl, openExternalLink } from '@/constants/legal-links';
+import { SHIELD_THEME } from '@/constants/shield-theme';
 import { checklistSections } from '@/data/checklist';
 import {
   financeOfficeChecklist,
@@ -189,19 +192,23 @@ function createAnalyticsEvent(type: string, label: string, detail: string): Anal
 function PremiumPreviewCard({
   title,
   detail,
-  onPress,
+  onPaywall,
 }: {
   title: string;
   detail: string;
-  onPress: () => void;
+  onPaywall: () => void;
 }) {
   return (
-    <Card>
-      <StatusBadge label="DealShield Pro" tone="warn" />
-      <Text style={styles.menuTitle}>{title}</Text>
-      <Text style={styles.detailText}>{detail}</Text>
-      <AppButton label="See DealShield Pro" onPress={onPress} />
-    </Card>
+    <TouchableOpacity activeOpacity={0.85} onPress={onPaywall} style={styles.proPreviewCard}>
+      <View style={styles.proPreviewBadgeCorner}>
+        <ProFeatureBadge unlocked={false} />
+      </View>
+      <Card>
+        <Text style={[styles.menuTitle, styles.menuTitleWithProBadge]}>{title}</Text>
+        <Text style={styles.detailText}>{detail}</Text>
+        <AppButton label="Unlock with DealShield Pro" onPress={onPaywall} />
+      </Card>
+    </TouchableOpacity>
   );
 }
 
@@ -1337,7 +1344,7 @@ export default function DealShieldApp() {
         ]}
       >
         <View style={styles.loadingWrap}>
-          <ActivityIndicator size="large" color="#0f172a" />
+          <ActivityIndicator size="large" color={SHIELD_THEME.gold} />
           <Text style={styles.heroText}>Loading your saved dealership prep data...</Text>
         </View>
       </View>
@@ -1411,10 +1418,10 @@ export default function DealShieldApp() {
                 <TouchableOpacity
                   onPress={() => void startPaywallPurchase()}
                   style={styles.upgradePill}
-                  activeOpacity={0.85}
+                  activeOpacity={0.9}
                   disabled={billingBusy}
                 >
-                  <Text style={styles.upgradePillText}>{billingBusy ? 'Processing...' : '⚡ Go Pro'}</Text>
+                  <Text style={styles.upgradePillText}>{billingBusy ? 'PROCESSING...' : '⚡ UPGRADE TO PRO'}</Text>
                 </TouchableOpacity>
               )}
               <TouchableOpacity onPress={confirmReset} style={styles.resetPill} activeOpacity={0.85}>
@@ -1433,38 +1440,68 @@ export default function DealShieldApp() {
                 <AppButton label="Open deal review and OCR" variant="secondary" onPress={() => openScreen('dealReview', 'scan')} />
               </View>
             </Card>
-            <TouchableOpacity style={styles.menuCard} onPress={() => openScreen('dealReview', 'scan')} activeOpacity={0.85}>
-              <Text style={styles.menuTitle}>Quote and contract workspace</Text>
-              <Text style={styles.menuDesc}>Paste text, run photo OCR, and audit contract fields against the buyer worksheet.</Text>
-            </TouchableOpacity>
+            <FeatureMenuCard
+              title="Quote and contract workspace"
+              description="Paste text, run photo OCR, and audit contract fields against the buyer worksheet."
+              isPremium={isPro}
+              onPress={() => openScreen('dealReview', 'scan')}
+              onPaywall={() => void startPaywallPurchase()}
+            />
           </>
         )}
 
         {screen === 'analyzerHub' && (
           <>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionHeaderTitle}>Deal Analyzer</Text>
-              <Text style={styles.sectionHeaderSubtitle}>
-                Calculator and comparisons — break down pricing structure, compare saved offers, and model cleaner scenarios before you counter.
+              <Text style={styles.sectionHeaderText}>
+                Deal Analyzer — Calculator and comparisons — break down pricing structure, compare saved offers, and model cleaner scenarios before you counter.
               </Text>
             </View>
             <View style={styles.stackGap}>
-              <TouchableOpacity style={styles.menuCard} onPress={() => openScreen('dealReview', 'analyzer')} activeOpacity={0.85}>
-                <Text style={styles.menuTitle}>Deal review</Text>
-                <Text style={styles.menuDesc}>Analyze vehicle price, fees, APR, add-ons, and total out-the-door exposure.</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.menuCard} onPress={() => openScreen('compareDeals', 'analyzer')} activeOpacity={0.85}>
-                <Text style={styles.menuTitle}>Compare dealership offers</Text>
-                <Text style={styles.menuDesc}>Save multiple offers and compare risk, monthly payment, and total cost side by side.</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.menuCard} onPress={openWhatIfLab} activeOpacity={0.85}>
-                <Text style={styles.menuTitle}>What-if lab</Text>
-                <Text style={styles.menuDesc}>Model cleaner APR, term, fee, and down-payment structures before you counter.</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.menuCard} onPress={() => openScreen('financeDefense', 'analyzer')} activeOpacity={0.85}>
-                <Text style={styles.menuTitle}>Finance office defense</Text>
-                <Text style={styles.menuDesc}>Prepare for warranty, GAP, and add-on pressure after the sales desk.</Text>
-              </TouchableOpacity>
+              <FeatureMenuCard
+                title="Deal review"
+                description="Analyze vehicle price, fees, APR, add-ons, and total out-the-door exposure."
+                isPremium={isPro}
+                onPress={() => openScreen('dealReview', 'analyzer')}
+                onPaywall={() => void startPaywallPurchase()}
+              />
+              <FeatureMenuCard
+                title="Compare dealership offers"
+                description="Save multiple offers and compare risk, monthly payment, and total cost side by side."
+                isPremium={isPro}
+                onPress={() => openScreen('compareDeals', 'analyzer')}
+                onPaywall={() => void startPaywallPurchase()}
+              />
+              <FeatureMenuCard
+                title="Shareable buyer report"
+                description="Package the verdict, negotiation plan, and key risk checks into one summary you can text or export."
+                requiresPro
+                isPremium={isPro}
+                onPress={() => openScreen('dealReview', 'analyzer')}
+                onPaywall={() => void startPaywallPurchase()}
+              />
+              <FeatureMenuCard
+                title="Dealer scorecards"
+                description="See how each dealership stacks up across offer quality, pressure tactics, and kept or broken promises."
+                requiresPro
+                isPremium={isPro}
+                onPress={() => openScreen('compareDeals', 'analyzer')}
+                onPaywall={() => void startPaywallPurchase()}
+              />
+              <FeatureMenuCard
+                title="What-if lab"
+                description="Model cleaner APR, term, fee, and down-payment structures before you counter."
+                isPremium={isPro}
+                onPress={openWhatIfLab}
+                onPaywall={() => void startPaywallPurchase()}
+              />
+              <FeatureMenuCard
+                title="Finance office defense"
+                description="Prepare for warranty, GAP, and add-on pressure after the sales desk."
+                isPremium={isPro}
+                onPress={() => openScreen('financeDefense', 'analyzer')}
+                onPaywall={() => void startPaywallPurchase()}
+              />
             </View>
           </>
         )}
@@ -1484,18 +1521,35 @@ export default function DealShieldApp() {
               </View>
             </Card>
             <View style={styles.stackGap}>
-              <TouchableOpacity style={styles.menuCard} onPress={() => openScreen('traps', 'tactics')} activeOpacity={0.85}>
-                <Text style={styles.menuTitle}>Trap library</Text>
-                <Text style={styles.menuDesc}>Learn common dealership tactics and what to say back.</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.menuCard} onPress={() => openScreen('tacticDecoder', 'tactics')} activeOpacity={0.85}>
-                <Text style={styles.menuTitle}>Sales tactic decoder</Text>
-                <Text style={styles.menuDesc}>Tap what the salesperson said and get instant coaching on how to respond.</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.menuCard} onPress={() => openScreen('checklist', 'tactics')} activeOpacity={0.85}>
-                <Text style={styles.menuTitle}>Buyer checklist</Text>
-                <Text style={styles.menuDesc}>Know what to bring and what to verify before signing.</Text>
-              </TouchableOpacity>
+              <FeatureMenuCard
+                title="Session playbook"
+                description="Get a step-by-step visit plan for live negotiations so you know what to say and ask in order."
+                requiresPro
+                isPremium={isPro}
+                onPress={() => openScreen('liveMode', 'tactics')}
+                onPaywall={() => void startPaywallPurchase()}
+              />
+              <FeatureMenuCard
+                title="Trap library"
+                description="Learn common dealership tactics and what to say back."
+                isPremium={isPro}
+                onPress={() => openScreen('traps', 'tactics')}
+                onPaywall={() => void startPaywallPurchase()}
+              />
+              <FeatureMenuCard
+                title="Sales tactic decoder"
+                description="Tap what the salesperson said and get instant coaching on how to respond."
+                isPremium={isPro}
+                onPress={() => openScreen('tacticDecoder', 'tactics')}
+                onPaywall={() => void startPaywallPurchase()}
+              />
+              <FeatureMenuCard
+                title="Buyer checklist"
+                description="Know what to bring and what to verify before signing."
+                isPremium={isPro}
+                onPress={() => openScreen('checklist', 'tactics')}
+                onPaywall={() => void startPaywallPurchase()}
+              />
             </View>
           </>
         )}
@@ -1503,9 +1557,8 @@ export default function DealShieldApp() {
         {screen === 'settingsHub' && (
           <>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionHeaderTitle}>Settings</Text>
-              <Text style={styles.sectionHeaderSubtitle}>
-                Legal and support — review policies, manage premium access, and tune DealShield to your buyer profile.
+              <Text style={styles.sectionHeaderText}>
+                Settings — Legal and support — review policies, manage premium access, and tune DealShield to your buyer profile.
               </Text>
             </View>
 
@@ -1537,14 +1590,20 @@ export default function DealShieldApp() {
             </Card>
 
             <View style={styles.stackGap}>
-              <TouchableOpacity style={styles.menuCard} onPress={() => openScreen('upgradeHub', 'settings')} activeOpacity={0.85}>
-                <Text style={styles.menuTitle}>Pro details and restore</Text>
-                <Text style={styles.menuDesc}>Review premium tools, restore purchases, and manage billing status.</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.menuCard} onPress={() => openScreen('notes', 'settings')} activeOpacity={0.85}>
-                <Text style={styles.menuTitle}>Dealership notes</Text>
-                <Text style={styles.menuDesc}>Keep quotes, promises, and red flags in one private notebook.</Text>
-              </TouchableOpacity>
+              <FeatureMenuCard
+                title="Pro details and restore"
+                description="Review premium tools, restore purchases, and manage billing status."
+                isPremium={isPro}
+                onPress={() => openScreen('upgradeHub', 'settings')}
+                onPaywall={() => void startPaywallPurchase()}
+              />
+              <FeatureMenuCard
+                title="Dealership notes"
+                description="Keep quotes, promises, and red flags in one private notebook."
+                isPremium={isPro}
+                onPress={() => openScreen('notes', 'settings')}
+                onPaywall={() => void startPaywallPurchase()}
+              />
             </View>
 
             <Card>
@@ -1857,7 +1916,10 @@ export default function DealShieldApp() {
 
             {isPro ? (
               <Card>
-                <Text style={styles.menuTitle}>Session playbook</Text>
+                <View style={styles.proFeatureHeader}>
+                  <Text style={styles.menuTitle}>Session playbook</Text>
+                  <ProFeatureBadge unlocked />
+                </View>
                 <Text style={styles.detailText}>{sessionPlaybook.headline}</Text>
                 <View style={styles.stackGapSmall}>
                   {sessionPlaybook.steps.map((step, index) => (
@@ -1874,7 +1936,7 @@ export default function DealShieldApp() {
               <PremiumPreviewCard
                 title="Session playbook"
                 detail="At the lot, pressure moves fast and it's easy to forget what to ask next. DealShield Pro turns your deal into a step-by-step visit plan—what to say first, which numbers to push, the questions to ask, and what to verify before you sign."
-                onPress={() => openScreen('upgradeHub', 'settings')}
+                onPaywall={() => void startPaywallPurchase()}
               />
             )}
 
@@ -2486,7 +2548,10 @@ export default function DealShieldApp() {
 
             {isPro ? (
               <Card>
-                <Text style={styles.menuTitle}>Shareable buyer report</Text>
+                <View style={styles.proFeatureHeader}>
+                  <Text style={styles.menuTitle}>Shareable buyer report</Text>
+                  <ProFeatureBadge unlocked />
+                </View>
                 <Text style={styles.detailText}>Package the deal, confidence level, market benchmark, trade fairness, recommendation, and paperwork audit into one clean summary for someone else to review.</Text>
                 <View style={styles.stackGap}>
                   <AppButton
@@ -2512,7 +2577,7 @@ export default function DealShieldApp() {
               <PremiumPreviewCard
                 title="Shareable buyer report"
                 detail="The free second-opinion text is a quick heads-up. DealShield Pro packages the full picture—verdict, recommended move, negotiation plan, market and trade checks, and paperwork gaps—into one report you can text, share, or export as a PDF before anyone signs."
-                onPress={() => openScreen('upgradeHub', 'settings')}
+                onPaywall={() => void startPaywallPurchase()}
               />
             )}
 
@@ -3134,7 +3199,10 @@ export default function DealShieldApp() {
                 {dealerScorecards.length > 0 &&
                   (isPro ? (
                     <Card>
-                      <Text style={styles.menuTitle}>Dealer scorecards</Text>
+                      <View style={styles.proFeatureHeader}>
+                        <Text style={styles.menuTitle}>Dealer scorecards</Text>
+                        <ProFeatureBadge unlocked />
+                      </View>
                       <Text style={styles.detailText}>These scorecards combine the latest deal quality with pressure incidents and promise outcomes for each dealership.</Text>
                       <View style={styles.stackGapSmall}>
                         {dealerScorecards.map((scorecard) => (
@@ -3158,7 +3226,7 @@ export default function DealShieldApp() {
                     <PremiumPreviewCard
                       title="Dealer scorecards"
                       detail="When you are comparing multiple offers, Pro shows how each dealership stacks up on deal quality, pressure tactics, and kept or broken promises—so patterns are easier to spot before you sign."
-                      onPress={() => openScreen('upgradeHub', 'settings')}
+                      onPaywall={() => void startPaywallPurchase()}
                     />
                   ))}
 
@@ -3452,7 +3520,7 @@ export default function DealShieldApp() {
                   <View key={card.title} style={styles.infoBox}>
                     <View style={styles.rowBetween}>
                       <Text style={styles.bold}>{card.title}</Text>
-                      <StatusBadge label={card.badge} tone={card.unlocked ? 'good' : 'warn'} />
+                      <ProFeatureBadge unlocked={card.unlocked} />
                     </View>
                     <Text style={styles.infoBoxText}>{card.detail}</Text>
                   </View>
@@ -3628,25 +3696,7 @@ export default function DealShieldApp() {
   );
 }
 
-const theme = {
-  bg: '#f4f8ff',
-  surface: '#ffffff',
-  surfaceMuted: '#f7faff',
-  border: '#d7e3f7',
-  text: '#10233f',
-  textMuted: '#526581',
-  textSoft: '#6b7f99',
-  primary: '#155eef',
-  primarySoft: '#e8f0ff',
-  primaryText: '#123a84',
-  successSoft: '#dcfae6',
-  successText: '#166534',
-  warnSoft: '#fff1cc',
-  warnText: '#9a6700',
-  dangerSoft: '#ffe2df',
-  dangerText: '#b42318',
-  shadow: '#0b1f44',
-};
+const theme = SHIELD_THEME;
 
 const styles = StyleSheet.create({
   safeArea: {
@@ -3673,13 +3723,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 44,
-    borderRadius: 14,
+    borderRadius: theme.radius,
     borderWidth: 1,
     borderColor: 'transparent',
   },
   bottomTabButtonActive: {
-    backgroundColor: theme.primarySoft,
-    borderColor: theme.border,
+    backgroundColor: theme.surface,
+    borderColor: theme.gold,
   },
   bottomTabLabel: {
     fontSize: 12,
@@ -3687,7 +3737,7 @@ const styles = StyleSheet.create({
     color: theme.textMuted,
   },
   bottomTabLabelActive: {
-    color: theme.primaryText,
+    color: theme.gold,
     fontWeight: '800',
   },
   loadingWrap: {
@@ -3716,7 +3766,7 @@ const styles = StyleSheet.create({
   eyebrow: {
     fontSize: 11,
     letterSpacing: 2,
-    color: theme.textSoft,
+    color: theme.textMuted,
     fontWeight: '700',
     marginBottom: 4,
   },
@@ -3732,34 +3782,41 @@ const styles = StyleSheet.create({
     minWidth: 92,
   },
   upgradePill: {
-    backgroundColor: '#fef3c7',
-    borderRadius: 999,
+    backgroundColor: theme.gold,
+    borderRadius: 20,
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderWidth: 1,
-    borderColor: '#f59e0b',
+    borderColor: theme.gold,
+    shadowColor: theme.gold,
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
   },
   upgradePillText: {
-    color: '#92400e',
+    color: theme.text,
     fontWeight: '800',
-    fontSize: 13,
+    fontSize: 11,
+    letterSpacing: 0.4,
   },
   proActivePill: {
-    backgroundColor: theme.successSoft,
-    borderRadius: 999,
+    backgroundColor: 'transparent',
+    borderRadius: 20,
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderWidth: 1,
-    borderColor: '#86efac',
+    borderColor: theme.gold,
   },
   proActivePillText: {
-    color: theme.successText,
+    color: theme.gold,
     fontWeight: '800',
-    fontSize: 13,
+    fontSize: 11,
+    letterSpacing: 0.4,
   },
   resetPill: {
     backgroundColor: theme.surface,
-    borderRadius: 999,
+    borderRadius: 20,
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderWidth: 1,
@@ -3768,6 +3825,7 @@ const styles = StyleSheet.create({
   resetPillText: {
     color: theme.textMuted,
     fontWeight: '600',
+    fontSize: 12,
   },
   tabBar: {
     gap: 8,
@@ -3788,10 +3846,12 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   heroWarningBox: {
-    backgroundColor: theme.primarySoft,
-    borderRadius: 20,
+    backgroundColor: theme.goldSoft,
+    borderRadius: theme.radius,
     padding: 16,
     gap: 8,
+    borderWidth: 1,
+    borderColor: theme.border,
   },
   heroWarningTitle: {
     color: theme.text,
@@ -3799,7 +3859,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   heroWarningText: {
-    color: theme.primaryText,
+    color: theme.textMuted,
     fontSize: 14,
   },
   proofRow: {
@@ -3811,7 +3871,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     minWidth: 96,
     backgroundColor: theme.surface,
-    borderRadius: 16,
+    borderRadius: theme.radius,
     borderWidth: 1,
     borderColor: theme.border,
     paddingHorizontal: 12,
@@ -3835,34 +3895,41 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   sectionHeader: {
-    marginBottom: 20,
-    paddingHorizontal: 2,
-    gap: 6,
+    marginBottom: 16,
+    paddingHorizontal: 4,
   },
-  sectionHeaderTitle: {
-    fontSize: 22,
-    fontWeight: '600',
-    color: '#666666',
-    letterSpacing: 0.2,
-  },
-  sectionHeaderSubtitle: {
-    fontSize: 15,
-    lineHeight: 22,
-    fontWeight: '400',
+  sectionHeaderText: {
     color: theme.textMuted,
+    fontSize: 14,
+    fontWeight: '600',
+    lineHeight: 20,
+    textTransform: 'uppercase',
   },
   menuCard: {
     backgroundColor: theme.surface,
-    borderRadius: 24,
+    borderRadius: theme.radius,
     padding: 18,
     borderWidth: 1,
     borderColor: theme.border,
-    shadowColor: theme.shadow,
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
     gap: 6,
+  },
+  proPreviewCard: {
+    position: 'relative',
+  },
+  proPreviewBadgeCorner: {
+    position: 'absolute',
+    top: 14,
+    right: 14,
+    zIndex: 1,
+  },
+  proFeatureHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  menuTitleWithProBadge: {
+    paddingRight: 96,
   },
   menuTitle: {
     fontSize: 18,
@@ -3872,7 +3939,7 @@ const styles = StyleSheet.create({
   menuTitleActive: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#ffffff',
+    color: theme.gold,
   },
   menuDesc: {
     color: theme.textMuted,
@@ -3883,15 +3950,15 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   onboardingStepCard: {
-    borderRadius: 18,
-    backgroundColor: theme.surfaceMuted,
+    borderRadius: theme.radius,
+    backgroundColor: theme.surfaceInset,
     borderWidth: 1,
     borderColor: theme.border,
     padding: 14,
     gap: 6,
   },
   onboardingStepNumber: {
-    color: theme.primary,
+    color: theme.gold,
     fontWeight: '800',
     fontSize: 22,
     lineHeight: 24,
@@ -3908,13 +3975,13 @@ const styles = StyleSheet.create({
     color: theme.text,
   },
   linkText: {
-    color: theme.primary,
+    color: theme.gold,
     fontWeight: '700',
   },
   sectionLabel: {
     fontSize: 13,
     fontWeight: '700',
-    color: theme.textSoft,
+    color: theme.textMuted,
   },
   questionTitle: {
     fontSize: 22,
@@ -3927,23 +3994,23 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   optionButton: {
-    borderRadius: 18,
+    borderRadius: theme.radius,
     borderWidth: 1,
-    borderColor: '#cbd5e1',
+    borderColor: theme.border,
     paddingVertical: 16,
     paddingHorizontal: 16,
-    backgroundColor: '#ffffff',
+    backgroundColor: theme.surface,
   },
   optionButtonActive: {
-    backgroundColor: '#0f172a',
-    borderColor: '#0f172a',
+    backgroundColor: theme.goldSoft,
+    borderColor: theme.gold,
   },
   optionText: {
-    color: '#0f172a',
+    color: theme.text,
     fontWeight: '700',
   },
   optionTextActive: {
-    color: '#ffffff',
+    color: theme.gold,
     fontWeight: '700',
   },
   doubleButtons: {
@@ -3954,21 +4021,21 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   infoBox: {
-    borderRadius: 18,
-    backgroundColor: '#f8fafc',
+    borderRadius: theme.radius,
+    backgroundColor: theme.surfaceInset,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: theme.border,
     padding: 14,
     gap: 4,
   },
   infoBoxText: {
-    color: '#334155',
+    color: theme.textMuted,
     lineHeight: 20,
   },
   subheading: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#0f172a',
+    color: theme.text,
     marginTop: 4,
   },
   warningRow: {
@@ -3977,59 +4044,64 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   warningBullet: {
-    color: '#b91c1c',
+    color: theme.dangerText,
     fontWeight: '800',
     lineHeight: 20,
   },
   warningText: {
     flex: 1,
-    color: '#7f1d1d',
+    color: theme.dangerText,
     lineHeight: 20,
   },
   detailText: {
-    color: '#334155',
+    color: theme.textMuted,
     lineHeight: 21,
   },
   detailTextActive: {
-    color: '#e2e8f0',
+    color: theme.text,
     lineHeight: 21,
   },
   bold: {
     fontWeight: '800',
-    color: '#0f172a',
+    color: theme.text,
   },
   scriptBox: {
-    backgroundColor: '#eff6ff',
-    borderRadius: 18,
+    backgroundColor: theme.surfaceInset,
+    borderRadius: theme.radius,
     padding: 14,
+    borderWidth: 1,
+    borderColor: theme.border,
   },
   checkItem: {
     flexDirection: 'row',
     gap: 10,
     alignItems: 'center',
-    backgroundColor: '#f8fafc',
-    borderRadius: 16,
+    backgroundColor: theme.surfaceInset,
+    borderRadius: theme.radius,
     paddingHorizontal: 14,
     paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: theme.border,
   },
   checkItemActive: {
-    backgroundColor: '#dcfce7',
+    backgroundColor: theme.successSoft,
+    borderColor: theme.successText,
   },
   checkMark: {
-    color: '#64748b',
+    color: theme.textMuted,
     fontWeight: '800',
   },
   checkMarkActive: {
-    color: '#166534',
+    color: theme.successText,
     fontWeight: '800',
   },
   checkText: {
     flex: 1,
-    color: '#334155',
+    color: theme.textMuted,
   },
   checkTextActive: {
     flex: 1,
-    color: '#166534',
+    color: theme.successText,
     fontWeight: '600',
   },
   statsRow: {
@@ -4040,58 +4112,59 @@ const styles = StyleSheet.create({
   statCard: {
     flexGrow: 1,
     minWidth: 100,
-    backgroundColor: '#ffffff',
-    borderRadius: 18,
+    backgroundColor: theme.surfaceInset,
+    borderRadius: theme.radius,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: theme.border,
     padding: 14,
     gap: 4,
   },
   statLabel: {
-    color: '#64748b',
+    color: theme.textMuted,
     fontWeight: '700',
     fontSize: 12,
   },
   statValue: {
-    color: '#0f172a',
+    color: theme.text,
     fontWeight: '800',
     fontSize: 18,
   },
   flagCard: {
-    borderRadius: 20,
+    borderRadius: theme.radius,
     borderWidth: 1,
-    borderColor: '#cbd5e1',
+    borderColor: theme.border,
+    backgroundColor: theme.surfaceInset,
     padding: 14,
     gap: 6,
   },
   flagCardActive: {
-    backgroundColor: '#0f172a',
-    borderColor: '#0f172a',
+    backgroundColor: theme.goldSoft,
+    borderColor: theme.gold,
   },
   inputWrap: {
     gap: 6,
   },
   lineItemCard: {
-    borderRadius: 18,
+    borderRadius: theme.radius,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
-    backgroundColor: '#f8fafc',
+    borderColor: theme.border,
+    backgroundColor: theme.surfaceInset,
     padding: 12,
     gap: 8,
   },
   inputLabel: {
-    color: '#334155',
+    color: theme.textMuted,
     fontWeight: '700',
     fontSize: 13,
   },
   input: {
     minHeight: 50,
-    borderRadius: 16,
-    backgroundColor: '#ffffff',
+    borderRadius: theme.radius,
+    backgroundColor: theme.bg,
     borderWidth: 1,
-    borderColor: '#cbd5e1',
+    borderColor: theme.border,
     paddingHorizontal: 14,
-    color: '#0f172a',
+    color: theme.text,
   },
   inputMultiline: {
     minHeight: 110,
@@ -4118,7 +4191,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#dc2626',
   },
   breakdownTitle: {
-    color: '#0f172a',
+    color: theme.text,
     fontWeight: '700',
     marginBottom: 2,
   },
@@ -4130,25 +4203,27 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    backgroundColor: '#ffffff',
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: '#cbd5e1',
+    borderColor: theme.border,
   },
   stateChipActive: {
-    backgroundColor: '#0f172a',
-    borderColor: '#0f172a',
+    backgroundColor: theme.goldSoft,
+    borderColor: theme.gold,
   },
   stateChipText: {
-    color: '#0f172a',
+    color: theme.text,
     fontWeight: '700',
   },
   stateChipTextActive: {
-    color: '#ffffff',
+    color: theme.gold,
     fontWeight: '700',
   },
   gradePanel: {
-    borderRadius: 18,
-    backgroundColor: '#f8fafc',
+    borderRadius: theme.radius,
+    backgroundColor: theme.surfaceInset,
+    borderWidth: 1,
+    borderColor: theme.border,
     padding: 14,
     gap: 4,
   },
@@ -4159,7 +4234,7 @@ const styles = StyleSheet.create({
   },
   comparePickName: {
     fontWeight: '700',
-    color: '#0f172a',
+    color: theme.text,
   },
   comparePickWrap: {
     flexDirection: 'row',
@@ -4167,23 +4242,23 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   comparePickButton: {
-    borderRadius: 14,
+    borderRadius: theme.radius,
     borderWidth: 1,
-    borderColor: '#cbd5e1',
+    borderColor: theme.border,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    backgroundColor: '#ffffff',
+    backgroundColor: theme.surface,
   },
   comparePickButtonActive: {
-    backgroundColor: '#0f172a',
-    borderColor: '#0f172a',
+    backgroundColor: theme.goldSoft,
+    borderColor: theme.gold,
   },
   comparePickButtonText: {
-    color: '#0f172a',
+    color: theme.text,
     fontWeight: '700',
   },
   comparePickButtonTextActive: {
-    color: '#ffffff',
+    color: theme.gold,
     fontWeight: '700',
   },
   headToHeadHeader: {
@@ -4193,7 +4268,7 @@ const styles = StyleSheet.create({
   headToHeadDealName: {
     flex: 1,
     fontWeight: '800',
-    color: '#0f172a',
+    color: theme.text,
   },
   compareRow: {
     flexDirection: 'row',
@@ -4203,40 +4278,42 @@ const styles = StyleSheet.create({
   },
   compareLabel: {
     flex: 1.1,
-    color: '#64748b',
+    color: theme.textMuted,
     fontWeight: '700',
   },
   compareValue: {
     flex: 1,
-    color: '#0f172a',
+    color: theme.text,
     fontWeight: '700',
   },
   scriptRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    backgroundColor: '#f8fafc',
-    borderRadius: 16,
+    backgroundColor: theme.surfaceInset,
+    borderRadius: theme.radius,
+    borderWidth: 1,
+    borderColor: theme.border,
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
   notesInput: {
     minHeight: 180,
-    borderRadius: 18,
+    borderRadius: theme.radius,
     borderWidth: 1,
-    borderColor: '#cbd5e1',
-    backgroundColor: '#ffffff',
+    borderColor: theme.border,
+    backgroundColor: theme.bg,
     padding: 16,
-    color: '#0f172a',
+    color: theme.text,
   },
   quotePreview: {
     width: '100%',
     height: 220,
-    borderRadius: 18,
-    backgroundColor: '#e2e8f0',
+    borderRadius: theme.radius,
+    backgroundColor: theme.surfaceInset,
   },
   removeText: {
-    color: '#b91c1c',
+    color: theme.dangerText,
     fontWeight: '700',
   },
 });
