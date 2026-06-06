@@ -1442,10 +1442,12 @@ export default function DealShieldApp() {
 
         {screen === 'analyzerHub' && (
           <>
-            <Card>
-              <Text style={styles.menuTitle}>Deal Analyzer — calculator and comparisons</Text>
-              <Text style={styles.detailText}>Break down pricing structure, compare saved offers, and model cleaner scenarios before you counter.</Text>
-            </Card>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionHeaderTitle}>Deal Analyzer</Text>
+              <Text style={styles.sectionHeaderSubtitle}>
+                Calculator and comparisons — break down pricing structure, compare saved offers, and model cleaner scenarios before you counter.
+              </Text>
+            </View>
             <View style={styles.stackGap}>
               <TouchableOpacity style={styles.menuCard} onPress={() => openScreen('dealReview', 'analyzer')} activeOpacity={0.85}>
                 <Text style={styles.menuTitle}>Deal review</Text>
@@ -1500,10 +1502,12 @@ export default function DealShieldApp() {
 
         {screen === 'settingsHub' && (
           <>
-            <Card>
-              <Text style={styles.menuTitle}>Settings — legal and support</Text>
-              <Text style={styles.detailText}>Review policies, manage premium access, and tune DealShield to your buyer profile.</Text>
-            </Card>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionHeaderTitle}>Settings</Text>
+              <Text style={styles.sectionHeaderSubtitle}>
+                Legal and support — review policies, manage premium access, and tune DealShield to your buyer profile.
+              </Text>
+            </View>
 
             <Card>
               <Text style={styles.menuTitle}>Legal and support</Text>
@@ -3829,6 +3833,23 @@ const styles = StyleSheet.create({
   },
   stackGapSmall: {
     gap: 8,
+  },
+  sectionHeader: {
+    marginBottom: 20,
+    paddingHorizontal: 2,
+    gap: 6,
+  },
+  sectionHeaderTitle: {
+    fontSize: 22,
+    fontWeight: '600',
+    color: '#666666',
+    letterSpacing: 0.2,
+  },
+  sectionHeaderSubtitle: {
+    fontSize: 15,
+    lineHeight: 22,
+    fontWeight: '400',
+    color: theme.textMuted,
   },
   menuCard: {
     backgroundColor: theme.surface,
