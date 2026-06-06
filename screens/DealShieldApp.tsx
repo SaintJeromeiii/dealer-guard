@@ -124,11 +124,30 @@ const TAB_HUBS: Record<MainTab, Screen> = {
 };
 
 const BOTTOM_TABS: { key: MainTab; label: string }[] = [
-  { key: 'scan', label: 'Scan' },
+  { key: 'scan', label: 'Shield' },
   { key: 'analyzer', label: 'Analyzer' },
-  { key: 'tactics', label: 'Tactics' },
+  { key: 'tactics', label: 'Tactician' },
   { key: 'settings', label: 'Settings' },
 ];
+
+const TAB_HEADER_COPY: Record<MainTab, { title: string; subtitle: string }> = {
+  scan: {
+    title: 'The Shield',
+    subtitle: 'Contract and photo scanning home — import quotes and audit paperwork before you sign.',
+  },
+  analyzer: {
+    title: 'Deal Analyzer',
+    subtitle: 'Calculator and comparisons — break down structure, compare offers, and model cleaner deals.',
+  },
+  tactics: {
+    title: 'Tactician Guide',
+    subtitle: 'Counter dealership pressure tactics with scripts, traps, and live coaching.',
+  },
+  settings: {
+    title: 'Settings',
+    subtitle: 'Legal, support, premium access, and buyer preferences.',
+  },
+};
 
 function createSeriesId() {
   return `series-${makeId()}`;
@@ -1362,19 +1381,35 @@ export default function DealShieldApp() {
           <View style={styles.header}>
             <View style={styles.flexOne}>
               <Text style={styles.eyebrow}>DEALSHIELD</Text>
-              <Text style={styles.headerTitle}>Car buyer protection</Text>
-              <Text style={styles.headerSubtitle}>Scan contracts, analyze deals, decode tactics, and manage Pro tools in one place.</Text>
+              <Text style={styles.headerTitle}>{TAB_HEADER_COPY[mainTab].title}</Text>
+              <Text style={styles.headerSubtitle}>{TAB_HEADER_COPY[mainTab].subtitle}</Text>
             </View>
-            <TouchableOpacity onPress={confirmReset} style={styles.resetPill} activeOpacity={0.85}>
-              <Text style={styles.resetPillText}>Reset</Text>
-            </TouchableOpacity>
+            <View style={styles.headerActions}>
+              {isPro ? (
+                <View style={styles.proActivePill}>
+                  <Text style={styles.proActivePillText}>Pro active</Text>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  onPress={() => void startPaywallPurchase()}
+                  style={styles.upgradePill}
+                  activeOpacity={0.85}
+                  disabled={billingBusy}
+                >
+                  <Text style={styles.upgradePillText}>{billingBusy ? 'Processing...' : '⚡ Go Pro'}</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity onPress={confirmReset} style={styles.resetPill} activeOpacity={0.85}>
+                <Text style={styles.resetPillText}>Reset</Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
         {screen === 'scanHub' && (
           <>
             <Card>
-              <Text style={styles.menuTitle}>Contract scanning</Text>
-              <Text style={styles.detailText}>Import dealership quotes and scan contract paperwork before you sign anything.</Text>
+              <Text style={styles.menuTitle}>The Shield — contract and photo scanning</Text>
+              <Text style={styles.detailText}>Your home base for importing quotes, running photo OCR, and scanning contract paperwork before you sign.</Text>
               <View style={styles.stackGap}>
                 <AppButton label="Quick quote check" onPress={startQuickQuoteCheck} />
                 <AppButton label="Open deal review and OCR" variant="secondary" onPress={() => openScreen('dealReview', 'scan')} />
@@ -1390,8 +1425,8 @@ export default function DealShieldApp() {
         {screen === 'analyzerHub' && (
           <>
             <Card>
-              <Text style={styles.menuTitle}>Deal analyzer</Text>
-              <Text style={styles.detailText}>Break down pricing structure, compare offers, and model cleaner scenarios.</Text>
+              <Text style={styles.menuTitle}>Deal Analyzer — calculator and comparisons</Text>
+              <Text style={styles.detailText}>Break down pricing structure, compare saved offers, and model cleaner scenarios before you counter.</Text>
             </Card>
             <View style={styles.stackGap}>
               <TouchableOpacity style={styles.menuCard} onPress={() => openScreen('dealReview', 'analyzer')} activeOpacity={0.85}>
@@ -1421,8 +1456,8 @@ export default function DealShieldApp() {
                 label={readinessLabel === 'Strong' ? 'Ready to negotiate' : readinessLabel === 'Almost Ready' ? 'Some weak spots' : 'At risk'}
                 tone={readinessLabel === 'Strong' ? 'good' : readinessLabel === 'Almost Ready' ? 'warn' : 'bad'}
               />
-              <Text style={styles.menuTitle}>Tactics guide</Text>
-              <Text style={styles.detailText}>Learn pressure tactics, rehearse responses, and stay on script in the finance office.</Text>
+              <Text style={styles.menuTitle}>Tactician Guide — counter the pressure</Text>
+              <Text style={styles.detailText}>Learn pressure tactics, rehearse responses, and stay on script when the desk or finance office turns up the heat.</Text>
               <View style={styles.stackGap}>
                 <AppButton label="I am at the dealership now" onPress={() => openScreen('liveMode', 'tactics')} />
                 <AppButton label="Start readiness check" variant="secondary" onPress={startQuestionFlow} />
@@ -1448,18 +1483,41 @@ export default function DealShieldApp() {
         {screen === 'settingsHub' && (
           <>
             <Card>
+              <Text style={styles.menuTitle}>Settings — legal and support</Text>
+              <Text style={styles.detailText}>Review policies, manage premium access, and tune DealShield to your buyer profile.</Text>
+            </Card>
+
+            <Card>
+              <Text style={styles.menuTitle}>Legal and support</Text>
+              <View style={styles.stackGap}>
+                <AppButton label="Privacy policy" variant="secondary" onPress={() => void openExternalLink(getPrivacyPolicyUrl(), 'Privacy policy')} />
+                <AppButton label="Terms and disclaimer" variant="secondary" onPress={() => void openExternalLink(getLegalDisclaimerUrl(), 'Terms and disclaimer')} />
+                {getManageSubscriptionsUrl() ? (
+                  <AppButton
+                    label="Manage subscription"
+                    variant="secondary"
+                    onPress={() => void openExternalLink(getManageSubscriptionsUrl()!, 'Manage subscription')}
+                  />
+                ) : null}
+              </View>
+            </Card>
+
+            <Card>
               <View style={styles.rowBetween}>
-                <Text style={styles.menuTitle}>Settings and premium</Text>
+                <Text style={styles.menuTitle}>DealShield Pro</Text>
                 <StatusBadge label={isPro ? 'Pro active' : 'Free plan'} tone={isPro ? 'good' : 'warn'} />
               </View>
               <Text style={styles.detailText}>{monetizationSummary.headline}</Text>
               <Text style={styles.detailText}>{monetizationSummary.detail}</Text>
+              {!isPro ? (
+                <AppButton label={billingBusy ? 'Processing...' : '⚡ Upgrade to lifetime Pro'} onPress={() => void startPaywallPurchase()} disabled={billingBusy} />
+              ) : null}
             </Card>
 
             <View style={styles.stackGap}>
               <TouchableOpacity style={styles.menuCard} onPress={() => openScreen('upgradeHub', 'settings')} activeOpacity={0.85}>
-                <Text style={styles.menuTitle}>DealShield Pro</Text>
-                <Text style={styles.menuDesc}>Manage lifetime purchase, restore access, and review premium tools.</Text>
+                <Text style={styles.menuTitle}>Pro details and restore</Text>
+                <Text style={styles.menuDesc}>Review premium tools, restore purchases, and manage billing status.</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.menuCard} onPress={() => openScreen('notes', 'settings')} activeOpacity={0.85}>
                 <Text style={styles.menuTitle}>Dealership notes</Text>
@@ -1490,13 +1548,6 @@ export default function DealShieldApp() {
               </View>
             </Card>
 
-            <Card>
-              <Text style={styles.menuTitle}>Legal and privacy</Text>
-              <View style={styles.stackGap}>
-                <AppButton label="Privacy policy" variant="secondary" onPress={() => void openExternalLink(getPrivacyPolicyUrl(), 'Privacy policy')} />
-                <AppButton label="Terms and disclaimer" variant="secondary" onPress={() => void openExternalLink(getLegalDisclaimerUrl(), 'Terms and disclaimer')} />
-              </View>
-            </Card>
           </>
         )}
 
@@ -3643,6 +3694,37 @@ const styles = StyleSheet.create({
     color: theme.text,
     marginBottom: 4,
   },
+  headerActions: {
+    alignItems: 'flex-end',
+    gap: 8,
+    marginTop: 4,
+  },
+  upgradePill: {
+    backgroundColor: '#fef3c7',
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: '#f59e0b',
+  },
+  upgradePillText: {
+    color: '#92400e',
+    fontWeight: '800',
+    fontSize: 13,
+  },
+  proActivePill: {
+    backgroundColor: theme.successSoft,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: '#86efac',
+  },
+  proActivePillText: {
+    color: theme.successText,
+    fontWeight: '800',
+    fontSize: 13,
+  },
   resetPill: {
     backgroundColor: theme.surface,
     borderRadius: 999,
@@ -3650,7 +3732,6 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderWidth: 1,
     borderColor: theme.border,
-    marginTop: 36,
   },
   resetPillText: {
     color: theme.textMuted,
