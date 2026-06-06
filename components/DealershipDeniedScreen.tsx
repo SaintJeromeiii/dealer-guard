@@ -1,12 +1,13 @@
 import React from 'react';
-import { SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import AppButton from '@/components/AppButton';
 import Card from '@/components/Card';
 
 export default function DealershipDeniedScreen({ onSwitchToBuyer }: { onSwitchToBuyer: () => void }) {
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
       <View style={styles.container}>
         <Text style={styles.errorCode}>404</Text>
         <Text style={styles.errorTitle}>Access Denied</Text>

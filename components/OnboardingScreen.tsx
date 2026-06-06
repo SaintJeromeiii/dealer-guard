@@ -1,5 +1,6 @@
 import React from 'react';
-import { SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import AppButton from '@/components/AppButton';
 import Card from '@/components/Card';
@@ -13,7 +14,7 @@ export default function OnboardingScreen({
   onSelectDealership: () => void;
 }) {
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
       <View style={styles.container}>
         <View style={styles.hero}>
           <Text style={styles.eyebrow}>DEALSHIELD</Text>

@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import OnboardingScreen from '@/components/OnboardingScreen';
 import { getStoredUserRole, saveUserRole } from '@/utils/onboarding';
@@ -49,17 +50,17 @@ export default function GateScreen() {
 
   if (loading) {
     return (
-      <View style={styles.loading}>
+      <SafeAreaView style={styles.loading} edges={['top', 'bottom', 'left', 'right']}>
         <ActivityIndicator size="large" color="#34d399" />
-      </View>
+      </SafeAreaView>
     );
   }
 
   if (!showOnboarding) {
     return (
-      <View style={styles.loading}>
+      <SafeAreaView style={styles.loading} edges={['top', 'bottom', 'left', 'right']}>
         <ActivityIndicator size="large" color="#34d399" />
-      </View>
+      </SafeAreaView>
     );
   }
 

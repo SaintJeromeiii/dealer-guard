@@ -7,7 +7,6 @@ import {
   Alert,
   Image,
   Platform,
-  SafeAreaView,
   ScrollView,
   Share,
   StyleSheet,
@@ -16,6 +15,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import AppButton from '@/components/AppButton';
 import Card from '@/components/Card';
@@ -331,6 +331,7 @@ export default function DealShieldApp() {
   const [billingBusy, setBillingBusy] = useState(false);
   const [showProActivatedBanner, setShowProActivatedBanner] = useState(false);
   const [simulatorIndex, setSimulatorIndex] = useState(0);
+  const insets = useSafeAreaInsets();
 
   function applyBillingState(billing: BillingState, tierOverride?: PremiumTier) {
     setAppData((prev) => {
@@ -1324,7 +1325,7 @@ export default function DealShieldApp() {
 
   if (!loaded) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
         <View style={styles.loadingWrap}>
           <ActivityIndicator size="large" color="#0f172a" />
           <Text style={styles.heroText}>Loading your saved dealership prep data...</Text>
@@ -1375,10 +1376,10 @@ export default function DealShieldApp() {
   );
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View style={[styles.safeArea, { paddingTop: insets.top }]}>
       <View style={styles.appShell}>
-        <ScrollView contentContainerStyle={styles.container}>
-          <View style={styles.header}>
+        <ScrollView style={styles.scrollView} contentContainerStyle={styles.container}>
+          <View style={[styles.header, { paddingTop: 8 }]}>
             <View style={styles.flexOne}>
               <Text style={styles.eyebrow}>DEALSHIELD</Text>
               <Text style={styles.headerTitle}>{TAB_HEADER_COPY[mainTab].title}</Text>
@@ -3581,7 +3582,7 @@ export default function DealShieldApp() {
         )}
         </ScrollView>
 
-        <View style={styles.bottomTabBar}>
+        <View style={[styles.bottomTabBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
           {BOTTOM_TABS.map((tab) => (
             <TouchableOpacity
               key={tab.key}
@@ -3594,7 +3595,7 @@ export default function DealShieldApp() {
           ))}
         </View>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -3626,14 +3627,16 @@ const styles = StyleSheet.create({
   appShell: {
     flex: 1,
   },
+  scrollView: {
+    flex: 1,
+  },
   bottomTabBar: {
     flexDirection: 'row',
     borderTopWidth: 1,
     borderTopColor: theme.border,
     backgroundColor: theme.surface,
     paddingHorizontal: 8,
-    paddingTop: 8,
-    paddingBottom: 10,
+    paddingTop: 10,
     gap: 6,
   },
   bottomTabButton: {
@@ -3697,7 +3700,7 @@ const styles = StyleSheet.create({
   headerActions: {
     alignItems: 'flex-end',
     gap: 8,
-    marginTop: 4,
+    minWidth: 92,
   },
   upgradePill: {
     backgroundColor: '#fef3c7',
