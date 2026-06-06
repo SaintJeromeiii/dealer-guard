@@ -1,5 +1,8 @@
 export type Screen =
-  | 'home'
+  | 'scanHub'
+  | 'analyzerHub'
+  | 'tacticsHub'
+  | 'settingsHub'
   | 'questions'
   | 'result'
   | 'traps'
@@ -13,7 +16,7 @@ export type Screen =
   | 'upgradeHub'
   | 'notes';
 
-export type MainTab = 'home' | 'checklist' | 'traps' | 'dealReview' | 'financeDefense' | 'notes';
+export type MainTab = 'scan' | 'analyzer' | 'tactics' | 'settings';
 export type Tone = 'good' | 'warn' | 'bad';
 export type PremiumTier = 'free' | 'pro';
 export type ExperienceMode = 'standard' | 'firstTimeBuyer';
