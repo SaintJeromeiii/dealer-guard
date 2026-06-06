@@ -5,7 +5,7 @@
     "description": "Spot bad car deals, compare offers, and protect yourself from dealership pressure tactics before you sign with DealShield.",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/dealshield-logo.png",
     "scheme": "dealshield",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -16,9 +16,7 @@
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "foregroundImage": "./assets/images/dealshield-logo.png"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
