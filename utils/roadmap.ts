@@ -26,7 +26,7 @@ export const ROADMAP_STEPS: RoadmapStepDefinition[] = [
     id: 'budget',
     stepNumber: 1,
     title: 'Budget',
-    description: 'Model your monthly payment, down payment, and total paid ceiling before you talk to a salesperson.',
+    description: 'Set your down payment, lender APR, loan term, and total paid ceiling before you talk to a salesperson.',
     actionLabel: 'Set your budget',
   },
   {

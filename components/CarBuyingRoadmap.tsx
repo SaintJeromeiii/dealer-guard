@@ -9,12 +9,27 @@ import type { RoadmapStepId, RoadmapStepViewModel } from '@/utils/roadmap';
 type CarBuyingRoadmapProps = {
   steps: RoadmapStepViewModel[];
   experienceMode?: ExperienceMode;
+  setupComplete?: boolean;
   onStepPress: (stepId: RoadmapStepId) => void;
   onPaywall: () => void;
 };
 
-export default function CarBuyingRoadmap({ steps, experienceMode = 'standard', onStepPress, onPaywall }: CarBuyingRoadmapProps) {
+export default function CarBuyingRoadmap({
+  steps,
+  experienceMode = 'standard',
+  setupComplete = true,
+  onStepPress,
+  onPaywall,
+}: CarBuyingRoadmapProps) {
   function handlePress(step: RoadmapStepViewModel) {
+    if (!setupComplete) {
+      Alert.alert(
+        'Finish guided setup first',
+        'Choose first-time or experienced buyer above and answer the short readiness questions. Then your roadmap unlocks in order.'
+      );
+      return;
+    }
+
     if (step.status === 'future') {
       const priorStep = steps.find((item) => item.stepNumber === step.stepNumber - 1);
       Alert.alert(
@@ -35,7 +50,7 @@ export default function CarBuyingRoadmap({ steps, experienceMode = 'standard', o
   }
 
   return (
-    <View style={styles.roadmap}>
+    <View style={[styles.roadmap, !setupComplete && styles.roadmapLocked]}>
       <View style={styles.roadmapHeader}>
         <Text style={styles.roadmapTitle}>Car Buying Roadmap</Text>
         <Text style={styles.roadmapSubtitle}>
@@ -145,6 +160,9 @@ const PRO_LOCKED_SURFACE = '#0F1522';
 const styles = StyleSheet.create({
   roadmap: {
     gap: 16,
+  },
+  roadmapLocked: {
+    opacity: 0.55,
   },
   roadmapHeader: {
     gap: 6,
