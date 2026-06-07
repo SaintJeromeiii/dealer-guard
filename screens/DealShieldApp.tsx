@@ -1556,16 +1556,16 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
             </View>
           </View>
 
-        {screen === 'scanHub' && (
-          <CarBuyingRoadmap
-            steps={carBuyingRoadmap.steps}
-            experienceMode={experienceMode}
-            onStepPress={handleRoadmapStepPress}
-            onPaywall={() => void startPaywallPurchase()}
-          />
-        )}
+          {screen === 'scanHub' && (
+            <CarBuyingRoadmap
+              steps={carBuyingRoadmap.steps}
+              experienceMode={experienceMode}
+              onStepPress={handleRoadmapStepPress}
+              onPaywall={() => void startPaywallPurchase()}
+            />
+          )}
 
-        {screen === 'analyzerHub' && (
+          {screen === 'analyzerHub' && (
             <View style={styles.stackGap}>
               <View style={styles.analyzerSection}>
                 <Text style={styles.analyzerSectionTitle}>Standard (Free)</Text>
@@ -1625,7 +1625,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
                 />
               </View>
             </View>
-        )}
+          )}
 
         {screen === 'tacticsHub' && (
           <>
@@ -2122,80 +2122,80 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
               </Card>
             ) : null}
 
-            {dealReviewEntryMode !== 'manual' ? (
-            <Card>
-              <Text style={styles.menuTitle}>Paste quote text</Text>
-              <Text style={styles.heroText}>
-                {experienceMode === 'firstTimeBuyer'
-                  ? 'Start here if you just want the app to check whether the quote feels clean or risky. Paste a worksheet, text message, or email quote and DealShield will pull out the important numbers.'
-                  : 'Paste a worksheet, text message, or email quote. DealShield will try to pull out price, APR, term, trade, and fee/add-on lines.'}
-              </Text>
-              <View style={styles.infoBox}>
-                <Text style={styles.bold}>Best results</Text>
-                <Text style={styles.infoBoxText}>Use a flat, printed quote with strong lighting and a tight crop. Handwritten notes can work, but they usually need review and manual correction.</Text>
-                <Text style={styles.infoBoxText}>If a handwritten worksheet misses key fields, import what it can, then add the missing numbers in the confirmation step before applying.</Text>
-              </View>
-              <View style={styles.infoBox}>
-                <Text style={styles.bold}>Capture tips</Text>
-                <Text style={styles.infoBoxText}>Try to keep labels explicit: `Price`, `APR`, `Term`, `Down payment` or `DP`, and `Trade` are the easiest for OCR to recover.</Text>
-                <Text style={styles.infoBoxText}>Printed buyer orders, emailed worksheets, and texted screenshots will usually beat handwriting for accuracy.</Text>
-              </View>
-              <TextInput
-                style={styles.notesInput}
-                value={appData.deal.importedQuoteText}
-                onChangeText={(text) => updateDeal('importedQuoteText', text)}
-                placeholder="Example:\nDealer: Metro Auto\nSelling price: $25,995\nDoc fee: $499\nProtection package: $1,295\nAPR: 8.9%\nTerm: 72 months\nTrade allowance: $6,000"
-                placeholderTextColor="#94a3b8"
-                multiline
-                textAlignVertical="top"
-              />
-              <View style={styles.doubleButtons}>
-                <View style={styles.flexOne}>
-                  <AppButton label="Import quote" onPress={importQuoteIntoDeal} />
+            {dealReviewEntryMode !== 'manual' && (
+              <Card>
+                <Text style={styles.menuTitle}>Paste quote text</Text>
+                <Text style={styles.heroText}>
+                  {experienceMode === 'firstTimeBuyer'
+                    ? 'Start here if you just want the app to check whether the quote feels clean or risky. Paste a worksheet, text message, or email quote and DealShield will pull out the important numbers.'
+                    : 'Paste a worksheet, text message, or email quote. DealShield will try to pull out price, APR, term, trade, and fee/add-on lines.'}
+                </Text>
+                <View style={styles.infoBox}>
+                  <Text style={styles.bold}>Best results</Text>
+                  <Text style={styles.infoBoxText}>Use a flat, printed quote with strong lighting and a tight crop. Handwritten notes can work, but they usually need review and manual correction.</Text>
+                  <Text style={styles.infoBoxText}>If a handwritten worksheet misses key fields, import what it can, then add the missing numbers in the confirmation step before applying.</Text>
                 </View>
-                <View style={styles.flexOne}>
-                  <AppButton label="Clear pasted text" variant="secondary" onPress={() => updateDeal('importedQuoteText', '')} />
+                <View style={styles.infoBox}>
+                  <Text style={styles.bold}>Capture tips</Text>
+                  <Text style={styles.infoBoxText}>Try to keep labels explicit: `Price`, `APR`, `Term`, `Down payment` or `DP`, and `Trade` are the easiest for OCR to recover.</Text>
+                  <Text style={styles.infoBoxText}>Printed buyer orders, emailed worksheets, and texted screenshots will usually beat handwriting for accuracy.</Text>
                 </View>
-              </View>
-              <View style={styles.doubleButtons}>
-                <View style={styles.flexOne}>
-                  <AppButton label="Choose quote photo" variant="secondary" onPress={() => void pickQuotePhoto()} />
-                </View>
-                <View style={styles.flexOne}>
-                  <AppButton
-                    label={isRunningPhotoOcr ? 'Reading photo...' : 'Run OCR from photo'}
-                    onPress={() => void runPhotoOcrImport()}
-                    disabled={isRunningPhotoOcr || !appData.deal.importedPhotoUri}
-                  />
-                </View>
-              </View>
-              {appData.deal.importedPhotoUri ? (
-                <View style={styles.stackGapSmall}>
-                  <Image source={{ uri: appData.deal.importedPhotoUri }} style={styles.quotePreview} resizeMode="cover" />
-                  <Text style={styles.detailText}>
-                    {Platform.OS === 'web'
-                      ? 'Selected photo is ready for OCR.'
-                      : Constants.appOwnership === 'expo'
-                        ? 'Selected photo preview is saved. To run OCR on your phone, open this app in a rebuilt development build instead of Expo Go.'
-                        : 'Selected photo is ready for native ML Kit OCR in this development build.'}
-                  </Text>
-                  <AppButton label="Remove photo" variant="secondary" onPress={removeQuotePhoto} />
-                </View>
-              ) : null}
-              {appData.deal.importReviewNotes.length > 0 && (
-                <>
-                  <Text style={styles.subheading}>Import review</Text>
-                  <View style={styles.stackGapSmall}>
-                    {appData.deal.importReviewNotes.map((note) => (
-                      <Text key={note} style={styles.detailText}>
-                        • {note}
-                      </Text>
-                    ))}
+                <TextInput
+                  style={styles.notesInput}
+                  value={appData.deal.importedQuoteText}
+                  onChangeText={(text) => updateDeal('importedQuoteText', text)}
+                  placeholder="Example:\nDealer: Metro Auto\nSelling price: $25,995\nDoc fee: $499\nProtection package: $1,295\nAPR: 8.9%\nTerm: 72 months\nTrade allowance: $6,000"
+                  placeholderTextColor="#94a3b8"
+                  multiline
+                  textAlignVertical="top"
+                />
+                <View style={styles.doubleButtons}>
+                  <View style={styles.flexOne}>
+                    <AppButton label="Import quote" onPress={importQuoteIntoDeal} />
                   </View>
-                </>
-              )}
-            </Card>
-            ) : null}
+                  <View style={styles.flexOne}>
+                    <AppButton label="Clear pasted text" variant="secondary" onPress={() => updateDeal('importedQuoteText', '')} />
+                  </View>
+                </View>
+                <View style={styles.doubleButtons}>
+                  <View style={styles.flexOne}>
+                    <AppButton label="Choose quote photo" variant="secondary" onPress={() => void pickQuotePhoto()} />
+                  </View>
+                  <View style={styles.flexOne}>
+                    <AppButton
+                      label={isRunningPhotoOcr ? 'Reading photo...' : 'Run OCR from photo'}
+                      onPress={() => void runPhotoOcrImport()}
+                      disabled={isRunningPhotoOcr || !appData.deal.importedPhotoUri}
+                    />
+                  </View>
+                </View>
+                {appData.deal.importedPhotoUri ? (
+                  <View style={styles.stackGapSmall}>
+                    <Image source={{ uri: appData.deal.importedPhotoUri }} style={styles.quotePreview} resizeMode="cover" />
+                    <Text style={styles.detailText}>
+                      {Platform.OS === 'web'
+                        ? 'Selected photo is ready for OCR.'
+                        : Constants.appOwnership === 'expo'
+                          ? 'Selected photo preview is saved. To run OCR on your phone, open this app in a rebuilt development build instead of Expo Go.'
+                          : 'Selected photo is ready for native ML Kit OCR in this development build.'}
+                    </Text>
+                    <AppButton label="Remove photo" variant="secondary" onPress={removeQuotePhoto} />
+                  </View>
+                ) : null}
+                {appData.deal.importReviewNotes.length > 0 && (
+                  <>
+                    <Text style={styles.subheading}>Import review</Text>
+                    <View style={styles.stackGapSmall}>
+                      {appData.deal.importReviewNotes.map((note) => (
+                        <Text key={note} style={styles.detailText}>
+                          • {note}
+                        </Text>
+                      ))}
+                    </View>
+                  </>
+                )}
+              </Card>
+            )}
 
             {pendingImport && pendingImport.matchedFields.length > 0 && (
               <Card>
