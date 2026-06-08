@@ -23,6 +23,7 @@ import { getBottomTabBarHeight, getBottomTabPadding, getHeaderTopPadding } from 
 import AppButton from '@/components/AppButton';
 import AnalyzerProSection from '@/components/AnalyzerProSection';
 import CarBuyingRoadmap from '@/components/CarBuyingRoadmap';
+import QuickPaymentEstimator from '@/components/QuickPaymentEstimator';
 import GuidedBuyerSetupCard from '@/components/GuidedBuyerSetupCard';
 import Card from '@/components/Card';
 import FeatureMenuCard from '@/components/FeatureMenuCard';
@@ -42,7 +43,7 @@ import {
 import { questions } from '@/data/questions';
 import { quickScripts } from '@/data/scripts';
 import { trapCards } from '@/data/traps';
-import { createInitialAppData, sanitizeAppData } from '@/utils/app-state';
+import { createInitialAppData, createInitialDeal, sanitizeAppData } from '@/utils/app-state';
 import {
   buildComparisonInsights,
   buildComparisonSummary,
@@ -1418,11 +1419,15 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
     setAppData((prev) => ({
       ...prev,
       savedDeals: [newDeal, ...prev.savedDeals].slice(0, 10),
+      deal: {
+        ...createInitialDeal(),
+        buyerStateCode: prev.deal.buyerStateCode,
+      },
     }));
     incrementUsage('dealsSaved');
     appendTimelineEntry('offerSaved', 'Offer saved to timeline', `Saved revision ${revisionNumber} for ${newDeal.dealershipName}.`, newDeal.dealershipName);
     trackEvent('deal_saved', 'Offer saved', `Saved revision ${revisionNumber} for ${newDeal.dealershipName}.`);
-    setLoadedDealId(newDeal.id);
+    setLoadedDealId(null);
 
     Alert.alert(
       'Deal saved',
@@ -1611,6 +1616,8 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
 
           {screen === 'analyzerHub' && (
             <View style={styles.stackGap}>
+              <QuickPaymentEstimator />
+
               <View style={styles.analyzerSection}>
                 <Text style={styles.analyzerSectionTitle}>Standard (Free)</Text>
                 <View style={styles.stackGap}>
@@ -2453,6 +2460,9 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
                 onChangeText={(text) => updateDeal('tradeReferenceValue', text)}
                 placeholder="6500"
               />
+              <Text style={styles.fieldHint}>
+                Trade Equity Audit: Compares the dealer&apos;s trade-in offer against independent valuation benchmarks to ensure you aren&apos;t underpaid for your current vehicle.
+              </Text>
               <DealInput
                 label="Trade payoff balance"
                 value={appData.deal.tradePayoff}
@@ -2723,10 +2733,6 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
                   <Text style={styles.statLabel}>Monthly</Text>
                   <Text style={styles.statValue}>{currency(dealAnalysis.monthlyPayment)}</Text>
                 </View>
-                <View style={styles.statCard}>
-                  <Text style={styles.statLabel}>Total paid</Text>
-                  <Text style={styles.statValue}>{currency(dealAnalysis.totalPaid)}</Text>
-                </View>
               </View>
 
               <Text style={styles.subheading}>Why this score happened</Text>
@@ -2761,7 +2767,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
               )}
 
               <View style={styles.stackGap}>
-                <AppButton label="Save this offer" onPress={saveCurrentDeal} />
+                <AppButton label={loadedDealId ? '✨ UPDATE OFFER' : 'SAVE OFFER'} onPress={saveCurrentDeal} />
                 <View style={styles.proLockedButtonWrap}>
                   {!isPro ? (
                     <View style={styles.proPreviewBadgeCorner}>
@@ -3168,6 +3174,31 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
                   </Text>
                 ))}
               </View>
+            </Card>
+
+            <Card>
+              <View style={styles.rowBetween}>
+                <Text style={styles.menuTitle}>Total paid reality check</Text>
+                <StatusBadge label="Finance office defense" tone="warn" />
+              </View>
+              <Text style={styles.detailText}>
+                Dealerships often anchor on monthly payment. This is the full out-of-pocket cost over the loan life, including your down payment.
+              </Text>
+              <View style={styles.statsRow}>
+                <View style={styles.statCard}>
+                  <Text style={styles.statLabel}>Monthly on paperwork</Text>
+                  <Text style={styles.statValue}>{currency(dealAnalysis.monthlyPayment)}</Text>
+                </View>
+                <View style={styles.statCard}>
+                  <Text style={styles.statLabel}>Total paid over life</Text>
+                  <Text style={styles.statValue}>{currency(dealAnalysis.totalPaid)}</Text>
+                </View>
+              </View>
+              <Text style={styles.detailText}>
+                {Number(appData.deal.months || 0) > 0
+                  ? `${currency(dealAnalysis.monthlyPayment)} × ${appData.deal.months} months + ${currency(Number(appData.deal.downPayment || 0))} down = ${currency(dealAnalysis.totalPaid)} total out of pocket.`
+                  : 'Enter loan term and down payment in Deal review to calculate the full lifetime cost.'}
+              </Text>
             </Card>
 
             <View style={styles.stackGap}>
@@ -4319,6 +4350,13 @@ const styles = StyleSheet.create({
   detailText: {
     color: theme.textMuted,
     lineHeight: 21,
+  },
+  fieldHint: {
+    color: theme.textMuted,
+    fontSize: 13,
+    lineHeight: 19,
+    marginTop: -4,
+    marginBottom: 8,
   },
   detailTextActive: {
     color: theme.text,

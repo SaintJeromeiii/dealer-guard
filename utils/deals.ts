@@ -1,5 +1,5 @@
 import { suspiciousFeeRules, stateOptions } from '../data/deal-content.ts';
-import { currency, estimateMonthlyPayment } from './finance.ts';
+import { computeAmountFinanced, computeTotalPaidOverLife, currency, estimateMonthlyPayment } from './finance.ts';
 import { getReadinessLabel, scoreAnswers } from './scoring.ts';
 import type {
   ComparisonInsight,
@@ -583,16 +583,13 @@ export function buildDealAnalysis(deal: DealState, readinessLabel: ReadinessLabe
   const feeTotal = getFeeTotal(deal);
   const addOnTotal = getAddOnTotal(deal);
   const flaggedFees = detectSuspiciousFees(buildFeeNameString(deal));
-  const amountFinanced = Math.max(
-    0,
-    Number(deal.vehiclePrice || 0) +
-      feeTotal +
-      addOnTotal -
-      Number(deal.downPayment || 0) -
-      Number(deal.tradeIn || 0)
-  );
-  const monthlyPayment = estimateMonthlyPayment(amountFinanced, Number(deal.apr || 0), Number(deal.months || 0));
-  const totalPaid = monthlyPayment * Number(deal.months || 0);
+  const salePrice = Number(deal.vehiclePrice || 0);
+  const downPayment = Number(deal.downPayment || 0);
+  const tradeCredit = Number(deal.tradeIn || 0);
+  const loanMonths = Number(deal.months || 0);
+  const amountFinanced = computeAmountFinanced(salePrice, feeTotal, addOnTotal, downPayment, tradeCredit);
+  const monthlyPayment = estimateMonthlyPayment(amountFinanced, Number(deal.apr || 0), loanMonths);
+  const totalPaid = computeTotalPaidOverLife(monthlyPayment, loanMonths, downPayment);
   const scoreBreakdown: DealAnalysisBreakdownItem[] = [];
   const dealWarnings: string[] = [];
 
