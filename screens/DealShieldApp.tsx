@@ -1185,6 +1185,15 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
     openScreen('whatIfLab', 'analyzer');
   }
 
+  function openLiveDealershipMode() {
+    if (!isPro) {
+      void startPaywallPurchase();
+      return;
+    }
+
+    openScreen('liveMode', 'tactics');
+  }
+
   function handleRoadmapStepPress(stepId: RoadmapStepId) {
     switch (stepId) {
       case 'budget':
@@ -1194,11 +1203,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
         router.push({ pathname: '/(main)/analyzer', params: { mode: 'manual' } });
         return;
       case 'lotInspection':
-        if (!isPro) {
-          void startPaywallPurchase();
-          return;
-        }
-        openScreen('liveMode', 'tactics');
+        openLiveDealershipMode();
         return;
       case 'contractScan':
         router.push({ pathname: '/(main)/analyzer', params: { mode: 'ocr' } });
@@ -1686,7 +1691,17 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
                 tone={readinessLabel === 'Strong' ? 'good' : readinessLabel === 'Almost Ready' ? 'warn' : 'bad'}
               />
               <View style={styles.stackGap}>
-                <AppButton label="I am at the dealership now" onPress={() => openScreen('liveMode', 'tactics')} />
+                <View style={styles.proLockedButtonWrap}>
+                  {!isPro ? (
+                    <View style={styles.proPreviewBadgeCorner}>
+                      <ProFeatureBadge unlocked={false} />
+                    </View>
+                  ) : null}
+                  <AppButton
+                    label={isPro ? 'I am at the dealership now' : 'Unlock live dealership mode'}
+                    onPress={() => void openLiveDealershipMode()}
+                  />
+                </View>
                 <AppButton label="Start readiness check" variant="secondary" onPress={startQuestionFlow} />
               </View>
             </Card>
@@ -1696,7 +1711,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
                 description="Get a step-by-step visit plan for live negotiations so you know what to say and ask in order."
                 requiresPro
                 isPremium={isPro}
-                onPress={() => openScreen('liveMode', 'tactics')}
+                onPress={openLiveDealershipMode}
                 onPaywall={() => void startPaywallPurchase()}
               />
               <FeatureMenuCard
@@ -1931,7 +1946,15 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
           </>
         )}
 
-        {screen === 'liveMode' && (
+        {screen === 'liveMode' && !isPro ? (
+          <PremiumPreviewCard
+            title="Live dealership mode"
+            detail="Get live coaching, pressure tracking, honesty scoring, and a step-by-step session playbook while you are sitting at the lot."
+            onPaywall={() => void startPaywallPurchase()}
+          />
+        ) : null}
+
+        {screen === 'liveMode' && isPro ? (
           <Card>
             <View style={styles.rowBetween}>
               <Text style={styles.screenTitle}>Live dealership mode</Text>
@@ -2110,7 +2133,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
               </View>
             </Card>
           </Card>
-        )}
+        ) : null}
 
         {screen === 'dealReview' && (
           <>
