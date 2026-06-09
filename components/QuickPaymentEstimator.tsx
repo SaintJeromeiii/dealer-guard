@@ -1,13 +1,18 @@
 import React, { useMemo, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, TextInput, View } from 'react-native';
 
+import AppButton from '@/components/AppButton';
 import Card from '@/components/Card';
 import { SHIELD_SURFACE, SHIELD_THEME } from '@/constants/shield-theme';
 import { currency, estimateMonthlyPayment } from '@/utils/finance';
 
 const TERM_OPTIONS = [48, 60, 72] as const;
 
-export default function QuickPaymentEstimator() {
+type QuickPaymentEstimatorProps = {
+  onUseInDealReview?: (loanPrice: string, apr: string, months: number) => void;
+};
+
+export default function QuickPaymentEstimator({ onUseInDealReview }: QuickPaymentEstimatorProps) {
   const [loanPrice, setLoanPrice] = useState('');
   const [apr, setApr] = useState('');
   const [months, setMonths] = useState<(typeof TERM_OPTIONS)[number]>(60);
@@ -69,6 +74,13 @@ export default function QuickPaymentEstimator() {
         <Text style={styles.resultLabel}>Estimated base monthly payment</Text>
         <Text style={styles.resultValue}>{estimatedPayment > 0 ? currency(estimatedPayment) : '—'}</Text>
       </View>
+      {onUseInDealReview && estimatedPayment > 0 ? (
+        <AppButton
+          label="Use in deal review"
+          variant="secondary"
+          onPress={() => onUseInDealReview(loanPrice, apr, months)}
+        />
+      ) : null}
     </Card>
   );
 }

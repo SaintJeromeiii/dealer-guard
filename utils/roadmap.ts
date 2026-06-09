@@ -1,5 +1,5 @@
 import { currency } from './finance.ts';
-import type { DealerGuardAppData } from './types.ts';
+import type { DealState, DealerGuardAppData } from './types.ts';
 
 export type RoadmapStepId = 'budget' | 'quickCheck' | 'lotInspection' | 'contractScan';
 
@@ -54,17 +54,28 @@ export const ROADMAP_STEPS: RoadmapStepDefinition[] = [
   },
 ];
 
-function isBudgetStepComplete(appData: DealerGuardAppData) {
+export function isRoadmapBudgetComplete(appData: DealerGuardAppData) {
   const { deal } = appData;
   if (deal.targetTotalPaid.trim()) return true;
   if (deal.downPayment.trim() && deal.outsideLenderApr.trim() && deal.months.trim()) return true;
   return false;
 }
 
-function isQuickCheckStepComplete(appData: DealerGuardAppData) {
-  const { deal } = appData;
+export function dealHasQuickCheckData(deal: DealState) {
   if (!deal.vehiclePrice.trim()) return false;
-  return Boolean(deal.apr.trim() || deal.months.trim() || deal.dealerFees.trim() || deal.feeItems.length > 0);
+  return Boolean(
+    deal.apr.trim() ||
+      deal.months.trim() ||
+      deal.dealerFees.trim() ||
+      deal.addOns.trim() ||
+      deal.feeItems.length > 0 ||
+      deal.addOnItems.length > 0
+  );
+}
+
+function isQuickCheckStepComplete(appData: DealerGuardAppData) {
+  if (dealHasQuickCheckData(appData.deal)) return true;
+  return appData.savedDeals.some(dealHasQuickCheckData);
 }
 
 function isLotInspectionStepComplete(appData: DealerGuardAppData) {
@@ -85,7 +96,7 @@ function isContractScanStepComplete(appData: DealerGuardAppData) {
 }
 
 const COMPLETION_CHECKS: Record<RoadmapStepId, (appData: DealerGuardAppData) => boolean> = {
-  budget: isBudgetStepComplete,
+  budget: isRoadmapBudgetComplete,
   quickCheck: isQuickCheckStepComplete,
   lotInspection: isLotInspectionStepComplete,
   contractScan: isContractScanStepComplete,
@@ -104,9 +115,17 @@ function buildStepSummary(stepId: RoadmapStepId, appData: DealerGuardAppData): s
       }
       return 'Budget guardrails saved';
     case 'quickCheck': {
-      const dealer = deal.dealershipName.trim() || 'Latest quote';
-      const price = deal.vehiclePrice.trim() ? currency(deal.vehiclePrice) : 'Quote captured';
-      const apr = deal.apr.trim() ? ` at ${deal.apr}% APR` : '';
+      const savedQuotes = appData.savedDeals.filter(dealHasQuickCheckData);
+      const sourceDeal = dealHasQuickCheckData(deal) ? deal : savedQuotes[0] ?? deal;
+      if (savedQuotes.length > 1) {
+        const latest = savedQuotes[0];
+        const dealer = latest.dealershipName.trim() || 'Saved quotes';
+        const price = latest.vehiclePrice.trim() ? currency(latest.vehiclePrice) : 'Quote captured';
+        return `${savedQuotes.length} quotes saved • Latest: ${dealer} ${price}`;
+      }
+      const dealer = sourceDeal.dealershipName.trim() || 'Latest quote';
+      const price = sourceDeal.vehiclePrice.trim() ? currency(sourceDeal.vehiclePrice) : 'Quote captured';
+      const apr = sourceDeal.apr.trim() ? ` at ${sourceDeal.apr}% APR` : '';
       return `${dealer}: ${price}${apr}`;
     }
     case 'lotInspection':

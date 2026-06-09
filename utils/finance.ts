@@ -13,12 +13,13 @@ export function roundMoney(value: number) {
 
 export function computeAmountFinanced(
   salePrice: number,
-  feesAndTaxes: number,
+  mandatoryFees: number,
+  salesTax: number,
   addOns: number,
   downPayment: number,
   tradeCredit: number
 ) {
-  const amountFinanced = salePrice + feesAndTaxes + addOns - downPayment - tradeCredit;
+  const amountFinanced = salePrice + mandatoryFees + salesTax + addOns - downPayment - tradeCredit;
   return roundMoney(Math.max(0, amountFinanced));
 }
 

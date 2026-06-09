@@ -21,10 +21,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getBottomTabBarHeight, getBottomTabPadding, getHeaderTopPadding } from '@/utils/safe-area';
 
 import AppButton from '@/components/AppButton';
-import AnalyzerProSection from '@/components/AnalyzerProSection';
-import CarBuyingRoadmap from '@/components/CarBuyingRoadmap';
-import QuickPaymentEstimator from '@/components/QuickPaymentEstimator';
-import GuidedBuyerSetupCard from '@/components/GuidedBuyerSetupCard';
+import AnalyticsFunnelCard from '@/components/AnalyticsFunnelCard';
+import EmptyStateGuide from '@/components/EmptyStateGuide';
+import FreeVsProComparison from '@/components/FreeVsProComparison';
+import AnalyzerHubContent from '@/components/hubs/AnalyzerHubContent';
+import ScanHubContent from '@/components/hubs/ScanHubContent';
+import MathDisclaimer from '@/components/MathDisclaimer';
+import OcrConfirmChips from '@/components/OcrConfirmChips';
+import PaperworkSignatureGate from '@/components/PaperworkSignatureGate';
+import TradeEquityAuditCard from '@/components/TradeEquityAuditCard';
 import Card from '@/components/Card';
 import FeatureMenuCard from '@/components/FeatureMenuCard';
 import ProgressBar from '@/components/ProgressBar';
@@ -89,6 +94,7 @@ import {
   currency,
   getAddOnTotal,
   getFeeTotal,
+  getNextRevisionNumber,
   getReadinessLabel,
   getStateName,
   importQuoteText,
@@ -101,7 +107,10 @@ import {
   derivePreferencesFromAnswers,
   getReadinessNextAction,
 } from '@/utils/buyer-setup';
-import { buildCarBuyingRoadmap, type RoadmapStepId } from '@/utils/roadmap';
+import { buildAnalyticsFunnel, getFunnelCompletionRate } from '@/utils/analytics-funnel';
+import { buildNextStepGuidance } from '@/utils/next-step';
+import { SAMPLE_QUOTE } from '@/utils/product-content';
+import { buildCarBuyingRoadmap, isRoadmapBudgetComplete, type RoadmapStepId } from '@/utils/roadmap';
 import { loadAppData, resetStoredAppData, saveAppData } from '@/utils/storage';
 import type {
   AnalyticsEvent,
@@ -362,6 +371,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
   const [billingBusy, setBillingBusy] = useState(false);
   const [showProActivatedBanner, setShowProActivatedBanner] = useState(false);
   const [simulatorIndex, setSimulatorIndex] = useState(0);
+  const [ocrConfirmedFields, setOcrConfirmedFields] = useState<Record<string, boolean>>({});
   const insets = useSafeAreaInsets();
   const analyzerEntryHandled = useRef(false);
 
@@ -429,13 +439,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
     if (!loaded || !entryAnalyzerMode || analyzerEntryHandled.current) return;
 
     analyzerEntryHandled.current = true;
-    setMainTab('analyzer');
-    setScreen('dealReview');
-    setDealReviewEntryMode(entryAnalyzerMode);
-
-    if (entryAnalyzerMode === 'ocr') {
-      void pickQuotePhoto();
-    }
+    openDealReview(entryAnalyzerMode, { startOcr: entryAnalyzerMode === 'ocr' });
   }, [loaded, entryAnalyzerMode]);
 
   const currentQuestion = questions[questionIndex];
@@ -466,6 +470,18 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
     [appData.deal.contractScannedText]
   );
   const carBuyingRoadmap = useMemo(() => buildCarBuyingRoadmap(appData, isPro), [appData, isPro]);
+  const budgetStepComplete = useMemo(() => isRoadmapBudgetComplete(appData), [appData]);
+  const nextStepGuidance = useMemo(
+    () =>
+      buildNextStepGuidance(
+        appData.preferences.onboardingComplete,
+        experienceMode,
+        carBuyingRoadmap.currentStepId
+      ),
+    [appData.preferences.onboardingComplete, carBuyingRoadmap.currentStepId, experienceMode]
+  );
+  const analyticsFunnel = useMemo(() => buildAnalyticsFunnel(appData), [appData]);
+  const funnelCompletionRate = useMemo(() => getFunnelCompletionRate(analyticsFunnel), [analyticsFunnel]);
   const readinessNextAction = useMemo(
     () => getReadinessNextAction(readinessLabel, readiness.missing, carBuyingRoadmap.currentStepId, experienceMode),
     [readinessLabel, readiness.missing, carBuyingRoadmap.currentStepId, experienceMode]
@@ -555,6 +571,18 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
     if (!normalizedDealer) return null;
     return appData.savedDeals.find((deal) => deal.dealershipName.trim().toLowerCase() === normalizedDealer)?.seriesId ?? null;
   }, [appData.deal.dealershipName, appData.savedDeals, loadedDealId]);
+  const nextRevisionNumber = useMemo(
+    () => getNextRevisionNumber(appData.savedDeals, activeSeriesId),
+    [activeSeriesId, appData.savedDeals]
+  );
+  const saveOfferLabel = useMemo(() => {
+    if (loadedDealId || activeSeriesId) {
+      return `SAVE AS REVISION ${nextRevisionNumber}`;
+    }
+    return 'SAVE OFFER';
+  }, [activeSeriesId, loadedDealId, nextRevisionNumber]);
+  const showSecondOpinionCta =
+    dealAnalysis.dealVerdict === 'Review Carefully' || dealAnalysis.dealVerdict === 'Bad Deal' || dealAnalysis.dealVerdict === 'Walk Away';
   const offerTimeline = useMemo(
     () => (activeSeriesId ? buildOfferTimeline(appData.savedDeals, activeSeriesId, readinessLabel) : []),
     [activeSeriesId, appData.savedDeals, readinessLabel]
@@ -616,6 +644,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
       },
     }));
     setPendingImport(result);
+    setOcrConfirmedFields({});
     setEditableImportFields(
       Object.fromEntries(result.fieldReviews.map((item) => [item.field, item.value]))
     );
@@ -776,7 +805,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
     setPremiumTier('pro');
     trackEvent('pro_preview', 'Local Pro preview enabled', 'Unlocked the local Pro preview path on this device.');
     setMainTab('scan');
-    setScreen('dealReview');
+    openDealReview('default', { skipBudgetGate: true });
     setShowProActivatedBanner(true);
     Alert.alert('DealShield Pro', 'Pro tools are now unlocked on this device for testing.');
   }
@@ -852,7 +881,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
         openBudgetSetup();
         return;
       case 'roadmapQuickCheck':
-        router.push({ pathname: '/(main)/analyzer', params: { mode: 'manual' } });
+        openDealReview('manual');
         return;
       case 'checklist':
         openScreen('checklist', 'tactics');
@@ -876,6 +905,9 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
   }
 
   async function startPaywallPurchase() {
+    if (!isPro) {
+      trackEvent('paywall_opened', 'Paywall opened', 'User tapped a Pro-locked feature or upgrade path.');
+    }
     setBillingBusy(true);
 
     try {
@@ -1156,10 +1188,50 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
     setScreen(TAB_HUBS[tab]);
   }
 
+  function preserveBudgetGuardrails(deal: DealState) {
+    return {
+      targetTotalPaid: deal.targetTotalPaid,
+      downPayment: deal.downPayment,
+      outsideLenderApr: deal.outsideLenderApr,
+      outsideLenderTerm: deal.outsideLenderTerm,
+      months: deal.months,
+    };
+  }
+
+  function promptBudgetGate() {
+    Alert.alert(
+      'Set your budget first',
+      'Complete Step 1: Budget on Shield before reviewing dealership quotes. This locks in your walk-away numbers.',
+      [
+        { text: 'Not now', style: 'cancel' },
+        { text: 'Set budget', onPress: openBudgetSetup },
+      ]
+    );
+  }
+
+  function openDealReview(
+    entryMode: DealReviewEntryMode = 'default',
+    options?: { startOcr?: boolean; skipBudgetGate?: boolean }
+  ) {
+    if (!options?.skipBudgetGate && entryMode !== 'budget' && !isRoadmapBudgetComplete(appData)) {
+      promptBudgetGate();
+      return;
+    }
+
+    setMainTab('analyzer');
+    setDealReviewEntryMode(entryMode);
+    setScreen('dealReview');
+
+    if (options?.startOcr) {
+      void pickQuotePhoto();
+    }
+  }
+
   function openScreen(next: Screen, tab?: MainTab) {
     if (tab) setMainTab(tab);
     if (next === 'dealReview') {
-      setDealReviewEntryMode('default');
+      openDealReview('default');
+      return;
     }
     setScreen(next);
   }
@@ -1194,19 +1266,90 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
     openScreen('liveMode', 'tactics');
   }
 
+  function handleShieldNextStep() {
+    switch (nextStepGuidance.stepId) {
+      case 'checklist':
+        openScreen('checklist', 'tactics');
+        return;
+      case 'budget':
+        openBudgetSetup();
+        return;
+      case 'quickCheck':
+        openDealReview('manual');
+        return;
+      case 'lotInspection':
+        openLiveDealershipMode();
+        return;
+      case 'contractScan':
+        openDealReview('ocr', { startOcr: true });
+        return;
+      case 'compare':
+        openScreen('compareDeals', 'analyzer');
+        return;
+      default:
+        if (!appData.preferences.onboardingComplete) {
+          startGuidedBuyerSetup();
+        }
+        return;
+    }
+  }
+
+  function applyEstimatorToDealReview(loanPrice: string, aprValue: string, monthsValue: number) {
+    if (!isRoadmapBudgetComplete(appData)) {
+      promptBudgetGate();
+      return;
+    }
+
+    setAppData((prev) => ({
+      ...prev,
+      deal: {
+        ...prev.deal,
+        vehiclePrice: loanPrice,
+        apr: aprValue,
+        months: String(monthsValue),
+      },
+    }));
+    openDealReview('default', { skipBudgetGate: true });
+    trackEvent('estimator_applied', 'Estimator applied to deal review', 'Copied quick payment estimator values into deal review.');
+  }
+
+  function fillSampleQuote() {
+    if (!isRoadmapBudgetComplete(appData)) {
+      promptBudgetGate();
+      return;
+    }
+
+    setAppData((prev) => ({
+      ...prev,
+      deal: {
+        ...prev.deal,
+        ...SAMPLE_QUOTE,
+      },
+    }));
+    openDealReview('default', { skipBudgetGate: true });
+    trackEvent('sample_quote_loaded', 'Sample quote loaded', 'Loaded the built-in sample quote for testing.');
+  }
+
+  function toggleOcrConfirm(field: string) {
+    setOcrConfirmedFields((prev) => ({
+      ...prev,
+      [field]: !prev[field],
+    }));
+  }
+
   function handleRoadmapStepPress(stepId: RoadmapStepId) {
     switch (stepId) {
       case 'budget':
         openBudgetSetup();
         return;
       case 'quickCheck':
-        router.push({ pathname: '/(main)/analyzer', params: { mode: 'manual' } });
+        openDealReview('manual');
         return;
       case 'lotInspection':
         openLiveDealershipMode();
         return;
       case 'contractScan':
-        router.push({ pathname: '/(main)/analyzer', params: { mode: 'ocr' } });
+        openDealReview('ocr', { startOcr: true });
         return;
       default:
         return;
@@ -1234,7 +1377,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
     appendTimelineEntry('offerSaved', 'What-if scenario applied', 'Applied the current what-if lab scenario back into Deal review.');
     trackEvent('what_if_applied', 'Scenario applied to deal review', 'Applied a modeled scenario back into the active deal review.');
     Alert.alert('Scenario applied', 'The what-if scenario is now loaded into Deal review.');
-    setScreen('dealReview');
+    openDealReview('default');
   }
 
   function completeSigningCheckpoint() {
@@ -1427,6 +1570,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
       deal: {
         ...createInitialDeal(),
         buyerStateCode: prev.deal.buyerStateCode,
+        ...preserveBudgetGuardrails(prev.deal),
       },
     }));
     incrementUsage('dealsSaved');
@@ -1436,11 +1580,38 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
 
     Alert.alert(
       'Deal saved',
-      revisionNumber > 1 ? `Saved as revision ${revisionNumber} for this dealership timeline.` : 'This offer is now available in Compare dealership offers.'
+      revisionNumber > 1
+        ? `Saved as revision ${revisionNumber} for this dealership timeline. The form cleared so you can enter the next quote.`
+        : 'This offer is now available in Compare dealership offers. The form cleared so you can enter the next quote.'
     );
   }
 
+  function openNewOfferReview() {
+    setLoadedDealId(null);
+    setDealReviewEntryMode('default');
+    setPendingImport(null);
+    setOcrConfirmedFields({});
+    setEditableImportFields({});
+    setEditableFeeItems([]);
+    setEditableAddOnItems([]);
+    setAppData((prev) => ({
+      ...prev,
+      deal: {
+        ...createInitialDeal(),
+        buyerStateCode: prev.deal.buyerStateCode,
+        ...preserveBudgetGuardrails(prev.deal),
+      },
+    }));
+    openDealReview('default', { skipBudgetGate: true });
+    trackEvent('new_offer_started', 'New offer started', 'Opened a fresh deal review form for another dealership quote.');
+  }
+
   function loadSavedDeal(id: string) {
+    if (!isRoadmapBudgetComplete(appData)) {
+      promptBudgetGate();
+      return;
+    }
+
     const found = appData.savedDeals.find((item) => item.id === id);
     if (!found) return;
 
@@ -1450,8 +1621,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
       deal: rest,
     }));
     setLoadedDealId(id);
-    setMainTab('analyzer');
-    setScreen('dealReview');
+    openDealReview('default', { skipBudgetGate: true });
   }
 
   function deleteSavedDeal(id: string) {
@@ -1543,9 +1713,6 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
     `Strongest move: ${whatIfComparison.strongestMove}`,
   ].join('\n');
   const secondOpinionShare = buildSecondOpinionShare(appData.deal, dealAnalysis, actionRecommendation, negotiationPlan);
-  const spouseShare = `${secondOpinionShare}\n\nI want your opinion before I sign anything. Can you look at this like a co-buyer with me?`;
-  const advisorShare = `${secondOpinionShare}\n\nCan you review this like an outside advisor and tell me what looks off before I commit?`;
-  const contractReviewShare = `${secondOpinionShare}\n\nI am close to signing. Can you sanity-check the contract terms with me before I finalize this?`;
   const referralLoop = buildReferralLoop(appData.deal, dealAnalysis, actionRecommendation, secondOpinionShare);
   const visitCaseSummary = buildVisitCaseSummary(appData.visitTimeline, appData.deal.dealershipName);
   const buyerReport = buildBuyerReport(
@@ -1598,89 +1765,38 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
           </View>
 
           {screen === 'scanHub' && (
-            <View style={styles.stackGap}>
-              <GuidedBuyerSetupCard
-                onboardingComplete={appData.preferences.onboardingComplete}
-                experienceMode={experienceMode}
-                headline={onboardingSummary.headline}
-                detail={onboardingSummary.detail}
-                onFirstTimeBuyer={enableFirstTimeBuyerMode}
-                onExperiencedBuyer={startExperiencedBuyerSetup}
-                onUpdateSetup={startGuidedBuyerSetup}
-                onDisableFirstTimeMode={disableFirstTimeBuyerMode}
-              />
-              <CarBuyingRoadmap
-                steps={carBuyingRoadmap.steps}
-                experienceMode={experienceMode}
-                setupComplete={appData.preferences.onboardingComplete}
-                onStepPress={handleRoadmapStepPress}
-                onPaywall={() => void startPaywallPurchase()}
-              />
-            </View>
+            <ScanHubContent
+              onboardingComplete={appData.preferences.onboardingComplete}
+              experienceMode={experienceMode}
+              headline={onboardingSummary.headline}
+              detail={onboardingSummary.detail}
+              checklistProgress={checklistProgress}
+              nextStep={nextStepGuidance}
+              roadmapSteps={carBuyingRoadmap.steps}
+              onFirstTimeBuyer={enableFirstTimeBuyerMode}
+              onExperiencedBuyer={startExperiencedBuyerSetup}
+              onUpdateSetup={startGuidedBuyerSetup}
+              onDisableFirstTimeMode={disableFirstTimeBuyerMode}
+              onNextStep={handleShieldNextStep}
+              onOpenChecklist={() => openScreen('checklist', 'tactics')}
+              onRoadmapStepPress={handleRoadmapStepPress}
+              onPaywall={() => void startPaywallPurchase()}
+            />
           )}
 
           {screen === 'analyzerHub' && (
-            <View style={styles.stackGap}>
-              <QuickPaymentEstimator />
-
-              <View style={styles.analyzerSection}>
-                <Text style={styles.analyzerSectionTitle}>Standard (Free)</Text>
-                <View style={styles.stackGap}>
-                  <FeatureMenuCard
-                    title="Deal review"
-                    description="Analyze vehicle price, fees, APR, add-ons, and total out-the-door exposure."
-                    isPremium={isPro}
-                    onPress={() => openScreen('dealReview', 'analyzer')}
-                    onPaywall={() => void startPaywallPurchase()}
-                  />
-                  <FeatureMenuCard
-                    title="Compare dealership offers"
-                    description="Save multiple offers and compare risk, monthly payment, and total cost side by side."
-                    isPremium={isPro}
-                    onPress={() => openScreen('compareDeals', 'analyzer')}
-                    onPaywall={() => void startPaywallPurchase()}
-                  />
-                </View>
-              </View>
-
-              <AnalyzerProSection isPremium={isPro} onPaywall={() => void startPaywallPurchase()}>
-                <FeatureMenuCard
-                  title="What-if lab"
-                  description="Model cleaner APR, term, fee, and down-payment structures before you counter."
-                  requiresPro
-                  isPremium={isPro}
-                  onPress={openWhatIfLab}
-                  onPaywall={() => void startPaywallPurchase()}
-                />
-                <FeatureMenuCard
-                  title="Finance office defense"
-                  description="Prepare for warranty, GAP, and add-on pressure after the sales desk."
-                  requiresPro
-                  isPremium={isPro}
-                  onPress={() => openScreen('financeDefense', 'analyzer')}
-                  onPaywall={() => void startPaywallPurchase()}
-                />
-              </AnalyzerProSection>
-
-              <View style={styles.stackGap}>
-                <FeatureMenuCard
-                  title="Shareable buyer report"
-                  description="Package the verdict, negotiation plan, and key risk checks into one summary you can text or export."
-                  requiresPro
-                  isPremium={isPro}
-                  onPress={() => openScreen('dealReview', 'analyzer')}
-                  onPaywall={() => void startPaywallPurchase()}
-                />
-                <FeatureMenuCard
-                  title="Dealer scorecards"
-                  description="See how each dealership stacks up across offer quality, pressure tactics, and kept or broken promises."
-                  requiresPro
-                  isPremium={isPro}
-                  onPress={() => openScreen('compareDeals', 'analyzer')}
-                  onPaywall={() => void startPaywallPurchase()}
-                />
-              </View>
-            </View>
+            <AnalyzerHubContent
+              isPro={isPro}
+              budgetComplete={budgetStepComplete}
+              savedOfferCount={appData.savedDeals.length}
+              onUseEstimatorInDealReview={applyEstimatorToDealReview}
+              onOpenDealReview={() => openDealReview('default')}
+              onOpenCompare={() => openScreen('compareDeals', 'analyzer')}
+              onOpenWhatIfLab={openWhatIfLab}
+              onOpenFinanceDefense={() => openScreen('financeDefense', 'analyzer')}
+              onPaywall={() => void startPaywallPurchase()}
+              onBudgetGate={promptBudgetGate}
+            />
           )}
 
         {screen === 'tacticsHub' && (
@@ -1762,10 +1878,18 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
               </View>
               <Text style={styles.detailText}>{monetizationSummary.headline}</Text>
               <Text style={styles.detailText}>{monetizationSummary.detail}</Text>
+              {!isPro && savingsOpportunity.estimatedSavings > 0 ? (
+                <Text style={styles.detailText}>
+                  This deal could cost about {currency(savingsOpportunity.estimatedSavings)} more than a cleaner structure. Pro tools help you push back with scripts and modeling.
+                </Text>
+              ) : null}
               {!isPro ? (
                 <AppButton label={billingBusy ? 'Processing...' : '⚡ Upgrade to lifetime Pro'} onPress={() => void startPaywallPurchase()} disabled={billingBusy} />
               ) : null}
             </Card>
+
+            <FreeVsProComparison />
+            <AnalyticsFunnelCard steps={analyticsFunnel} completionRate={funnelCompletionRate} />
 
             <View style={styles.stackGap}>
               <FeatureMenuCard
@@ -2187,7 +2311,21 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
               </Card>
             ) : null}
 
-            {dealReviewEntryMode !== 'budget' ? (
+            {dealReviewEntryMode !== 'budget' && !budgetStepComplete ? (
+              <Card>
+                <StatusBadge label="Step 1 required" tone="warn" />
+                <Text style={styles.menuTitle}>Set your budget first</Text>
+                <Text style={styles.heroText}>
+                  Complete Step 1: Budget on Shield before reviewing dealership quotes. Your budget guardrails keep every quote check anchored to what you can actually afford.
+                </Text>
+                <View style={styles.stackGap}>
+                  <AppButton label="Set your budget" onPress={openBudgetSetup} />
+                  <AppButton label="Back to roadmap" variant="secondary" onPress={() => goToHub('scan')} />
+                </View>
+              </Card>
+            ) : null}
+
+            {dealReviewEntryMode !== 'budget' && budgetStepComplete ? (
               <>
             {dealReviewEntryMode === 'manual' ? (
               <Card>
@@ -2284,6 +2422,11 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
                     <Text style={styles.infoBoxText}>If the image was handwritten or low contrast, fill these manually after applying the imported draft.</Text>
                   </View>
                 )}
+                <OcrConfirmChips
+                  fields={pendingImport.fieldReviews}
+                  confirmedFields={ocrConfirmedFields}
+                  onToggleConfirm={toggleOcrConfirm}
+                />
                 <View style={styles.stackGapSmall}>
                   {pendingImport.fieldReviews.map((item) => (
                     <View key={`${item.field}-${item.value}`} style={styles.infoBox}>
@@ -2424,6 +2567,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
               <Text style={styles.detailText}>{dealAnalysis.stateContext}</Text>
 
               <DealInput label="Vehicle price" value={appData.deal.vehiclePrice} onChangeText={(text) => updateDeal('vehiclePrice', text)} placeholder="25000" />
+              <DealInput label="Sales tax" value={appData.deal.salesTax} onChangeText={(text) => updateDeal('salesTax', text)} placeholder="1560" />
               <DealInput
                 label="Researched market price"
                 value={appData.deal.marketVehiclePrice}
@@ -2664,47 +2808,14 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
               )}
             </Card>
 
-            <Card>
-              <View style={styles.rowBetween}>
-                <Text style={styles.menuTitle}>Signing checkpoint</Text>
-                <StatusBadge label={signingReadiness.readyToSign ? 'Ready to sign' : 'Hold'} tone={signingReadiness.tone} />
-              </View>
-              <Text style={styles.detailText}>{signingReadiness.headline}</Text>
-              <Text style={styles.detailText}>{signingReadiness.detail}</Text>
-              {signingReadiness.blockers.length > 0 ? (
-                <>
-                  <Text style={styles.subheading}>Blockers</Text>
-                  <View style={styles.stackGapSmall}>
-                    {signingReadiness.blockers.map((item) => (
-                      <Text key={item} style={styles.warningText}>
-                        • {item}
-                      </Text>
-                    ))}
-                  </View>
-                </>
-              ) : null}
-              {signingReadiness.greenLights.length > 0 ? (
-                <>
-                  <Text style={styles.subheading}>Green lights</Text>
-                  <View style={styles.stackGapSmall}>
-                    {signingReadiness.greenLights.map((item) => (
-                      <Text key={item} style={styles.detailText}>
-                        • {item}
-                      </Text>
-                    ))}
-                  </View>
-                </>
-              ) : null}
-              <Text style={styles.subheading}>Before signing</Text>
-              <View style={styles.stackGapSmall}>
-                {signingReadiness.checklist.map((item) => (
-                  <Text key={item} style={styles.detailText}>
-                    • {item}
-                  </Text>
-                ))}
-              </View>
-              {signingReadiness.readyToSign ? <AppButton label="Count clean checkpoint" variant="secondary" onPress={completeSigningCheckpoint} /> : null}
-            </Card>
+            <PaperworkSignatureGate
+              readiness={signingReadiness}
+              onShareAudit={() => {
+                appendTimelineEntry('paperworkChecked', 'Paperwork audit shared', 'Shared the paperwork audit summary.');
+                void shareText('DealShield paperwork audit', paperworkAuditSummary);
+              }}
+              onCheckpoint={completeSigningCheckpoint}
+            />
 
             <Card>
               <View style={styles.rowBetween}>
@@ -2757,6 +2868,34 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
                   <Text style={styles.statValue}>{currency(dealAnalysis.monthlyPayment)}</Text>
                 </View>
               </View>
+              <MathDisclaimer />
+
+              {showSecondOpinionCta ? (
+                <Card>
+                  <Text style={styles.menuTitle}>Get a second opinion before you sign</Text>
+                  <Text style={styles.detailText}>
+                    This offer flagged {dealAnalysis.dealVerdict.toLowerCase()}. Share a summary with someone you trust or copy the buyer report before moving forward.
+                  </Text>
+                  <View style={styles.stackGap}>
+                    <AppButton
+                      label="Share offer summary"
+                      onPress={() => void shareText('DealShield offer review', currentDealSummary)}
+                    />
+                    {isPro ? (
+                      <AppButton
+                        label="Share buyer report"
+                        variant="secondary"
+                        onPress={() => {
+                          incrementUsage('reportsShared');
+                          void shareText('DealShield buyer report', buyerReport);
+                        }}
+                      />
+                    ) : (
+                      <AppButton label="Unlock shareable buyer report" variant="secondary" onPress={() => void startPaywallPurchase()} />
+                    )}
+                  </View>
+                </Card>
+              ) : null}
 
               <Text style={styles.subheading}>Why this score happened</Text>
               <ScoreBreakdown items={dealAnalysis.scoreBreakdown} />
@@ -2790,7 +2929,8 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
               )}
 
               <View style={styles.stackGap}>
-                <AppButton label={loadedDealId ? '✨ UPDATE OFFER' : 'SAVE OFFER'} onPress={saveCurrentDeal} />
+                <AppButton label={saveOfferLabel} onPress={saveCurrentDeal} />
+                <AppButton label="Add another offer" variant="secondary" onPress={openNewOfferReview} />
                 <View style={styles.proLockedButtonWrap}>
                   {!isPro ? (
                     <View style={styles.proPreviewBadgeCorner}>
@@ -2845,28 +2985,31 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
 
             <Card>
               <Text style={styles.menuTitle}>Second-opinion share</Text>
-              <Text style={styles.detailText}>Turn this deal into a fast message you can text to a spouse, friend, or advisor before you sign. This is free on purpose so the app can travel person-to-person.</Text>
-              <View style={styles.stackGap}>
-                <AppButton
-                  label="Copy second-opinion text"
-                  variant="secondary"
-                  onPress={() => {
-                    incrementUsage('referralShares');
-                    appendTimelineEntry('referralShared', 'Second-opinion summary copied', 'Copied the fast second-opinion text for outside review.');
-                    void copyText('Second-opinion text', secondOpinionShare);
-                  }}
-                />
-                <AppButton
-                  label="Share second-opinion text"
-                  onPress={() => {
-                    incrementUsage('referralShares');
-                    appendTimelineEntry('referralShared', 'Second-opinion summary shared', 'Shared the fast second-opinion message with someone else.');
-                    void shareText('Help me review this deal', secondOpinionShare);
-                  }}
-                />
-                <AppButton label="Copy spouse/co-buyer version" variant="secondary" onPress={() => void copyText('Spouse review text', spouseShare)} />
-                <AppButton label="Copy advisor version" variant="secondary" onPress={() => void copyText('Advisor review text', advisorShare)} />
-                <AppButton label="Copy contract review version" variant="secondary" onPress={() => void copyText('Contract review text', contractReviewShare)} />
+              <Text style={styles.detailText}>
+                Turn this deal into a short message you can send to someone you trust before you sign. Copy it to your clipboard or open your phone&apos;s share sheet.
+              </Text>
+              <View style={styles.doubleButtons}>
+                <View style={styles.flexOne}>
+                  <AppButton
+                    label="Copy"
+                    variant="secondary"
+                    onPress={() => {
+                      incrementUsage('referralShares');
+                      appendTimelineEntry('referralShared', 'Second-opinion summary copied', 'Copied the fast second-opinion text for outside review.');
+                      void copyText('Second-opinion text', secondOpinionShare);
+                    }}
+                  />
+                </View>
+                <View style={styles.flexOne}>
+                  <AppButton
+                    label="Share"
+                    onPress={() => {
+                      incrementUsage('referralShares');
+                      appendTimelineEntry('referralShared', 'Second-opinion summary shared', 'Shared the fast second-opinion message with someone else.');
+                      void shareText('Help me review this deal', secondOpinionShare);
+                    }}
+                  />
+                </View>
               </View>
             </Card>
 
@@ -2882,14 +3025,6 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
                     incrementUsage('referralShares');
                     appendTimelineEntry('referralShared', 'Invite message shared', 'Shared a DealShield invite after the second-opinion flow.');
                     void shareText('Try DealShield', referralLoop.inviteMessage);
-                  }}
-                />
-                <AppButton
-                  label="Copy follow-up invite"
-                  onPress={() => {
-                    incrementUsage('referralShares');
-                    appendTimelineEntry('referralShared', 'Follow-up invite copied', 'Copied a follow-up invite message for a friend or advisor.');
-                    void copyText('Follow-up invite', referralLoop.followUpMessage);
                   }}
                 />
               </View>
@@ -3067,44 +3202,12 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
               </View>
             </Card>
 
-            {tradeInAssessment && (
-              <Card>
-                <View style={styles.rowBetween}>
-                  <Text style={styles.menuTitle}>Trade-in fairness</Text>
-                  <StatusBadge label={tradeInAssessment.tone === 'good' ? 'Fair trade' : tradeInAssessment.tone === 'bad' ? 'Trade risk' : 'Review trade'} tone={tradeInAssessment.tone} />
-                </View>
-                <Text style={styles.detailText}>{tradeInAssessment.detail}</Text>
-                <View style={styles.statsRow}>
-                  <View style={styles.statCard}>
-                    <Text style={styles.statLabel}>Dealer trade</Text>
-                    <Text style={styles.statValue}>{currency(tradeInAssessment.offeredValue)}</Text>
-                  </View>
-                  {tradeInAssessment.benchmarkValue > 0 ? (
-                    <View style={styles.statCard}>
-                      <Text style={styles.statLabel}>Benchmark</Text>
-                      <Text style={styles.statValue}>{currency(tradeInAssessment.benchmarkValue)}</Text>
-                    </View>
-                  ) : null}
-                  {tradeInAssessment.payoffBalance > 0 ? (
-                    <View style={styles.statCard}>
-                      <Text style={styles.statLabel}>Payoff</Text>
-                      <Text style={styles.statValue}>{currency(tradeInAssessment.payoffBalance)}</Text>
-                    </View>
-                  ) : null}
-                </View>
-                {tradeInAssessment.payoffBalance > 0 ? (
-                  <Text style={styles.detailText}>
-                    Current equity position: {tradeInAssessment.equity >= 0 ? currency(tradeInAssessment.equity) : `-${currency(Math.abs(tradeInAssessment.equity))}`}
-                  </Text>
-                ) : null}
-                <View style={styles.scriptBox}>
-                  <Text style={styles.detailText}>
-                    <Text style={styles.bold}>Say this: </Text>
-                    {tradeInAssessment.negotiationScript}
-                  </Text>
-                </View>
-              </Card>
-            )}
+            {tradeInAssessment ? (
+              <TradeEquityAuditCard
+                assessment={tradeInAssessment}
+                onCopyScript={() => void copyText('Trade script', tradeInAssessment.negotiationScript)}
+              />
+            ) : null}
 
             <Card>
               <Text style={styles.menuTitle}>Negotiation blueprint</Text>
@@ -3222,6 +3325,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
                   ? `${currency(dealAnalysis.monthlyPayment)} × ${appData.deal.months} months + ${currency(Number(appData.deal.downPayment || 0))} down = ${currency(dealAnalysis.totalPaid)} total out of pocket.`
                   : 'Enter loan term and down payment in Deal review to calculate the full lifetime cost.'}
               </Text>
+              <MathDisclaimer />
             </Card>
 
             <View style={styles.stackGap}>
@@ -3470,13 +3574,30 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
               </TouchableOpacity>
             </View>
 
-            {appData.savedDeals.length === 0 ? (
+            {appData.savedDeals.length > 0 ? (
               <Card>
-                <Text style={styles.heroText}>No saved deals yet. Start in Deal review, enter or import one quote, then save it here so you can compare dealerships side by side.</Text>
-                <View style={styles.stackGap}>
-                  <AppButton label="Go to Deal review" onPress={() => openScreen('dealReview', 'analyzer')} />
-                </View>
+                <Text style={styles.detailText}>
+                  Enter another dealership quote without going back through the Analyzer home screen.
+                </Text>
+                <AppButton label="Add another offer" onPress={openNewOfferReview} />
               </Card>
+            ) : null}
+
+            {appData.savedDeals.length === 0 ? (
+              <EmptyStateGuide
+                title="Compare dealerships side by side"
+                detail="Save at least two quotes to see monthly payment, total paid, and risk flags next to each other."
+                exampleTitle="Try the sample quote"
+                exampleLines={[
+                  `${SAMPLE_QUOTE.dealershipName}: ${currency(SAMPLE_QUOTE.vehiclePrice)} vehicle`,
+                  `${SAMPLE_QUOTE.apr}% APR for ${SAMPLE_QUOTE.months} months`,
+                  `${currency(SAMPLE_QUOTE.salesTax)} sales tax + ${currency(SAMPLE_QUOTE.dealerFees)} fees`,
+                ]}
+                primaryLabel="Go to Deal review"
+                onPrimary={() => openScreen('dealReview', 'analyzer')}
+                secondaryLabel="Load sample quote"
+                onSecondary={fillSampleQuote}
+              />
             ) : (
               <>
                 {dealerScorecards.length > 0 &&
@@ -3766,6 +3887,11 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
               </View>
               <Text style={styles.detailText}>{monetizationSummary.headline}</Text>
               <Text style={styles.detailText}>{monetizationSummary.detail}</Text>
+              {!isPro && savingsOpportunity.estimatedSavings > 0 ? (
+                <Text style={styles.detailText}>
+                  Based on your current deal, Pro modeling could protect about {currency(savingsOpportunity.estimatedSavings)}.
+                </Text>
+              ) : null}
               <View style={styles.statsRow}>
                 <View style={styles.statCard}>
                   <Text style={styles.statLabel}>Lifetime access</Text>
@@ -3819,6 +3945,8 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
                 <AppButton label="Terms and disclaimer" variant="secondary" onPress={() => void openExternalLink(getLegalDisclaimerUrl(), 'Terms and disclaimer')} />
               </View>
             </Card>
+
+            <FreeVsProComparison title="Free vs Pro at a glance" />
 
             <Card>
               <Text style={styles.menuTitle}>What&apos;s included in Pro</Text>

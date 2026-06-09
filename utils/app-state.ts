@@ -1,6 +1,6 @@
 import type { AnalyticsEvent, BillingState, DealLineItem, DealState, DealerGuardAppData, NegotiationFlag, PressureIncident, PromiseRecord, SavedDeal, SubscriptionState, VisitTimelineEntry } from './types.ts';
 
-export const STORAGE_VERSION = 9;
+export const STORAGE_VERSION = 10;
 export const STORAGE_KEY = 'dealerGuard_state';
 
 export const LEGACY_STORAGE_KEYS = {
@@ -70,6 +70,7 @@ export function createInitialDeal(): DealState {
     contractTradeIn: '',
     contractApr: '',
     contractMonths: '',
+    salesTax: '',
     dealerFees: '',
     feeNames: '',
     feeItems: [],
@@ -245,6 +246,7 @@ export function sanitizeDeal(value: unknown): DealState {
     contractTradeIn: safeString((raw as DealState).contractTradeIn),
     contractApr: safeString((raw as DealState).contractApr),
     contractMonths: safeString((raw as DealState).contractMonths),
+    salesTax: safeString((raw as DealState).salesTax),
     dealerFees: safeString((raw as DealState).dealerFees),
     feeNames: safeString((raw as DealState).feeNames),
     feeItems: sanitizeLineItems((raw as DealState).feeItems),

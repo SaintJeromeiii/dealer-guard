@@ -117,6 +117,7 @@ export type DealState = {
   contractTradeIn: string;
   contractApr: string;
   contractMonths: string;
+  salesTax: string;
   dealerFees: string;
   feeNames: string;
   feeItems: DealLineItem[];

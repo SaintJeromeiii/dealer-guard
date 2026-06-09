@@ -445,6 +445,22 @@ export function importQuoteText(rawText: string): QuoteImportResult {
     });
   }
 
+  const salesTax = parseLabeledValue(text, [
+    /sales\s+tax\s*[:\-]?\s*\$?([0-9,]+(?:\.\d+)?)/i,
+    /\btax\s*[:\-]?\s*\$?([0-9,]+(?:\.\d+)?)/i,
+  ]);
+  if (salesTax) {
+    const cleaned = cleanMoneyValue(salesTax);
+    parsedDeal.salesTax = cleaned;
+    matchedFields.push('sales tax');
+    fieldReviews.push({
+      field: 'Sales tax',
+      value: cleaned,
+      confidence: cleaned === salesTax ? 'high' : 'medium',
+      note: cleaned === salesTax ? 'Matched directly from labeled sales tax text.' : `Cleaned OCR text "${salesTax}" into ${cleaned}.`,
+    });
+  }
+
   const tradeIn = parseLabeledValue(text, [
     /trade(?:-|\s)?(?:in)?\s*(?:value|allowance)?\s*[:\-]?\s*\$?([0-9,]+(?:\.\d+)?)/i,
     /\btrade\s*[:\-]?\s*\$?([A-Z0-9,]+(?:\.\d+)?)/i,
@@ -584,10 +600,11 @@ export function buildDealAnalysis(deal: DealState, readinessLabel: ReadinessLabe
   const addOnTotal = getAddOnTotal(deal);
   const flaggedFees = detectSuspiciousFees(buildFeeNameString(deal));
   const salePrice = Number(deal.vehiclePrice || 0);
+  const salesTax = Number(deal.salesTax || 0);
   const downPayment = Number(deal.downPayment || 0);
   const tradeCredit = Number(deal.tradeIn || 0);
   const loanMonths = Number(deal.months || 0);
-  const amountFinanced = computeAmountFinanced(salePrice, feeTotal, addOnTotal, downPayment, tradeCredit);
+  const amountFinanced = computeAmountFinanced(salePrice, feeTotal, salesTax, addOnTotal, downPayment, tradeCredit);
   const monthlyPayment = estimateMonthlyPayment(amountFinanced, Number(deal.apr || 0), loanMonths);
   const totalPaid = computeTotalPaidOverLife(monthlyPayment, loanMonths, downPayment);
   const scoreBreakdown: DealAnalysisBreakdownItem[] = [];
@@ -930,6 +947,12 @@ export function buildComparisonInsights(
   });
 
   return insights;
+}
+
+export function getNextRevisionNumber(savedDeals: SavedDeal[], seriesId: string | null) {
+  if (!seriesId) return 1;
+  const priorRevisions = savedDeals.filter((item) => item.seriesId === seriesId);
+  return priorRevisions.length > 0 ? Math.max(...priorRevisions.map((item) => item.revisionNumber || 1)) + 1 : 1;
 }
 
 export function buildCounterOfferMoves(

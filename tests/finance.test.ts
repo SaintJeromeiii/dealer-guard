@@ -8,13 +8,13 @@ test('roundMoney enforces two-decimal currency precision', () => {
   assert.equal(roundMoney(99.994), 99.99);
 });
 
-test('computeAmountFinanced sums sale price, fees, and add-ons minus credits', () => {
-  const amountFinanced = computeAmountFinanced(25000, 1499, 2500, 3000, 4000);
-  assert.equal(amountFinanced, 21999);
+test('computeAmountFinanced sums sale price, fees, tax, and add-ons minus credits', () => {
+  const amountFinanced = computeAmountFinanced(25000, 1499, 1560, 2500, 3000, 4000);
+  assert.equal(amountFinanced, 23559);
 });
 
 test('computeAmountFinanced never returns negative financed balances', () => {
-  assert.equal(computeAmountFinanced(10000, 0, 0, 12000, 0), 0);
+  assert.equal(computeAmountFinanced(10000, 0, 0, 0, 12000, 0), 0);
 });
 
 test('estimateMonthlyPayment uses standard amortization formula', () => {
