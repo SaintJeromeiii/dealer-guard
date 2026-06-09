@@ -503,7 +503,8 @@ test('buildMonetizationSummary highlights premium value around existing usage', 
   );
 
   assert.match(summary.headline, /DealShield Free/i);
-  assert.equal(summary.featureCards.length, 3);
+  assert.equal(summary.featureCards.length, 5);
+  assert.equal(summary.featureCards[0]?.title, 'Live dealership mode');
   assert.ok(summary.reasons.some((reason) => reason.includes('saved offer')));
 });
 

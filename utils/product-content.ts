@@ -4,17 +4,53 @@ export type FreeVsProRow = {
   pro: string;
 };
 
-export const FREE_VS_PRO_ROWS: FreeVsProRow[] = [
+export type LifetimeProFeature = {
+  title: string;
+  benefit: string;
+};
+
+/** Pro-only tools — single source of truth for Settings, upgrade hub, and monetization cards. */
+export const LIFETIME_PRO_FEATURES: LifetimeProFeature[] = [
+  {
+    title: 'Live dealership mode',
+    benefit: 'Stay on script at the lot with live coaching, pressure tracking, and response scripts when the salesperson turns up the heat.',
+  },
+  {
+    title: 'What-if lab & counter scripts',
+    benefit: 'Model cleaner APR, term, fee, and down-payment structures before you counter at the desk.',
+  },
+  {
+    title: 'Finance office defense',
+    benefit: 'Prepare for warranty, GAP, and add-on pressure after the sales desk with F&I-specific scripts and checklists.',
+  },
+  {
+    title: 'Shareable buyer report',
+    benefit: 'Package the verdict, negotiation plan, and key risk checks into one summary you can text or export before anyone signs.',
+  },
+  {
+    title: 'Dealer scorecards',
+    benefit: 'See how each dealership stacks up across offer quality, pressure tactics, and kept or broken promises.',
+  },
+];
+
+export const LIFETIME_PRO_PURCHASE_NOTE = 'One-time purchase · No subscription · Restore on new devices';
+
+export const LIFETIME_PRO_ACTIVE_NOTE = 'Lifetime Pro is active on this account. All features below are unlocked.';
+
+const FREE_PLAN_ROWS: FreeVsProRow[] = [
   { feature: 'Guided buyer setup & roadmap', free: 'Yes', pro: 'Yes' },
   { feature: 'Budget guardrails', free: 'Yes', pro: 'Yes' },
   { feature: 'Deal review & quick payment estimator', free: 'Yes', pro: 'Yes' },
   { feature: 'Save & compare offers', free: 'Yes', pro: 'Yes' },
-  { feature: 'Live dealership mode', free: '—', pro: 'Yes' },
-  { feature: 'What-if lab & counter scripts', free: '—', pro: 'Yes' },
-  { feature: 'Finance office defense', free: '—', pro: 'Yes' },
-  { feature: 'Shareable buyer report', free: '—', pro: 'Yes' },
-  { feature: 'Dealer scorecards', free: '—', pro: 'Yes' },
 ];
+
+const PRO_PLAN_ROWS: FreeVsProRow[] = LIFETIME_PRO_FEATURES.map((feature) => ({
+  feature: feature.title,
+  free: '—',
+  pro: 'Yes',
+}));
+
+export const FREE_VS_PRO_ROWS: FreeVsProRow[] = [...FREE_PLAN_ROWS, ...PRO_PLAN_ROWS];
 
 export const SAMPLE_QUOTE = {
   dealershipName: 'Metro Auto Group',

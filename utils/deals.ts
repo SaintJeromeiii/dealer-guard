@@ -1,5 +1,6 @@
 import { suspiciousFeeRules, stateOptions } from '../data/deal-content.ts';
 import { computeAmountFinanced, computeTotalPaidOverLife, currency, estimateMonthlyPayment } from './finance.ts';
+import { LIFETIME_PRO_FEATURES } from './product-content.ts';
 import { getReadinessLabel, scoreAnswers } from './scoring.ts';
 import type {
   ComparisonInsight,
@@ -1916,28 +1917,12 @@ export function buildMonetizationSummary(
     headline: tier === 'pro' ? 'DealShield Pro is active' : 'You are on DealShield Free',
     detail:
       tier === 'pro'
-        ? 'Premium tools are unlocked: shareable buyer report, dealer scorecards, and your in-store session playbook.'
-        : 'Core quote review stays free. Upgrade when you need a full report to share, dealership scorecards, or a step-by-step plan for live negotiations.',
+        ? 'Premium tools are unlocked: live dealership mode, what-if lab, finance office defense, shareable buyer report, and dealer scorecards.'
+        : 'Core quote review stays free. Upgrade when you need live coaching, counter-offer modeling, F&I prep, a shareable report, or dealership scorecards.',
     monthlyPriceLabel: 'One-time purchase',
     annualPriceLabel: 'Lifetime unlock',
     reasons,
-    featureCards: [
-      createFeatureCard(
-        'Shareable buyer report',
-        'Package the verdict, negotiation plan, and key risk checks into one summary you can text or export before anyone signs.',
-        tier
-      ),
-      createFeatureCard(
-        'Dealer scorecards',
-        'See how each dealership stacks up across offer quality, pressure tactics, and kept or broken promises.',
-        tier
-      ),
-      createFeatureCard(
-        'Session playbook',
-        'Get a step-by-step visit plan for live negotiations so you know what to say and ask in order.',
-        tier
-      ),
-    ],
+    featureCards: LIFETIME_PRO_FEATURES.map((feature) => createFeatureCard(feature.title, feature.benefit, tier)),
   };
 }
 

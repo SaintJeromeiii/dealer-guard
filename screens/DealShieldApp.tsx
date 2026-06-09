@@ -109,7 +109,7 @@ import {
 } from '@/utils/buyer-setup';
 import { buildAnalyticsFunnel, getFunnelCompletionRate } from '@/utils/analytics-funnel';
 import { buildNextStepGuidance } from '@/utils/next-step';
-import { SAMPLE_QUOTE } from '@/utils/product-content';
+import { LIFETIME_PRO_PURCHASE_NOTE, SAMPLE_QUOTE } from '@/utils/product-content';
 import { buildCarBuyingRoadmap, isRoadmapBudgetComplete, type RoadmapStepId } from '@/utils/roadmap';
 import { loadAppData, resetStoredAppData, saveAppData } from '@/utils/storage';
 import type {
@@ -1884,11 +1884,19 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
                 </Text>
               ) : null}
               {!isPro ? (
-                <AppButton label={billingBusy ? 'Processing...' : '⚡ Upgrade to lifetime Pro'} onPress={() => void startPaywallPurchase()} disabled={billingBusy} />
+                <>
+                  <AppButton label={billingBusy ? 'Processing...' : '⚡ Upgrade to lifetime Pro'} onPress={() => void startPaywallPurchase()} disabled={billingBusy} />
+                  <Text style={styles.detailText}>{LIFETIME_PRO_PURCHASE_NOTE}</Text>
+                </>
               ) : null}
             </Card>
 
-            <FreeVsProComparison />
+            <FreeVsProComparison
+              title={isPro ? 'Your plan includes' : 'Free vs Pro'}
+              showLifetimeIncluded
+              showPurchaseNote={isPro}
+              isPro={isPro}
+            />
             <AnalyticsFunnelCard steps={analyticsFunnel} completionRate={funnelCompletionRate} />
 
             <View style={styles.stackGap}>
@@ -3946,22 +3954,12 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
               </View>
             </Card>
 
-            <FreeVsProComparison title="Free vs Pro at a glance" />
-
-            <Card>
-              <Text style={styles.menuTitle}>What&apos;s included in Pro</Text>
-              <View style={styles.stackGapSmall}>
-                {monetizationSummary.featureCards.map((card) => (
-                  <View key={card.title} style={styles.infoBox}>
-                    <View style={styles.rowBetween}>
-                      <Text style={styles.bold}>{card.title}</Text>
-                      <ProFeatureBadge unlocked={card.unlocked} />
-                    </View>
-                    <Text style={styles.infoBoxText}>{card.detail}</Text>
-                  </View>
-                ))}
-              </View>
-            </Card>
+            <FreeVsProComparison
+              title={isPro ? 'Your plan includes' : 'Free vs Pro at a glance'}
+              showLifetimeIncluded
+              showPurchaseNote
+              isPro={isPro}
+            />
           </>
         )}
 
