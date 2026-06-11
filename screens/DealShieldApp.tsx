@@ -21,6 +21,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getBottomTabBarHeight, getBottomTabPadding, getHeaderTopPadding } from '@/utils/safe-area';
 
 import AppButton from '@/components/AppButton';
+import BillingDiagnosticsCard from '@/components/BillingDiagnosticsCard';
 import AnalyticsFunnelCard from '@/components/AnalyticsFunnelCard';
 import EmptyStateGuide from '@/components/EmptyStateGuide';
 import FreeVsProComparison from '@/components/FreeVsProComparison';
@@ -101,7 +102,14 @@ import {
   scoreAnswers,
 } from '@/utils/deals';
 import { buildDealShieldAuditDashboard } from '@/utils/audit-dashboard';
-import { initializeBilling, purchaseProEntitlement, restoreProEntitlement, subscribeToBillingUpdates } from '@/utils/billing';
+import {
+  getBillingDiagnostics,
+  initializeBilling,
+  purchaseProEntitlement,
+  restoreProEntitlement,
+  subscribeToBillingUpdates,
+  type BillingDiagnostics,
+} from '@/utils/billing';
 import {
   applyReadinessAnswersToDeal,
   derivePreferencesFromAnswers,
@@ -369,6 +377,8 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
   const [backupDraft, setBackupDraft] = useState('');
   const [promiseDraft, setPromiseDraft] = useState('');
   const [billingBusy, setBillingBusy] = useState(false);
+  const [billingDiagnostics, setBillingDiagnostics] = useState<BillingDiagnostics | null>(null);
+  const [billingDiagnosticsBusy, setBillingDiagnosticsBusy] = useState(false);
   const [showProActivatedBanner, setShowProActivatedBanner] = useState(false);
   const [simulatorIndex, setSimulatorIndex] = useState(0);
   const [ocrConfirmedFields, setOcrConfirmedFields] = useState<Record<string, boolean>>({});
@@ -919,6 +929,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
       if (result.tier === 'pro') {
         setShowProActivatedBanner(true);
       }
+      await refreshBillingDiagnostics(result.tier);
     } finally {
       setBillingBusy(false);
     }
@@ -933,10 +944,26 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
       applyBillingState(billing, result.tier);
       trackEvent('purchase_restored', 'Restore purchase', result.note);
       Alert.alert('Restore purchase', result.note);
+      await refreshBillingDiagnostics(result.tier);
     } finally {
       setBillingBusy(false);
     }
   }
+
+  async function refreshBillingDiagnostics(tier: PremiumTier = appData.subscription.tier) {
+    setBillingDiagnosticsBusy(true);
+    try {
+      const diagnostics = await getBillingDiagnostics(tier);
+      setBillingDiagnostics(diagnostics);
+    } finally {
+      setBillingDiagnosticsBusy(false);
+    }
+  }
+
+  useEffect(() => {
+    if (screen !== 'upgradeHub' || isPro) return;
+    void refreshBillingDiagnostics();
+  }, [screen, isPro, appData.subscription.tier]);
 
   function incrementUsage(key: keyof typeof appData.subscription.usage) {
     setAppData((prev) => ({
@@ -3937,16 +3964,15 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
                   </View>
                 ) : null}
               </View>
+              {!isPro && billingDiagnostics ? (
+                <BillingDiagnosticsCard
+                  diagnostics={billingDiagnostics}
+                  busy={billingDiagnosticsBusy}
+                  onRefresh={() => void refreshBillingDiagnostics()}
+                />
+              ) : null}
               {__DEV__ ? (
-                <>
-                  <AppButton label={isPro ? 'Local Pro test active' : 'Unlock local Pro test'} variant="secondary" onPress={enableLocalPreview} disabled={isPro} />
-                  <Text style={styles.detailText}>
-                    Billing provider: {appData.billing.provider === 'revenuecat' ? 'RevenueCat' : 'Mock (dev)'} • Entitlement: {appData.billing.entitlementStatus}
-                  </Text>
-                  {appData.billing.customerInfoNote ? <Text style={styles.detailText}>{appData.billing.customerInfoNote}</Text> : null}
-                </>
-              ) : appData.billing.provider === 'revenuecat' && appData.billing.customerInfoNote ? (
-                <Text style={styles.detailText}>{appData.billing.customerInfoNote}</Text>
+                <AppButton label={isPro ? 'Local Pro test active' : 'Unlock local Pro test'} variant="secondary" onPress={enableLocalPreview} disabled={isPro} />
               ) : null}
               <View style={styles.stackGap}>
                 <AppButton label="Privacy policy" variant="secondary" onPress={() => void openExternalLink(getPrivacyPolicyUrl(), 'Privacy policy')} />

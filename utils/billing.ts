@@ -1,7 +1,15 @@
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
+import {
+  buildBillingChecklistNote,
+  buildBillingSetupHints,
+  formatBillingError,
+  getDefaultAndroidPackageName,
+} from './billing-messages.ts';
 import type { BillingProvider, BillingState, PremiumTier } from './types.ts';
+
+export { formatBillingError, buildBillingSetupHints } from './billing-messages.ts';
 
 type RuntimeConfig = {
   revenueCatApiKey?: string;
@@ -66,7 +74,24 @@ type PurchaseResult = {
 const DEFAULT_ENTITLEMENT_ID = 'pro';
 const DEFAULT_LIFETIME_PRODUCT_ID = 'ds_premium_lifetime';
 
+export type BillingDiagnostics = {
+  provider: BillingProvider;
+  revenueCatConfigured: boolean;
+  lifetimeProductId: string;
+  entitlementId: string;
+  packageName: string;
+  offeringsLoaded: boolean;
+  productResolved: boolean;
+  productLabel: string | null;
+  syncNote: string | null;
+  setupHints: string[];
+};
+
 let purchasesConfigured = false;
+
+function getAndroidPackageName() {
+  return Constants.expoConfig?.android?.package ?? getDefaultAndroidPackageName();
+}
 
 function getRuntimeConfig(): RuntimeConfig {
   return (Constants.expoConfig?.extra ?? {}) as RuntimeConfig;
@@ -293,6 +318,81 @@ export async function initializeBilling(currentTier: PremiumTier): Promise<Billi
   return syncRevenueCatBillingState(currentTier);
 }
 
+export async function getBillingDiagnostics(currentTier: PremiumTier = 'free'): Promise<BillingDiagnostics> {
+  const config = getRuntimeConfig();
+  const lifetimeProductId = getLifetimeProductId(config);
+  const entitlementId = getEntitlementId(config);
+  const packageName = getAndroidPackageName();
+  const revenueCatConfigured = usesRevenueCat(config);
+
+  if (!revenueCatConfigured) {
+    const hints = buildBillingSetupHints({
+      productId: lifetimeProductId,
+      entitlementId,
+      packageName,
+      offeringsLoaded: false,
+      revenueCatConfigured: false,
+    });
+
+    return {
+      provider: 'mock',
+      revenueCatConfigured: false,
+      lifetimeProductId,
+      entitlementId,
+      packageName,
+      offeringsLoaded: false,
+      productResolved: false,
+      productLabel: null,
+      syncNote: 'RevenueCat API key is missing in this build. Play purchases require a store build with REVENUECAT_ANDROID_API_KEY.',
+      setupHints: hints,
+    };
+  }
+
+  const billing = await syncRevenueCatBillingState(currentTier);
+  let productResolved = billing.offeringsLoaded;
+  let productLabel = billing.packageLabel;
+
+  try {
+    const sdk = await ensurePurchasesConfigured(getRevenueCatApiKey(config));
+    if (sdk) {
+      const product = await resolveLifetimeStoreProduct(sdk, lifetimeProductId);
+      productResolved = Boolean(product);
+      if (product) {
+        productLabel = formatStoreProductLabel(product);
+      }
+    }
+  } catch {
+    productResolved = false;
+  }
+
+  const hints = buildBillingSetupHints({
+    productId: lifetimeProductId,
+    entitlementId,
+    packageName,
+    offeringsLoaded: productResolved,
+    revenueCatConfigured: true,
+    errorText: billing.customerInfoNote ?? undefined,
+  });
+
+  return {
+    provider: billing.provider,
+    revenueCatConfigured: true,
+    lifetimeProductId,
+    entitlementId,
+    packageName,
+    offeringsLoaded: billing.offeringsLoaded,
+    productResolved,
+    productLabel,
+    syncNote: billing.customerInfoNote,
+    setupHints: productResolved
+      ? [
+          'Store product is visible to this install.',
+          'If purchase still fails, install from Play internal/closed testing and add your Google account as a license tester.',
+        ]
+      : hints,
+  };
+}
+
 export async function purchaseProEntitlement(): Promise<{ tier: PremiumTier; note: string }> {
   const config = getRuntimeConfig();
   const apiKey = getRevenueCatApiKey(config);
@@ -317,6 +417,27 @@ export async function purchaseProEntitlement(): Promise<{ tier: PremiumTier; not
 
     const entitlementId = getEntitlementId(config);
     const lifetimeProductId = getLifetimeProductId(config);
+    const packageName = getAndroidPackageName();
+    const lifetimeProduct = await resolveLifetimeStoreProduct(sdk, lifetimeProductId);
+
+    if (!lifetimeProduct) {
+      const hints = buildBillingSetupHints({
+        productId: lifetimeProductId,
+        entitlementId,
+        packageName,
+        offeringsLoaded: false,
+        revenueCatConfigured: true,
+      });
+
+      return {
+        tier: 'free',
+        note: buildBillingChecklistNote(
+          `Could not load "${lifetimeProductId}" from Google Play.`,
+          'RevenueCat is configured, but the lifetime product is not available to this install yet.',
+          hints
+        ),
+      };
+    }
 
     const lifetimeResult = await purchaseLifetimeProduct(sdk, lifetimeProductId, entitlementId);
     if (lifetimeResult) return lifetimeResult;
@@ -324,9 +445,21 @@ export async function purchaseProEntitlement(): Promise<{ tier: PremiumTier; not
     const offeringResult = await purchaseOfferingPackage(sdk, config, entitlementId);
     if (offeringResult) return offeringResult;
 
+    const hints = buildBillingSetupHints({
+      productId: lifetimeProductId,
+      entitlementId,
+      packageName,
+      offeringsLoaded: false,
+      revenueCatConfigured: true,
+    });
+
     return {
       tier: 'free',
-      note: `Could not find the lifetime product (${lifetimeProductId}). Confirm it exists in Google Play and is linked to your RevenueCat entitlement.`,
+      note: buildBillingChecklistNote(
+        `Could not find the lifetime product (${lifetimeProductId}).`,
+        'Confirm it exists in Google Play and is linked to your RevenueCat entitlement.',
+        hints
+      ),
     };
   } catch (error) {
     if (isPurchaseCancelled(error, sdk?.PURCHASES_ERROR_CODE.PURCHASE_CANCELLED_ERROR)) {
@@ -336,9 +469,18 @@ export async function purchaseProEntitlement(): Promise<{ tier: PremiumTier; not
       };
     }
 
+    const formatted = formatBillingError(error);
+    const hints = buildBillingSetupHints({
+      productId: getLifetimeProductId(config),
+      entitlementId: getEntitlementId(config),
+      packageName: getAndroidPackageName(),
+      revenueCatConfigured: true,
+      errorText: formatted,
+    });
+
     return {
       tier: 'free',
-      note: `Purchase did not complete: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      note: buildBillingChecklistNote('Purchase did not complete.', formatted, hints),
     };
   }
 }
@@ -415,9 +557,18 @@ export async function restoreProEntitlement(currentTier: PremiumTier): Promise<{
           : 'Restore completed, but no active Pro purchase was found for this account.',
     };
   } catch (error) {
+    const formatted = formatBillingError(error);
+    const hints = buildBillingSetupHints({
+      productId: getLifetimeProductId(config),
+      entitlementId: getEntitlementId(config),
+      packageName: getAndroidPackageName(),
+      revenueCatConfigured: true,
+      errorText: formatted,
+    });
+
     return {
       tier: currentTier,
-      note: `Restore did not complete: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      note: buildBillingChecklistNote('Restore did not complete.', formatted, hints),
     };
   }
 }
