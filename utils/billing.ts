@@ -7,8 +7,15 @@ import {
   formatBillingError,
   getDefaultAndroidPackageName,
 } from './billing-messages.ts';
+import { buildBypassBillingState, isPaywallBypassed, resolvePremiumTier } from './billing-config.ts';
 import type { BillingProvider, BillingState, PremiumTier } from './types.ts';
 
+export {
+  isMockRevenueCatValidationEnabled,
+  isPaywallBypassed,
+  resolvePremiumTier,
+  setMockRevenueCatValidation,
+} from './billing-config.ts';
 export { formatBillingError, buildBillingSetupHints } from './billing-messages.ts';
 
 type RuntimeConfig = {
@@ -310,12 +317,16 @@ async function purchaseOfferingPackage(
 }
 
 export async function initializeBilling(currentTier: PremiumTier): Promise<BillingState> {
-  const config = getRuntimeConfig();
-  if (!usesRevenueCat(config)) {
-    return buildMockBillingState(currentTier);
+  if (isPaywallBypassed()) {
+    return buildBypassBillingState();
   }
 
-  return syncRevenueCatBillingState(currentTier);
+  const config = getRuntimeConfig();
+  if (!usesRevenueCat(config)) {
+    return buildMockBillingState(resolvePremiumTier(currentTier));
+  }
+
+  return syncRevenueCatBillingState(resolvePremiumTier(currentTier));
 }
 
 export async function getBillingDiagnostics(currentTier: PremiumTier = 'free'): Promise<BillingDiagnostics> {
@@ -324,6 +335,24 @@ export async function getBillingDiagnostics(currentTier: PremiumTier = 'free'): 
   const entitlementId = getEntitlementId(config);
   const packageName = getAndroidPackageName();
   const revenueCatConfigured = usesRevenueCat(config);
+
+  if (isPaywallBypassed()) {
+    return {
+      provider: 'mock',
+      revenueCatConfigured,
+      lifetimeProductId,
+      entitlementId,
+      packageName,
+      offeringsLoaded: true,
+      productResolved: true,
+      productLabel: 'DealShield Pro Active (dev bypass)',
+      syncNote: buildBypassBillingState().customerInfoNote,
+      setupHints: [
+        'MOCK_REVENUECAT_VALIDATION is true in app/(main)/index.tsx.',
+        'Set MOCK_REVENUECAT_VALIDATION to false before publishing once Play ↔ RevenueCat sync is complete.',
+      ],
+    };
+  }
 
   if (!revenueCatConfigured) {
     const hints = buildBillingSetupHints({
@@ -394,6 +423,13 @@ export async function getBillingDiagnostics(currentTier: PremiumTier = 'free'): 
 }
 
 export async function purchaseProEntitlement(): Promise<{ tier: PremiumTier; note: string }> {
+  if (isPaywallBypassed()) {
+    return {
+      tier: 'pro',
+      note: 'MOCK_REVENUECAT_VALIDATION is enabled. DealShield Pro is already unlocked on this device for local testing.',
+    };
+  }
+
   const config = getRuntimeConfig();
   const apiKey = getRevenueCatApiKey(config);
 
@@ -486,6 +522,10 @@ export async function purchaseProEntitlement(): Promise<{ tier: PremiumTier; not
 }
 
 export function subscribeToBillingUpdates(onUpdate: (billing: BillingState) => void, currentTier: PremiumTier = 'free') {
+  if (isPaywallBypassed()) {
+    return () => {};
+  }
+
   const config = getRuntimeConfig();
   if (!usesRevenueCat(config)) {
     return () => {};
@@ -520,6 +560,13 @@ export function subscribeToBillingUpdates(onUpdate: (billing: BillingState) => v
 }
 
 export async function restoreProEntitlement(currentTier: PremiumTier): Promise<{ tier: PremiumTier; note: string }> {
+  if (isPaywallBypassed()) {
+    return {
+      tier: 'pro',
+      note: 'MOCK_REVENUECAT_VALIDATION is enabled. DealShield Pro is already active on this device.',
+    };
+  }
+
   const config = getRuntimeConfig();
   const apiKey = getRevenueCatApiKey(config);
 

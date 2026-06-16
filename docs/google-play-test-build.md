@@ -25,7 +25,19 @@ Register the upload certificate in Google Play Console → App integrity if prom
 ### 3. Google Play Console app
 Create the app with package `com.jleonanderson.signshield` if it does not exist yet.
 
-## Build the Play Store bundle (AAB)
+## Build for your Pixel
+
+### Option A: Quick sideload APK (features + diagnostics)
+Install directly from the EAS build page QR/link. RevenueCat is included, but **Play billing still requires a Play Store install** for real purchases.
+
+```bash
+npm run build:android:pixel
+```
+
+Uses the `pixel-test` profile: internal APK + `production` EAS environment (RevenueCat key).
+
+### Option B: Play internal testing (recommended for Pro purchases)
+Upload an AAB to Play Console, then install from the Play Store on your Pixel.
 
 ```bash
 npm run build:android:play

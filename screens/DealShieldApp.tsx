@@ -105,7 +105,9 @@ import { buildDealShieldAuditDashboard } from '@/utils/audit-dashboard';
 import {
   getBillingDiagnostics,
   initializeBilling,
+  isPaywallBypassed,
   purchaseProEntitlement,
+  resolvePremiumTier,
   restoreProEntitlement,
   subscribeToBillingUpdates,
   type BillingDiagnostics,
@@ -389,11 +391,19 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
     setAppData((prev) => {
       const revenueCatTier =
         billing.provider === 'revenuecat' ? (billing.entitlementStatus === 'active' ? 'pro' : 'free') : prev.subscription.tier;
-      const nextTier = tierOverride ?? revenueCatTier;
+      const nextTier = resolvePremiumTier(tierOverride ?? revenueCatTier);
 
       return {
         ...prev,
-        billing,
+        billing: isPaywallBypassed()
+          ? {
+              ...billing,
+              entitlementStatus: 'active',
+              packageLabel: 'DealShield Pro Active (mock validation)',
+              customerInfoNote:
+                'MOCK_REVENUECAT_VALIDATION is enabled. Pro features are unlocked locally without live RevenueCat receipt validation.',
+            }
+          : billing,
         subscription: {
           ...prev.subscription,
           tier: nextTier,
@@ -473,7 +483,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
   );
   const marketCompSnapshot = useMemo(() => buildMarketCompSnapshot(appData.deal, dealAnalysis), [appData.deal, dealAnalysis]);
   const paperworkAudit = useMemo(() => buildPaperworkAudit(appData.deal), [appData.deal]);
-  const isPro = appData.subscription.tier === 'pro';
+  const isPro = resolvePremiumTier(appData.subscription.tier) === 'pro';
   const experienceMode = appData.preferences.experienceMode;
   const dealShieldAuditDashboard = useMemo(
     () => buildDealShieldAuditDashboard(appData.deal.contractScannedText),
@@ -797,16 +807,17 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
   }
 
   function setPremiumTier(tier: PremiumTier) {
+    const resolvedTier = resolvePremiumTier(tier);
     setAppData((prev) => ({
       ...prev,
       subscription: {
         ...prev.subscription,
-        tier,
-        upgradedAt: tier === 'pro' ? prev.subscription.upgradedAt ?? new Date().toISOString() : null,
+        tier: resolvedTier,
+        upgradedAt: resolvedTier === 'pro' ? prev.subscription.upgradedAt ?? new Date().toISOString() : null,
       },
       billing: {
         ...prev.billing,
-        entitlementStatus: tier === 'pro' ? 'active' : 'inactive',
+        entitlementStatus: resolvedTier === 'pro' ? 'active' : 'inactive',
       },
     }));
   }

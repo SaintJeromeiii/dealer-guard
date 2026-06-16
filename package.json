@@ -11,6 +11,7 @@
     "lint": "expo lint",
     "test": "node --experimental-specifier-resolution=node --test tests/**/*.test.ts",
     "check:release": "bash scripts/check-release.sh",
+    "build:android:pixel": "eas build --platform android --profile pixel-test",
     "build:android:play": "eas build --platform android --profile play-test",
     "submit:android:play": "eas submit --platform android --profile play-test --latest"
   },
