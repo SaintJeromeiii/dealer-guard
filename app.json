@@ -67,6 +67,8 @@
       "revenueCatLifetimeProductId": "ds_premium_lifetime",
       "revenueCatOfferingId": "",
       "revenueCatPackageId": "",
+      "lotCoachApiUrl": "",
+      "lotCoachApiSecret": "",
       "privacyPolicyUrl": "https://saintjeromeiii.github.io/dealshield-legal/#privacy",
       "legalDisclaimerUrl": "https://saintjeromeiii.github.io/dealshield-legal/#disclaimer",
       "eas": {

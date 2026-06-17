@@ -27,6 +27,7 @@ import EmptyStateGuide from '@/components/EmptyStateGuide';
 import FreeVsProComparison from '@/components/FreeVsProComparison';
 import AnalyzerHubContent from '@/components/hubs/AnalyzerHubContent';
 import ScanHubContent from '@/components/hubs/ScanHubContent';
+import LotCoachCard from '@/components/LotCoachCard';
 import MathDisclaimer from '@/components/MathDisclaimer';
 import OcrConfirmChips from '@/components/OcrConfirmChips';
 import PaperworkSignatureGate from '@/components/PaperworkSignatureGate';
@@ -50,6 +51,7 @@ import { questions } from '@/data/questions';
 import { quickScripts } from '@/data/scripts';
 import { trapCards } from '@/data/traps';
 import { createInitialAppData, createInitialDeal, sanitizeAppData } from '@/utils/app-state';
+import { buildLotCoachContext } from '@/utils/lot-coach-context';
 import {
   buildComparisonInsights,
   buildComparisonSummary,
@@ -475,6 +477,17 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
   const actionRecommendation = useMemo(
     () => buildDealActionRecommendation(appData.deal, dealAnalysis, negotiationPlan),
     [appData.deal, dealAnalysis, negotiationPlan]
+  );
+  const lotCoachContext = useMemo(
+    () =>
+      buildLotCoachContext({
+        deal: appData.deal,
+        analysis: dealAnalysis,
+        negotiationFlags: appData.negotiationFlags,
+        recommendation: actionRecommendation,
+        readinessLabel,
+      }),
+    [actionRecommendation, appData.deal, appData.negotiationFlags, dealAnalysis, readinessLabel]
   );
   const tradeInAssessment = useMemo(() => buildTradeInAssessment(appData.deal), [appData.deal]);
   const marketBenchmarkAssessment = useMemo(
@@ -2131,6 +2144,11 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
               <StatusBadge label={dealAnalysis.dealVerdict} tone={dealAnalysis.dealGradeTone} />
             </View>
             <Text style={styles.heroText}>Keep your guard up while you&apos;re sitting at the lot.</Text>
+
+            <LotCoachCard
+              context={lotCoachContext}
+              onTrack={(detail) => trackEvent('lot_coach_question', 'Lot Coach question', detail)}
+            />
 
               <View style={styles.statsRow}>
                 <View style={styles.statCard}>

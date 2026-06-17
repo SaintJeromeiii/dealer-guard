@@ -50,6 +50,8 @@ type PurchasesSdk = {
 };
 
 type CustomerInfo = {
+  originalAppUserId?: string;
+  appUserID?: string;
   entitlements: {
     active: Record<string, { isActive?: boolean } | undefined>;
   };
@@ -90,6 +92,7 @@ export type BillingDiagnostics = {
   offeringsLoaded: boolean;
   productResolved: boolean;
   productLabel: string | null;
+  appUserId: string | null;
   syncNote: string | null;
   setupHints: string[];
 };
@@ -346,6 +349,7 @@ export async function getBillingDiagnostics(currentTier: PremiumTier = 'free'): 
       offeringsLoaded: true,
       productResolved: true,
       productLabel: 'DealShield Pro Active (dev bypass)',
+      appUserId: null,
       syncNote: buildBypassBillingState().customerInfoNote,
       setupHints: [
         'MOCK_REVENUECAT_VALIDATION is true in app/(main)/index.tsx.',
@@ -372,6 +376,7 @@ export async function getBillingDiagnostics(currentTier: PremiumTier = 'free'): 
       offeringsLoaded: false,
       productResolved: false,
       productLabel: null,
+      appUserId: null,
       syncNote: 'RevenueCat API key is missing in this build. Play purchases require a store build with REVENUECAT_ANDROID_API_KEY.',
       setupHints: hints,
     };
@@ -380,10 +385,13 @@ export async function getBillingDiagnostics(currentTier: PremiumTier = 'free'): 
   const billing = await syncRevenueCatBillingState(currentTier);
   let productResolved = billing.offeringsLoaded;
   let productLabel = billing.packageLabel;
+  let appUserId: string | null = null;
 
   try {
     const sdk = await ensurePurchasesConfigured(getRevenueCatApiKey(config));
     if (sdk) {
+      const customerInfo = await sdk.Purchases.getCustomerInfo();
+      appUserId = customerInfo.originalAppUserId ?? customerInfo.appUserID ?? null;
       const product = await resolveLifetimeStoreProduct(sdk, lifetimeProductId);
       productResolved = Boolean(product);
       if (product) {
@@ -412,6 +420,7 @@ export async function getBillingDiagnostics(currentTier: PremiumTier = 'free'): 
     offeringsLoaded: billing.offeringsLoaded,
     productResolved,
     productLabel,
+    appUserId,
     syncNote: billing.customerInfoNote,
     setupHints: productResolved
       ? [

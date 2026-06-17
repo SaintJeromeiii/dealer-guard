@@ -13,7 +13,7 @@ export type LifetimeProFeature = {
 export const LIFETIME_PRO_FEATURES: LifetimeProFeature[] = [
   {
     title: 'Live dealership mode',
-    benefit: 'Stay on script at the lot with live coaching, pressure tracking, and response scripts when the salesperson turns up the heat.',
+    benefit: 'Stay on script at the lot with Lot Coach AI, live coaching, pressure tracking, and response scripts when the salesperson turns up the heat.',
   },
   {
     title: 'What-if lab & counter scripts',

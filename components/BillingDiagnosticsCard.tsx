@@ -29,6 +29,7 @@ export default function BillingDiagnosticsCard({ diagnostics, busy = false, onRe
         Provider: {diagnostics.provider === 'revenuecat' ? 'RevenueCat' : 'Mock (local)'}
       </Text>
       <Text style={styles.detail}>Package: {diagnostics.packageName}</Text>
+      {diagnostics.appUserId ? <Text style={styles.detail}>App user ID: {diagnostics.appUserId}</Text> : null}
       <Text style={styles.detail}>Product ID: {diagnostics.lifetimeProductId}</Text>
       <Text style={styles.detail}>Entitlement: {diagnostics.entitlementId}</Text>
       {diagnostics.productLabel ? <Text style={styles.detail}>Store product: {diagnostics.productLabel}</Text> : null}

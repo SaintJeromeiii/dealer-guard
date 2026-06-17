@@ -17,6 +17,8 @@ module.exports = () => {
         process.env.REVENUECAT_IOS_API_KEY ??
         expo.extra.revenueCatApiKey ??
         '',
+      lotCoachApiUrl: process.env.LOT_COACH_API_URL ?? expo.extra.lotCoachApiUrl ?? '',
+      lotCoachApiSecret: process.env.LOT_COACH_API_SECRET ?? expo.extra.lotCoachApiSecret ?? '',
     },
   };
 };

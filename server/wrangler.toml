@@ -1,0 +1,8 @@
+name = "dealshield-lot-coach"
+main = "lot-coach-worker.mjs"
+compatibility_date = "2024-08-01"
+
+[vars]
+# Set secrets with:
+# npx wrangler secret put GEMINI_API_KEY
+# npx wrangler secret put LOT_COACH_API_SECRET
