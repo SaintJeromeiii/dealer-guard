@@ -17,10 +17,13 @@ From the `server/` folder:
 ```bash
 cd server
 npm install -g wrangler
+npx wrangler login
 npx wrangler secret put GEMINI_API_KEY
 npx wrangler secret put LOT_COACH_API_SECRET
 npx wrangler deploy
 ```
+
+Create the Gemini key at [Google AI Studio](https://aistudio.google.com/apikey). As of 2026, new keys often start with `AQ.` instead of `AIza` — both are valid. Paste the full key at the Wrangler prompt (nothing will show as you type).
 
 Copy the deployed worker URL, for example:
 
