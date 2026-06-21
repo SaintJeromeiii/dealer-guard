@@ -35,7 +35,8 @@
       }
     },
     "production": {
-      "extends": "play-test"
+      "extends": "play-test",
+      "environment": "production"
     }
   },
   "submit": {

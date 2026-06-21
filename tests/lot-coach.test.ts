@@ -3,6 +3,11 @@ import test from 'node:test';
 
 import { buildLotCoachContext, formatLotCoachContextForPrompt } from '../utils/lot-coach-context.ts';
 import {
+  getLotCoachLocalDevApiUrl,
+  LOT_COACH_DEPLOYED_DEV_FALLBACK_URL,
+  resolveLotCoachApiUrl,
+} from '../utils/lot-coach-config.ts';
+import {
   canAskLotCoach,
   getRemainingLotCoachQuestions,
   LOT_COACH_DAILY_LIMIT,
@@ -42,6 +47,35 @@ test('buildLotCoachContext includes verdict, budget, and active pressure tactics
   const prompt = formatLotCoachContextForPrompt(context);
   assert.match(prompt, /Verdict:/);
   assert.match(prompt, /Today-only urgency/);
+});
+
+test('resolveLotCoachApiUrl prefers explicit config and dev fallbacks', () => {
+  assert.equal(
+    resolveLotCoachApiUrl({ lotCoachApiUrl: 'https://example.com/coach' }, { devMode: false }),
+    'https://example.com/coach'
+  );
+
+  assert.equal(resolveLotCoachApiUrl({}, { devMode: false }), '');
+
+  assert.equal(
+    resolveLotCoachApiUrl({ lotCoachDevApiUrl: 'http://192.168.1.20:8787' }, { devMode: true }),
+    'http://192.168.1.20:8787'
+  );
+
+  assert.equal(
+    resolveLotCoachApiUrl({ lotCoachApiSecret: 'secret' }, { devMode: true }),
+    LOT_COACH_DEPLOYED_DEV_FALLBACK_URL
+  );
+
+  assert.equal(
+    resolveLotCoachApiUrl({}, { devMode: true, platform: 'android' }),
+    getLotCoachLocalDevApiUrl('android')
+  );
+
+  assert.equal(
+    resolveLotCoachApiUrl({}, { devMode: true, platform: 'ios' }),
+    getLotCoachLocalDevApiUrl('ios')
+  );
 });
 
 test('lot coach daily limit helpers enforce the Pro usage cap', () => {

@@ -8,6 +8,26 @@ Rules:
 - This is educational guidance, not legal or financial advice.
 - Do not mention that you are an AI.`;
 
+/** Visible answer budget. Gemini 2.5 Flash also uses internal thinking tokens. */
+const LOT_COACH_MAX_OUTPUT_TOKENS = 2048;
+const LOT_COACH_THINKING_BUDGET = 512;
+
+function extractGeminiAnswer(payload) {
+  const candidate = payload?.candidates?.[0];
+  const parts = candidate?.content?.parts ?? [];
+
+  const answer = parts
+    .filter((part) => typeof part?.text === 'string' && part.text.trim() && part.thought !== true)
+    .map((part) => part.text.trim())
+    .join('\n')
+    .trim();
+
+  return {
+    answer,
+    finishReason: candidate?.finishReason ?? null,
+  };
+}
+
 function jsonResponse(body, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
@@ -56,7 +76,10 @@ async function callGemini(apiKey, question, contextSummary) {
         ],
         generationConfig: {
           temperature: 0.4,
-          maxOutputTokens: 500,
+          maxOutputTokens: LOT_COACH_MAX_OUTPUT_TOKENS,
+          thinkingConfig: {
+            thinkingBudget: LOT_COACH_THINKING_BUDGET,
+          },
         },
       }),
     }
@@ -68,14 +91,13 @@ async function callGemini(apiKey, question, contextSummary) {
     throw new Error(message);
   }
 
-  const answer = payload?.candidates?.[0]?.content?.parts
-    ?.map((part) => part.text)
-    .filter(Boolean)
-    .join('\n')
-    .trim();
-
+  const { answer, finishReason } = extractGeminiAnswer(payload);
   if (!answer) {
     throw new Error('Gemini returned an empty response.');
+  }
+
+  if (finishReason === 'MAX_TOKENS') {
+    return `${answer}\n\n(Note: response reached the token limit. Ask a shorter follow-up if you need more detail.)`;
   }
 
   return answer;

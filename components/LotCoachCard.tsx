@@ -45,7 +45,9 @@ export default function LotCoachCard({ context, onTrack }: LotCoachCardProps) {
     if (!configured) {
       Alert.alert(
         'Lot Coach not configured',
-        'This build does not have a Lot Coach API URL yet. Add LOT_COACH_API_URL to your EAS production environment and redeploy the backend worker.'
+        typeof __DEV__ !== 'undefined' && __DEV__
+          ? 'Add LOT_COACH_API_SECRET to .env.local for the deployed worker, set LOT_COACH_DEV_API_URL for a local wrangler dev server, or set LOT_COACH_USE_MOCK=true for offline UI testing.'
+          : 'This build does not have a Lot Coach API URL yet. Add LOT_COACH_API_URL to your EAS production environment and redeploy the backend worker.'
       );
       return;
     }
@@ -128,7 +130,11 @@ export default function LotCoachCard({ context, onTrack }: LotCoachCardProps) {
       {answer ? (
         <View style={styles.answerBox}>
           <Text style={styles.answerTitle}>Suggested response</Text>
-          <Text style={styles.answerText}>{answer}</Text>
+          <ScrollView style={styles.answerScroll} nestedScrollEnabled>
+            <Text style={styles.answerText} selectable>
+              {answer}
+            </Text>
+          </ScrollView>
           <AppButton label="Copy response" variant="secondary" onPress={() => void copyAnswer()} />
         </View>
       ) : null}
@@ -194,6 +200,9 @@ const styles = StyleSheet.create({
     ...SHIELD_SURFACE.inset,
     padding: 14,
     gap: 10,
+  },
+  answerScroll: {
+    maxHeight: 320,
   },
   answerTitle: {
     color: SHIELD_THEME.text,
