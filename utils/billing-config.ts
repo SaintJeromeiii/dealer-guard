@@ -23,12 +23,12 @@ export function buildBypassBillingState(): BillingState {
     provider: 'mock',
     isConfigured: true,
     offeringsLoaded: true,
-    packageLabel: 'DealShield Pro Active (mock validation)',
+    packageLabel: 'DealShield Pro Active (dev bypass)',
     entitlementStatus: 'active',
     offeringId: null,
     packageId: 'ds_premium_lifetime',
     customerInfoNote:
-      'MOCK_REVENUECAT_VALIDATION is enabled. Pro features are unlocked locally without live RevenueCat receipt validation.',
+      'MOCK_REVENUECAT_VALIDATION is enabled for local development only. Disable before store submission.',
     lastSyncAt: new Date().toISOString(),
   };
 }

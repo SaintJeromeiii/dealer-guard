@@ -9,6 +9,11 @@ if rg -n "const MOCK_REVENUECAT_VALIDATION = true" "app/(main)/index.tsx" >/dev/
   exit 1
 fi
 
+if ! rg -n "const MOCK_REVENUECAT_VALIDATION = false" "app/(main)/index.tsx" >/dev/null 2>&1; then
+  echo "ERROR: MOCK_REVENUECAT_VALIDATION must be explicitly false for store builds."
+  exit 1
+fi
+
 npm run test
 npm run lint
 echo "==> All checks passed. Ready for EAS play-test build."

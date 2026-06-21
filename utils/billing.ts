@@ -16,6 +16,15 @@ export {
   resolvePremiumTier,
   setMockRevenueCatValidation,
 } from './billing-config.ts';
+export {
+  hasPremiumFeatureAccess,
+  isBillingStoreUnavailable,
+  isPremiumPreviewModeEnabled,
+  loadPremiumPreviewMode,
+  PREMIUM_PREVIEW_DISCLAIMER,
+  savePremiumPreviewMode,
+  setPremiumPreviewMode,
+} from './premium-preview.ts';
 export { formatBillingError, buildBillingSetupHints } from './billing-messages.ts';
 
 type RuntimeConfig = {

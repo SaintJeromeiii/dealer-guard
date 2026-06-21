@@ -107,10 +107,16 @@ import { buildDealShieldAuditDashboard } from '@/utils/audit-dashboard';
 import {
   getBillingDiagnostics,
   initializeBilling,
+  isBillingStoreUnavailable,
   isPaywallBypassed,
+  isPremiumPreviewModeEnabled,
+  loadPremiumPreviewMode,
+  PREMIUM_PREVIEW_DISCLAIMER,
   purchaseProEntitlement,
   resolvePremiumTier,
   restoreProEntitlement,
+  savePremiumPreviewMode,
+  setPremiumPreviewMode,
   subscribeToBillingUpdates,
   type BillingDiagnostics,
 } from '@/utils/billing';
@@ -228,20 +234,27 @@ function PremiumPreviewCard({
   title,
   detail,
   onPaywall,
+  onPreview,
+  showPreviewOption = false,
 }: {
   title: string;
   detail: string;
   onPaywall: () => void;
+  onPreview?: () => void;
+  showPreviewOption?: boolean;
 }) {
   return (
-    <TouchableOpacity activeOpacity={0.85} onPress={onPaywall} style={styles.proPreviewCard}>
+    <TouchableOpacity activeOpacity={0.85} onPress={showPreviewOption ? onPreview : onPaywall} style={styles.proPreviewCard}>
       <View style={styles.proPreviewBadgeCorner}>
         <ProFeatureBadge unlocked={false} />
       </View>
       <Card>
         <Text style={[styles.menuTitle, styles.menuTitleWithProBadge]}>{title}</Text>
         <Text style={styles.detailText}>{detail}</Text>
-        <AppButton label="Unlock with DealShield Pro" onPress={onPaywall} />
+        {showPreviewOption && onPreview ? (
+          <AppButton label="Preview Pro tools" variant="secondary" onPress={onPreview} />
+        ) : null}
+        <AppButton label={showPreviewOption ? 'Try purchase again' : 'Unlock with DealShield Pro'} onPress={onPaywall} />
       </Card>
     </TouchableOpacity>
   );
@@ -384,6 +397,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
   const [billingDiagnostics, setBillingDiagnostics] = useState<BillingDiagnostics | null>(null);
   const [billingDiagnosticsBusy, setBillingDiagnosticsBusy] = useState(false);
   const [showProActivatedBanner, setShowProActivatedBanner] = useState(false);
+  const [showPremiumPreviewBanner, setShowPremiumPreviewBanner] = useState(false);
   const [simulatorIndex, setSimulatorIndex] = useState(0);
   const [ocrConfirmedFields, setOcrConfirmedFields] = useState<Record<string, boolean>>({});
   const insets = useSafeAreaInsets();
@@ -403,7 +417,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
               entitlementStatus: 'active',
               packageLabel: 'DealShield Pro Active (mock validation)',
               customerInfoNote:
-                'MOCK_REVENUECAT_VALIDATION is enabled. Pro features are unlocked locally without live RevenueCat receipt validation.',
+                'MOCK_REVENUECAT_VALIDATION is enabled for local development only. Disable before store submission.',
             }
           : billing,
         subscription: {
@@ -419,8 +433,11 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
     let active = true;
 
     loadAppData()
-      .then((data) => {
-        if (active) setAppData(data);
+      .then(async (data) => {
+        if (!active) return;
+        await loadPremiumPreviewMode();
+        setAppData(data);
+        setShowPremiumPreviewBanner(isPremiumPreviewModeEnabled());
       })
       .finally(() => {
         if (active) setLoaded(true);
@@ -497,12 +514,15 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
   const marketCompSnapshot = useMemo(() => buildMarketCompSnapshot(appData.deal, dealAnalysis), [appData.deal, dealAnalysis]);
   const paperworkAudit = useMemo(() => buildPaperworkAudit(appData.deal), [appData.deal]);
   const isPro = resolvePremiumTier(appData.subscription.tier) === 'pro';
+  const isPremiumPreview = isPremiumPreviewModeEnabled() && appData.subscription.tier === 'free';
+  const hasProAccess = isPro || isPremiumPreview;
+  const billingStoreUnavailable = useMemo(() => isBillingStoreUnavailable(appData.billing), [appData.billing]);
   const experienceMode = appData.preferences.experienceMode;
   const dealShieldAuditDashboard = useMemo(
     () => buildDealShieldAuditDashboard(appData.deal.contractScannedText),
     [appData.deal.contractScannedText]
   );
-  const carBuyingRoadmap = useMemo(() => buildCarBuyingRoadmap(appData, isPro), [appData, isPro]);
+  const carBuyingRoadmap = useMemo(() => buildCarBuyingRoadmap(appData, hasProAccess), [appData, hasProAccess]);
   const budgetStepComplete = useMemo(() => isRoadmapBudgetComplete(appData), [appData]);
   const nextStepGuidance = useMemo(
     () =>
@@ -835,13 +855,31 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
     }));
   }
 
-  function enableLocalPreview() {
-    setPremiumTier('pro');
-    trackEvent('pro_preview', 'Local Pro preview enabled', 'Unlocked the local Pro preview path on this device.');
-    setMainTab('scan');
-    openDealReview('default', { skipBudgetGate: true });
-    setShowProActivatedBanner(true);
-    Alert.alert('DealShield Pro', 'Pro tools are now unlocked on this device for testing.');
+  async function enablePremiumPreview(onEnabled?: () => void) {
+    setPremiumPreviewMode(true);
+    await savePremiumPreviewMode(true);
+    setShowPremiumPreviewBanner(true);
+    trackEvent('premium_preview', 'Premium preview enabled', PREMIUM_PREVIEW_DISCLAIMER);
+    onEnabled?.();
+  }
+
+  function promptPremiumPreview(onEnabled?: () => void) {
+    Alert.alert(
+      'Premium Preview Mode',
+      `${PREMIUM_PREVIEW_DISCLAIMER}\n\nYou can preview calculators, comparisons, and Pro tools while billing sync completes.`,
+      [
+        { text: 'Not now', style: 'cancel' },
+        { text: 'Preview Pro tools', onPress: () => void enablePremiumPreview(onEnabled) },
+      ]
+    );
+  }
+
+  function exitPremiumPreview() {
+    void savePremiumPreviewMode(false).then(() => {
+      setPremiumPreviewMode(false);
+      setShowPremiumPreviewBanner(false);
+      trackEvent('premium_preview', 'Premium preview disabled', 'User exited Premium Preview Mode.');
+    });
   }
 
   function setExperienceMode(mode: ExperienceMode) {
@@ -939,6 +977,11 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
   }
 
   async function startPaywallPurchase() {
+    if (!isPro && billingStoreUnavailable) {
+      promptPremiumPreview();
+      return;
+    }
+
     if (!isPro) {
       trackEvent('paywall_opened', 'Paywall opened', 'User tapped a Pro-locked feature or upgrade path.');
     }
@@ -949,11 +992,24 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
       const billing = await initializeBilling(result.tier);
       applyBillingState(billing, result.tier);
       trackEvent('purchase_started', 'DealShield Pro purchase', result.note);
-      Alert.alert('DealShield Pro', result.note);
       if (result.tier === 'pro') {
+        Alert.alert('DealShield Pro', result.note);
         setShowProActivatedBanner(true);
+      } else if (billingStoreUnavailable || isBillingStoreUnavailable(billing)) {
+        Alert.alert('DealShield Pro', `${result.note}\n\nBilling is still syncing. You can preview Pro tools instead.`, [
+          { text: 'OK', style: 'cancel' },
+          { text: 'Preview Pro tools', onPress: () => void enablePremiumPreview() },
+        ]);
+      } else {
+        Alert.alert('DealShield Pro', result.note);
       }
       await refreshBillingDiagnostics(result.tier);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Purchase could not start.';
+      Alert.alert('DealShield Pro', `${message}\n\nYou can preview Pro tools while billing sync completes.`, [
+        { text: 'OK', style: 'cancel' },
+        { text: 'Preview Pro tools', onPress: () => void enablePremiumPreview() },
+      ]);
     } finally {
       setBillingBusy(false);
     }
@@ -967,8 +1023,23 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
       const billing = await initializeBilling(result.tier);
       applyBillingState(billing, result.tier);
       trackEvent('purchase_restored', 'Restore purchase', result.note);
-      Alert.alert('Restore purchase', result.note);
+      if (result.tier === 'pro') {
+        Alert.alert('Restore purchase', result.note);
+      } else if (billingStoreUnavailable || isBillingStoreUnavailable(billing)) {
+        Alert.alert('Restore purchase', `${result.note}\n\nBilling is still syncing. You can preview Pro tools instead.`, [
+          { text: 'OK', style: 'cancel' },
+          { text: 'Preview Pro tools', onPress: () => void enablePremiumPreview() },
+        ]);
+      } else {
+        Alert.alert('Restore purchase', result.note);
+      }
       await refreshBillingDiagnostics(result.tier);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Restore could not complete.';
+      Alert.alert('Restore purchase', `${message}\n\nYou can preview Pro tools while billing sync completes.`, [
+        { text: 'OK', style: 'cancel' },
+        { text: 'Preview Pro tools', onPress: () => void enablePremiumPreview() },
+      ]);
     } finally {
       setBillingBusy(false);
     }
@@ -1295,7 +1366,11 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
   }
 
   function openWhatIfLab() {
-    if (!isPro) {
+    if (!hasProAccess) {
+      if (billingStoreUnavailable) {
+        promptPremiumPreview(() => openWhatIfLab());
+        return;
+      }
       void startPaywallPurchase();
       return;
     }
@@ -1309,7 +1384,11 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
   }
 
   function openLiveDealershipMode() {
-    if (!isPro) {
+    if (!hasProAccess) {
+      if (billingStoreUnavailable) {
+        promptPremiumPreview(() => openLiveDealershipMode());
+        return;
+      }
       void startPaywallPurchase();
       return;
     }
@@ -1799,6 +1878,10 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
                 <View style={styles.proActivePill}>
                   <Text style={styles.proActivePillText}>Pro active</Text>
                 </View>
+              ) : isPremiumPreview ? (
+                <TouchableOpacity onPress={exitPremiumPreview} style={styles.previewPill} activeOpacity={0.9}>
+                  <Text style={styles.previewPillText}>PREMIUM PREVIEW</Text>
+                </TouchableOpacity>
               ) : (
                 <TouchableOpacity
                   onPress={() => void startPaywallPurchase()}
@@ -1837,7 +1920,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
 
           {screen === 'analyzerHub' && (
             <AnalyzerHubContent
-              isPro={isPro}
+              isPro={hasProAccess}
               budgetComplete={budgetStepComplete}
               savedOfferCount={appData.savedDeals.length}
               onUseEstimatorInDealReview={applyEstimatorToDealReview}
@@ -1859,13 +1942,13 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
               />
               <View style={styles.stackGap}>
                 <View style={styles.proLockedButtonWrap}>
-                  {!isPro ? (
+                  {!hasProAccess ? (
                     <View style={styles.proPreviewBadgeCorner}>
                       <ProFeatureBadge unlocked={false} />
                     </View>
                   ) : null}
                   <AppButton
-                    label={isPro ? 'I am at the dealership now' : 'Unlock live dealership mode'}
+                    label={hasProAccess ? 'I am at the dealership now' : 'Unlock live dealership mode'}
                     onPress={() => void openLiveDealershipMode()}
                   />
                 </View>
@@ -1877,28 +1960,28 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
                 title="Session playbook"
                 description="Get a step-by-step visit plan for live negotiations so you know what to say and ask in order."
                 requiresPro
-                isPremium={isPro}
+                isPremium={hasProAccess}
                 onPress={openLiveDealershipMode}
                 onPaywall={() => void startPaywallPurchase()}
               />
               <FeatureMenuCard
                 title="Trap library"
                 description="Learn common dealership tactics and what to say back."
-                isPremium={isPro}
+                isPremium={hasProAccess}
                 onPress={() => openScreen('traps', 'tactics')}
                 onPaywall={() => void startPaywallPurchase()}
               />
               <FeatureMenuCard
                 title="Sales tactic decoder"
                 description="Tap what the salesperson said and get instant coaching on how to respond."
-                isPremium={isPro}
+                isPremium={hasProAccess}
                 onPress={() => openScreen('tacticDecoder', 'tactics')}
                 onPaywall={() => void startPaywallPurchase()}
               />
               <FeatureMenuCard
                 title="Buyer checklist"
                 description="Know what to bring and what to verify before signing."
-                isPremium={isPro}
+                isPremium={hasProAccess}
                 onPress={() => openScreen('checklist', 'tactics')}
                 onPaywall={() => void startPaywallPurchase()}
               />
@@ -1925,7 +2008,10 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
             <Card>
               <View style={styles.rowBetween}>
                 <Text style={styles.menuTitle}>DealShield Pro</Text>
-                <StatusBadge label={isPro ? 'Pro active' : 'Free plan'} tone={isPro ? 'good' : 'warn'} />
+                <StatusBadge
+                  label={isPro ? 'Pro active' : isPremiumPreview ? 'Premium Preview' : 'Free plan'}
+                  tone={isPro ? 'good' : isPremiumPreview ? 'warn' : 'warn'}
+                />
               </View>
               <Text style={styles.detailText}>{monetizationSummary.headline}</Text>
               <Text style={styles.detailText}>{monetizationSummary.detail}</Text>
@@ -1946,7 +2032,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
               title={isPro ? 'Your plan includes' : 'Free vs Pro'}
               showLifetimeIncluded
               showPurchaseNote={isPro}
-              isPro={isPro}
+              isPro={hasProAccess}
             />
             <AnalyticsFunnelCard steps={analyticsFunnel} completionRate={funnelCompletionRate} />
 
@@ -1954,14 +2040,14 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
               <FeatureMenuCard
                 title="Pro details and restore"
                 description="Review premium tools, restore purchases, and manage billing status."
-                isPremium={isPro}
+                isPremium={hasProAccess}
                 onPress={() => openScreen('upgradeHub', 'settings')}
                 onPaywall={() => void startPaywallPurchase()}
               />
               <FeatureMenuCard
                 title="Dealership notes"
                 description="Keep quotes, promises, and red flags in one private notebook."
-                isPremium={isPro}
+                isPremium={hasProAccess}
                 onPress={() => openScreen('notes', 'settings')}
                 onPaywall={() => void startPaywallPurchase()}
               />
@@ -2129,15 +2215,17 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
           </>
         )}
 
-        {screen === 'liveMode' && !isPro ? (
+        {screen === 'liveMode' && !hasProAccess ? (
           <PremiumPreviewCard
             title="Live dealership mode"
             detail="Get live coaching, pressure tracking, honesty scoring, and a step-by-step session playbook while you are sitting at the lot."
+            showPreviewOption={billingStoreUnavailable}
+            onPreview={() => promptPremiumPreview(() => openLiveDealershipMode())}
             onPaywall={() => void startPaywallPurchase()}
           />
         ) : null}
 
-        {screen === 'liveMode' && isPro ? (
+        {screen === 'liveMode' && hasProAccess ? (
           <Card>
             <View style={styles.rowBetween}>
               <Text style={styles.screenTitle}>Live dealership mode</Text>
@@ -2271,7 +2359,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
               </View>
             </Card>
 
-            {isPro ? (
+            {hasProAccess ? (
               <Card>
                 <View style={styles.proFeatureHeader}>
                   <Text style={styles.menuTitle}>Session playbook</Text>
@@ -2293,6 +2381,8 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
               <PremiumPreviewCard
                 title="Session playbook"
                 detail="At the lot, pressure moves fast and it's easy to forget what to ask next. DealShield Pro turns your deal into a step-by-step visit plan—what to say first, which numbers to push, the questions to ask, and what to verify before you sign."
+                showPreviewOption={billingStoreUnavailable}
+                onPreview={() => promptPremiumPreview(() => openLiveDealershipMode())}
                 onPaywall={() => void startPaywallPurchase()}
               />
             )}
@@ -2332,6 +2422,24 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
               </TouchableOpacity>
             </View>
 
+            {showPremiumPreviewBanner ? (
+              <Card>
+                <View style={styles.rowBetween}>
+                  <Text style={styles.menuTitle}>Premium Preview Mode</Text>
+                  <StatusBadge label="Review" tone="warn" />
+                </View>
+                <Text style={styles.detailText}>{PREMIUM_PREVIEW_DISCLAIMER}</Text>
+                <View style={styles.doubleButtons}>
+                  <View style={styles.flexOne}>
+                    <AppButton label="Continue preview" variant="secondary" onPress={() => setShowPremiumPreviewBanner(false)} />
+                  </View>
+                  <View style={styles.flexOne}>
+                    <AppButton label="Exit preview" variant="secondary" onPress={exitPremiumPreview} />
+                  </View>
+                </View>
+              </Card>
+            ) : null}
+
             {showProActivatedBanner ? (
               <Card>
                 <View style={styles.rowBetween}>
@@ -2368,7 +2476,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
                 <DealInput label="Loan term (months)" value={appData.deal.months} onChangeText={(text) => updateDeal('months', text)} placeholder="60" />
                 <View style={styles.stackGap}>
                   <AppButton label="Save and return to roadmap" onPress={() => goToHub('scan')} />
-                  {isPro ? (
+                  {hasProAccess ? (
                     <AppButton label="Open What-if Lab (Pro)" variant="secondary" onPress={() => void openWhatIfLab()} />
                   ) : null}
                 </View>
@@ -2746,7 +2854,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
             </Card>
 
             {showContractScanResults && dealShieldAuditDashboard.flaggedCount > 0 ? (
-              isPro ? (
+              hasProAccess ? (
                 <View style={styles.auditDashboardShell}>
                   <Card>
                     <View style={styles.auditDashboardHeader}>
@@ -2945,7 +3053,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
                       label="Share offer summary"
                       onPress={() => void shareText('DealShield offer review', currentDealSummary)}
                     />
-                    {isPro ? (
+                    {hasProAccess ? (
                       <AppButton
                         label="Share buyer report"
                         variant="secondary"
@@ -2996,13 +3104,13 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
                 <AppButton label={saveOfferLabel} onPress={saveCurrentDeal} />
                 <AppButton label="Add another offer" variant="secondary" onPress={openNewOfferReview} />
                 <View style={styles.proLockedButtonWrap}>
-                  {!isPro ? (
+                  {!hasProAccess ? (
                     <View style={styles.proPreviewBadgeCorner}>
                       <ProFeatureBadge unlocked={false} />
                     </View>
                   ) : null}
                   <AppButton
-                    label={isPro ? 'Open what-if lab' : 'Unlock what-if lab'}
+                    label={hasProAccess ? 'Open what-if lab' : 'Unlock what-if lab'}
                     variant="secondary"
                     onPress={() => void openWhatIfLab()}
                   />
@@ -3012,7 +3120,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
               </View>
             </Card>
 
-            {isPro ? (
+            {hasProAccess ? (
               <Card>
                 <View style={styles.proFeatureHeader}>
                   <Text style={styles.menuTitle}>Shareable buyer report</Text>
@@ -3416,15 +3524,17 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
           </>
         )}
 
-        {screen === 'whatIfLab' && !isPro ? (
+        {screen === 'whatIfLab' && !hasProAccess ? (
           <PremiumPreviewCard
             title="What-if lab"
             detail="Model cleaner APR, fees, add-ons, and term structures—and get a dollar-backed counter script before you push back at the desk."
+            showPreviewOption={billingStoreUnavailable}
+            onPreview={() => promptPremiumPreview(() => openWhatIfLab())}
             onPaywall={() => void startPaywallPurchase()}
           />
         ) : null}
 
-        {screen === 'whatIfLab' && isPro ? (
+        {screen === 'whatIfLab' && hasProAccess ? (
           <>
             <View style={styles.rowBetween}>
               <Text style={styles.screenTitle}>What-if lab</Text>
@@ -3689,7 +3799,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
                   )}
 
                 {dealerScorecards.length > 0 &&
-                  (isPro ? (
+                  (hasProAccess ? (
                     <Card>
                       <View style={styles.proFeatureHeader}>
                         <Text style={styles.menuTitle}>Dealer scorecards</Text>
@@ -3947,7 +4057,10 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
             <Card>
               <View style={styles.rowBetween}>
                 <Text style={styles.menuTitle}>Current plan</Text>
-                <StatusBadge label={isPro ? 'Pro active' : 'Free plan'} tone={isPro ? 'good' : 'warn'} />
+                <StatusBadge
+                  label={isPro ? 'Pro active' : isPremiumPreview ? 'Premium Preview' : 'Free plan'}
+                  tone={isPro ? 'good' : isPremiumPreview ? 'warn' : 'warn'}
+                />
               </View>
               <Text style={styles.detailText}>{monetizationSummary.headline}</Text>
               <Text style={styles.detailText}>{monetizationSummary.detail}</Text>
@@ -4000,8 +4113,12 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
                   onRefresh={() => void refreshBillingDiagnostics()}
                 />
               ) : null}
-              {__DEV__ ? (
-                <AppButton label={isPro ? 'Local Pro test active' : 'Unlock local Pro test'} variant="secondary" onPress={enableLocalPreview} disabled={isPro} />
+              {!isPro && billingStoreUnavailable ? (
+                <AppButton
+                  label={isPremiumPreview ? 'Exit Premium Preview' : 'Preview Pro tools'}
+                  variant="secondary"
+                  onPress={() => (isPremiumPreview ? exitPremiumPreview() : void enablePremiumPreview())}
+                />
               ) : null}
               <View style={styles.stackGap}>
                 <AppButton label="Privacy policy" variant="secondary" onPress={() => void openExternalLink(getPrivacyPolicyUrl(), 'Privacy policy')} />
@@ -4013,7 +4130,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
               title={isPro ? 'Your plan includes' : 'Free vs Pro at a glance'}
               showLifetimeIncluded
               showPurchaseNote
-              isPro={isPro}
+              isPro={hasProAccess}
             />
           </>
         )}
@@ -4298,6 +4415,20 @@ const styles = StyleSheet.create({
   },
   proActivePillText: {
     color: theme.gold,
+    fontWeight: '800',
+    fontSize: 11,
+    letterSpacing: 0.4,
+  },
+  previewPill: {
+    backgroundColor: theme.warnSoft,
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: theme.warnText,
+  },
+  previewPillText: {
+    color: theme.warnText,
     fontWeight: '800',
     fontSize: 11,
     letterSpacing: 0.4,
