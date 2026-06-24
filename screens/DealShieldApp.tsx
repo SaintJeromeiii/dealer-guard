@@ -1,7 +1,7 @@
 import * as ImagePicker from 'expo-image-picker';
-import * as Clipboard from 'expo-clipboard';
+import { DrawerActions, useNavigation } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
-import { router } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -19,9 +19,10 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { getBottomTabBarHeight, getBottomTabPadding, getHeaderTopPadding } from '@/utils/safe-area';
+import { useDealShieldBridge, type BottomTab } from '@/contexts/deal-shield-bridge';
 
 import AppButton from '@/components/AppButton';
-import BillingDiagnosticsCard from '@/components/BillingDiagnosticsCard';
+import ClosedBetaWelcomeCard from '@/components/ClosedBetaWelcomeCard';
 import AnalyticsFunnelCard from '@/components/AnalyticsFunnelCard';
 import EmptyStateGuide from '@/components/EmptyStateGuide';
 import FreeVsProComparison from '@/components/FreeVsProComparison';
@@ -38,6 +39,7 @@ import ProgressBar from '@/components/ProgressBar';
 import ProFeatureBadge from '@/components/ProFeatureBadge';
 import StatusBadge from '@/components/StatusBadge';
 import { getLegalDisclaimerUrl, getManageSubscriptionsUrl, getPrivacyPolicyUrl, openExternalLink } from '@/constants/legal-links';
+import { getClosedBetaFeedbackUrl } from '@/constants/feedback-links';
 import { SHIELD_SURFACE, SHIELD_THEME } from '@/constants/shield-theme';
 import { checklistSections } from '@/data/checklist';
 import {
@@ -128,6 +130,18 @@ import {
 import { buildAnalyticsFunnel, getFunnelCompletionRate } from '@/utils/analytics-funnel';
 import { buildNextStepGuidance } from '@/utils/next-step';
 import { LIFETIME_PRO_PURCHASE_NOTE, SAMPLE_QUOTE } from '@/utils/product-content';
+import {
+  dismissClosedBetaWelcome,
+  markClosedBetaStep,
+  readClosedBetaChecklist,
+  shouldShowClosedBetaWelcome,
+  type ClosedBetaChecklist,
+  type ClosedBetaChecklistStep,
+} from '@/utils/closed-beta-checklist';
+import {
+  buildSampleDealState,
+  SAMPLE_DEAL_PRESSURE_FLAGS,
+} from '@/utils/sample-deal';
 import { buildCarBuyingRoadmap, isRoadmapBudgetComplete, type RoadmapStepId } from '@/utils/roadmap';
 import { loadAppData, resetStoredAppData, saveAppData } from '@/utils/storage';
 import type {
@@ -168,12 +182,47 @@ const TAB_HUBS: Record<MainTab, Screen> = {
   settings: 'settingsHub',
 };
 
-const BOTTOM_TABS: { key: MainTab; label: string }[] = [
-  { key: 'scan', label: 'Shield' },
-  { key: 'analyzer', label: 'Analyzer' },
-  { key: 'tactics', label: 'Tactician' },
-  { key: 'settings', label: 'Settings' },
+const BOTTOM_TABS: { key: BottomTab; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { key: 'calculator', label: 'Deal Calculator', icon: 'calculator-outline' },
+  { key: 'lotCoach', label: 'AI Lot Coach', icon: 'chatbubble-ellipses-outline' },
 ];
+
+const CALCULATOR_SCREENS = new Set<Screen>([
+  'analyzerHub',
+  'dealReview',
+  'compareDeals',
+  'whatIfLab',
+  'financeDefense',
+]);
+
+const SCREEN_TITLES: Partial<Record<Screen, string>> = {
+  scanHub: 'The Shield',
+  analyzerHub: 'Deal Calculator',
+  tacticsHub: 'Tactician Guide',
+  settingsHub: 'Settings',
+  liveMode: 'AI Lot Coach',
+  dealReview: 'Deal Calculator',
+  compareDeals: 'Compare Offers',
+  whatIfLab: 'What-if Lab',
+  financeDefense: 'Finance Office Defense',
+  traps: 'Trap Library',
+  checklist: 'Buyer Checklist',
+  tacticDecoder: 'Tactic Decoder',
+  notes: 'Incident Logs',
+  upgradeHub: 'Features Matrix',
+  questions: 'Buyer Readiness',
+  result: 'Readiness Results',
+};
+
+function resolveScreenTitle(screen: Screen, bottomTab: BottomTab, mainTab: MainTab) {
+  return SCREEN_TITLES[screen] ?? (bottomTab === 'lotCoach' ? 'AI Lot Coach' : TAB_HEADER_COPY[mainTab].title);
+}
+
+function resolveBottomTabForScreen(screen: Screen, tab?: MainTab): BottomTab | null {
+  if (screen === 'liveMode') return 'lotCoach';
+  if (CALCULATOR_SCREENS.has(screen) || tab === 'analyzer') return 'calculator';
+  return null;
+}
 
 const TAB_HEADER_COPY: Record<MainTab, { title: string; subtitle: string }> = {
   scan: {
@@ -372,8 +421,11 @@ type DealShieldAppProps = {
 };
 
 export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps = {}) {
-  const [mainTab, setMainTab] = useState<MainTab>('scan');
-  const [screen, setScreen] = useState<Screen>('scanHub');
+  const navigation = useNavigation();
+  const bridge = useDealShieldBridge();
+  const [mainTab, setMainTab] = useState<MainTab>('analyzer');
+  const [bottomTab, setBottomTabState] = useState<BottomTab>('calculator');
+  const [screen, setScreen] = useState<Screen>('analyzerHub');
   const [dealReviewEntryMode, setDealReviewEntryMode] = useState<DealReviewEntryMode>('default');
   const [questionIndex, setQuestionIndex] = useState(0);
   const [selectedComparePair, setSelectedComparePair] = useState<SelectedComparePair>({ firstId: null, secondId: null });
@@ -397,6 +449,12 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
   const [billingDiagnostics, setBillingDiagnostics] = useState<BillingDiagnostics | null>(null);
   const [billingDiagnosticsBusy, setBillingDiagnosticsBusy] = useState(false);
   const [showProActivatedBanner, setShowProActivatedBanner] = useState(false);
+  const [closedBetaChecklist, setClosedBetaChecklist] = useState<ClosedBetaChecklist>({
+    sampleDealLoaded: false,
+    lotCoachAsked: false,
+    pressureLogged: false,
+    dismissed: false,
+  });
   const [showPremiumPreviewBanner, setShowPremiumPreviewBanner] = useState(false);
   const [simulatorIndex, setSimulatorIndex] = useState(0);
   const [ocrConfirmedFields, setOcrConfirmedFields] = useState<Record<string, boolean>>({});
@@ -447,6 +505,64 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    void readClosedBetaChecklist().then(setClosedBetaChecklist);
+  }, []);
+
+  async function completeClosedBetaStep(step: ClosedBetaChecklistStep) {
+    const next = await markClosedBetaStep(step);
+    setClosedBetaChecklist(next);
+    return next;
+  }
+
+  async function handleDismissClosedBetaWelcome() {
+    const next = await dismissClosedBetaWelcome();
+    setClosedBetaChecklist(next);
+  }
+
+  function loadSampleDealDemo() {
+    setAppData((prev) => ({
+      ...prev,
+      deal: buildSampleDealState(),
+      negotiationFlags: SAMPLE_DEAL_PRESSURE_FLAGS,
+      preferences: {
+        ...prev.preferences,
+        onboardingComplete: true,
+      },
+    }));
+
+    if (!isPro && !isPremiumPreview) {
+      void enablePremiumPreview();
+    }
+
+    setBottomTab('calculator');
+    openDealReview('default', { skipBudgetGate: true });
+    void completeClosedBetaStep('sampleDealLoaded');
+    trackEvent('sample_deal_demo_loaded', 'Sample deal demo loaded', 'Loaded the closed-test sample deal with budget guardrails and pressure context.');
+  }
+
+  function openLotCoachFromChecklist() {
+    if (!hasProAccess) {
+      void enablePremiumPreview(() => setBottomTab('lotCoach'));
+      return;
+    }
+
+    setBottomTab('lotCoach');
+  }
+
+  function openLiveModeFromChecklist() {
+    if (!hasProAccess) {
+      void enablePremiumPreview(() => openScreen('liveMode', 'tactics'));
+      return;
+    }
+
+    openScreen('liveMode', 'tactics');
+  }
+
+  function openClosedBetaFeedback() {
+    void openExternalLink(getClosedBetaFeedbackUrl(), 'Closed-test feedback');
+  }
 
   useEffect(() => {
     if (!loaded) return;
@@ -1055,10 +1171,18 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
     }
   }
 
-  useEffect(() => {
-    if (screen !== 'upgradeHub' || isPro) return;
-    void refreshBillingDiagnostics();
-  }, [screen, isPro, appData.subscription.tier]);
+  function handleLockedFeaturePress(feature: string) {
+    if (feature === 'AI Lot Coach') {
+      if (billingStoreUnavailable) {
+        promptPremiumPreview(() => setBottomTab('lotCoach'));
+        return;
+      }
+      void startPaywallPurchase();
+      return;
+    }
+
+    void startPaywallPurchase();
+  }
 
   function incrementUsage(key: keyof typeof appData.subscription.usage) {
     setAppData((prev) => ({
@@ -1308,6 +1432,26 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
   function goToHub(tab: MainTab = mainTab) {
     setMainTab(tab);
     setScreen(TAB_HUBS[tab]);
+    const nextBottomTab = resolveBottomTabForScreen(TAB_HUBS[tab], tab);
+    if (nextBottomTab) setBottomTabState(nextBottomTab);
+  }
+
+  function setBottomTab(next: BottomTab) {
+    setBottomTabState(next);
+    if (next === 'calculator') {
+      setMainTab('analyzer');
+      if (screen === 'liveMode' || screen === 'tacticsHub' || screen === 'scanHub' || screen === 'settingsHub') {
+        setScreen('analyzerHub');
+      }
+      return;
+    }
+
+    setMainTab('tactics');
+    setScreen('liveMode');
+  }
+
+  function getHeaderTitle() {
+    return resolveScreenTitle(screen, bottomTab, mainTab);
   }
 
   function preserveBudgetGuardrails(deal: DealState) {
@@ -1343,6 +1487,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
     setMainTab('analyzer');
     setDealReviewEntryMode(entryMode);
     setScreen('dealReview');
+    setBottomTabState('calculator');
 
     if (options?.startOcr) {
       void pickQuotePhoto();
@@ -1356,12 +1501,15 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
       return;
     }
     setScreen(next);
+    const nextBottomTab = resolveBottomTabForScreen(next, tab ?? mainTab);
+    if (nextBottomTab) setBottomTabState(nextBottomTab);
   }
 
   function openBudgetSetup() {
     setMainTab('analyzer');
     setDealReviewEntryMode('budget');
     setScreen('dealReview');
+    setBottomTabState('calculator');
     trackEvent('budget_setup_opened', 'Budget setup opened', 'Opened free budget guardrails from the car buying roadmap.');
   }
 
@@ -1444,20 +1592,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
   }
 
   function fillSampleQuote() {
-    if (!isRoadmapBudgetComplete(appData)) {
-      promptBudgetGate();
-      return;
-    }
-
-    setAppData((prev) => ({
-      ...prev,
-      deal: {
-        ...prev.deal,
-        ...SAMPLE_QUOTE,
-      },
-    }));
-    openDealReview('default', { skipBudgetGate: true });
-    trackEvent('sample_quote_loaded', 'Sample quote loaded', 'Loaded the built-in sample quote for testing.');
+    loadSampleDealDemo();
   }
 
   function toggleOcrConfirm(field: string) {
@@ -1581,6 +1716,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
     if (!appData.negotiationFlags.includes(flag)) {
       incrementUsage('tacticsLogged');
       appendTimelineEntry('pressureLogged', 'Pressure tactic logged', `${flag} was marked during the dealership session.`);
+      void completeClosedBetaStep('pressureLogged');
     }
   }
 
@@ -1788,8 +1924,9 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
           onPress: async () => {
             await resetStoredAppData();
             setAppData(createInitialAppData());
-            setMainTab('scan');
-            setScreen('scanHub');
+            setMainTab('analyzer');
+            setScreen('analyzerHub');
+            setBottomTabState('calculator');
             setQuestionIndex(0);
             setLoadedDealId(null);
             setSelectedComparePair({ firstId: null, secondId: null });
@@ -1798,6 +1935,53 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
       ]
     );
   }
+
+  useEffect(() => {
+    if (!loaded) return;
+
+    bridge.registerNavigation({
+      openScreen,
+      goToHub,
+      setBottomTab,
+      getHeaderTitle,
+      refreshBillingDiagnostics,
+      getBillingDiagnostics: () => billingDiagnostics,
+      getBillingDiagnosticsBusy: () => billingDiagnosticsBusy,
+      startPaywallPurchase,
+      restorePurchase,
+      isPro: () => isPro,
+      isPremiumPreview: () => isPremiumPreview,
+      billingStoreUnavailable: () => billingStoreUnavailable,
+      promptPremiumPreview,
+    });
+    bridge.setHeaderTitle(getHeaderTitle());
+    bridge.setBillingDiagnostics(billingDiagnostics);
+    bridge.setBillingDiagnosticsBusy(billingDiagnosticsBusy);
+    bridge.setIsPro(isPro);
+    bridge.setIsPremiumPreview(isPremiumPreview);
+    bridge.setBillingStoreUnavailable(billingStoreUnavailable);
+    bridge.setPromptPremiumPreview(promptPremiumPreview);
+
+    return () => {
+      bridge.registerNavigation(null);
+    };
+  }, [
+    loaded,
+    screen,
+    mainTab,
+    bottomTab,
+    billingDiagnostics,
+    billingDiagnosticsBusy,
+    isPro,
+    isPremiumPreview,
+    billingStoreUnavailable,
+    bridge,
+  ]);
+
+  useEffect(() => {
+    if (!loaded) return;
+    void refreshBillingDiagnostics();
+  }, [loaded]);
 
   if (!loaded) {
     return (
@@ -1868,10 +2052,20 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
           contentContainerStyle={[styles.container, { paddingBottom: bottomTabBarHeight + 16 }]}
         >
           <View style={[styles.header, { paddingTop: headerTopPadding }]}>
-            <View style={styles.flexOne}>
-              <Text style={styles.eyebrow}>DEALSHIELD</Text>
-              <Text style={styles.headerTitle}>{TAB_HEADER_COPY[mainTab].title}</Text>
-              <Text style={styles.headerSubtitle}>{TAB_HEADER_COPY[mainTab].subtitle}</Text>
+            <View style={styles.headerTitleRow}>
+              <TouchableOpacity
+                onPress={() => navigation.dispatch(DrawerActions.openDrawer())}
+                style={styles.menuButton}
+                activeOpacity={0.85}
+                accessibilityLabel="Open menu"
+              >
+                <Ionicons name="menu" size={24} color={SHIELD_THEME.text} />
+              </TouchableOpacity>
+              <View style={styles.flexOne}>
+                <Text style={styles.eyebrow}>DEALSHIELD</Text>
+                <Text style={styles.headerTitle}>{getHeaderTitle()}</Text>
+                <Text style={styles.headerSubtitle}>{TAB_HEADER_COPY[mainTab].subtitle}</Text>
+              </View>
             </View>
             <View style={styles.headerActions}>
               {isPro ? (
@@ -1897,6 +2091,17 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
               </TouchableOpacity>
             </View>
           </View>
+
+          {shouldShowClosedBetaWelcome(closedBetaChecklist) ? (
+            <ClosedBetaWelcomeCard
+              checklist={closedBetaChecklist}
+              onLoadSampleDeal={loadSampleDealDemo}
+              onOpenLotCoach={openLotCoachFromChecklist}
+              onLogPressure={openLiveModeFromChecklist}
+              onSendFeedback={openClosedBetaFeedback}
+              onDismiss={() => void handleDismissClosedBetaWelcome()}
+            />
+          ) : null}
 
           {screen === 'scanHub' && (
             <ScanHubContent
@@ -2033,6 +2238,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
               showLifetimeIncluded
               showPurchaseNote={isPro}
               isPro={hasProAccess}
+              onLockedFeaturePress={handleLockedFeaturePress}
             />
             <AnalyticsFunnelCard steps={analyticsFunnel} completionRate={funnelCompletionRate} />
 
@@ -2236,6 +2442,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
             <LotCoachCard
               context={lotCoachContext}
               onTrack={(detail) => trackEvent('lot_coach_question', 'Lot Coach question', detail)}
+              onAnswered={() => void completeClosedBetaStep('lotCoachAsked')}
             />
 
               <View style={styles.statsRow}>
@@ -4048,7 +4255,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
         {screen === 'upgradeHub' && (
           <>
             <View style={styles.rowBetween}>
-              <Text style={styles.screenTitle}>DealShield Pro</Text>
+              <Text style={styles.screenTitle}>Features Matrix</Text>
               <TouchableOpacity onPress={() => goToHub()}>
                 <Text style={styles.linkText}>Home</Text>
               </TouchableOpacity>
@@ -4106,13 +4313,6 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
                   </View>
                 ) : null}
               </View>
-              {!isPro && billingDiagnostics ? (
-                <BillingDiagnosticsCard
-                  diagnostics={billingDiagnostics}
-                  busy={billingDiagnosticsBusy}
-                  onRefresh={() => void refreshBillingDiagnostics()}
-                />
-              ) : null}
               {!isPro && billingStoreUnavailable ? (
                 <AppButton
                   label={isPremiumPreview ? 'Exit Premium Preview' : 'Preview Pro tools'}
@@ -4131,6 +4331,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
               showLifetimeIncluded
               showPurchaseNote
               isPro={hasProAccess}
+              onLockedFeaturePress={handleLockedFeaturePress}
             />
           </>
         )}
@@ -4138,7 +4339,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
         {screen === 'notes' && (
           <>
             <View style={styles.rowBetween}>
-              <Text style={styles.screenTitle}>Dealership notes</Text>
+              <Text style={styles.screenTitle}>Incident Logs</Text>
               <TouchableOpacity onPress={() => goToHub()}>
                 <Text style={styles.linkText}>Home</Text>
               </TouchableOpacity>
@@ -4288,11 +4489,16 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
           {BOTTOM_TABS.map((tab) => (
             <TouchableOpacity
               key={tab.key}
-              style={[styles.bottomTabButton, mainTab === tab.key && styles.bottomTabButtonActive]}
-              onPress={() => goToHub(tab.key)}
+              style={[styles.bottomTabButton, bottomTab === tab.key && styles.bottomTabButtonActive]}
+              onPress={() => setBottomTab(tab.key)}
               activeOpacity={0.85}
             >
-              <Text style={[styles.bottomTabLabel, mainTab === tab.key && styles.bottomTabLabelActive]}>{tab.label}</Text>
+              <Ionicons
+                name={tab.icon}
+                size={18}
+                color={bottomTab === tab.key ? SHIELD_THEME.gold : SHIELD_THEME.textMuted}
+              />
+              <Text style={[styles.bottomTabLabel, bottomTab === tab.key && styles.bottomTabLabelActive]}>{tab.label}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -4327,19 +4533,22 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 44,
+    minHeight: 52,
+    gap: 4,
     borderRadius: theme.radius,
     borderWidth: 1,
     borderColor: 'transparent',
+    paddingHorizontal: 4,
   },
   bottomTabButtonActive: {
     backgroundColor: theme.surface,
     borderColor: theme.gold,
   },
   bottomTabLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
     color: theme.textMuted,
+    textAlign: 'center',
   },
   bottomTabLabelActive: {
     color: theme.gold,
@@ -4362,6 +4571,16 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     gap: 12,
+  },
+  headerTitleRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  menuButton: {
+    padding: 4,
+    marginTop: 2,
   },
   headerSubtitle: {
     color: theme.textMuted,

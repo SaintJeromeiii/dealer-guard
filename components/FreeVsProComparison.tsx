@@ -1,10 +1,11 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import Card from '@/components/Card';
 import ProFeatureBadge from '@/components/ProFeatureBadge';
 import { SHIELD_THEME } from '@/constants/shield-theme';
 import {
+  AI_LOT_COACH_FEATURE_ROW,
   FREE_VS_PRO_ROWS,
   LIFETIME_PRO_ACTIVE_NOTE,
   LIFETIME_PRO_FEATURES,
@@ -16,6 +17,7 @@ type FreeVsProComparisonProps = {
   showLifetimeIncluded?: boolean;
   showPurchaseNote?: boolean;
   isPro?: boolean;
+  onLockedFeaturePress?: (feature: string) => void;
 };
 
 export default function FreeVsProComparison({
@@ -23,6 +25,7 @@ export default function FreeVsProComparison({
   showLifetimeIncluded = false,
   showPurchaseNote = false,
   isPro = false,
+  onLockedFeaturePress,
 }: FreeVsProComparisonProps) {
   return (
     <Card>
@@ -36,13 +39,43 @@ export default function FreeVsProComparison({
         <Text style={styles.headerCell}>Free</Text>
         <Text style={styles.headerCell}>Pro</Text>
       </View>
-      {FREE_VS_PRO_ROWS.map((row) => (
-        <View key={row.feature} style={styles.row}>
-          <Text style={[styles.cell, styles.featureCol]}>{row.feature}</Text>
-          <Text style={styles.cell}>{row.free}</Text>
-          <Text style={[styles.cell, row.pro === 'Yes' && styles.proYes]}>{row.pro}</Text>
-        </View>
-      ))}
+      {FREE_VS_PRO_ROWS.map((row) => {
+        const isAiLotCoach = row.feature === AI_LOT_COACH_FEATURE_ROW.feature;
+        const isLocked = !isPro && isAiLotCoach;
+        const rowContent = (
+          <View style={[styles.row, isAiLotCoach && styles.highlightRow]}>
+            <View style={[styles.featureCol, styles.featureNameCell]}>
+              <Text
+                style={[styles.featureNameText, isAiLotCoach && styles.highlightFeature]}
+                numberOfLines={1}
+              >
+                {row.feature}
+              </Text>
+              {isAiLotCoach ? (
+                <View style={styles.compactBadgeWrap}>
+                  <ProFeatureBadge unlocked={isPro} compact />
+                </View>
+              ) : null}
+            </View>
+            <Text style={[styles.cell, row.free === 'No' && styles.freeNo]}>{row.free}</Text>
+            <Text style={[styles.cell, row.pro === 'Yes' && styles.proYes]}>{row.pro}</Text>
+          </View>
+        );
+
+        if (isLocked && onLockedFeaturePress) {
+          return (
+            <TouchableOpacity
+              key={row.feature}
+              activeOpacity={0.85}
+              onPress={() => onLockedFeaturePress(row.feature)}
+            >
+              {rowContent}
+            </TouchableOpacity>
+          );
+        }
+
+        return <View key={row.feature}>{rowContent}</View>;
+      })}
 
       {showLifetimeIncluded ? (
         <View style={styles.includedSection}>
@@ -89,6 +122,14 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderBottomWidth: 1,
     borderBottomColor: SHIELD_THEME.border,
+    alignItems: 'center',
+  },
+  highlightRow: {
+    backgroundColor: SHIELD_THEME.goldSoft,
+    borderRadius: SHIELD_THEME.radius,
+    paddingHorizontal: 8,
+    marginVertical: 2,
+    borderBottomWidth: 0,
   },
   headerCell: {
     flex: 1,
@@ -105,8 +146,32 @@ const styles = StyleSheet.create({
   },
   featureCol: {
     flex: 1.6,
+  },
+  featureNameCell: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingRight: 4,
+    minWidth: 0,
+  },
+  featureNameText: {
+    flexShrink: 1,
     color: SHIELD_THEME.text,
+    fontSize: 12,
+    lineHeight: 16,
     fontWeight: '600',
+  },
+  highlightFeature: {
+    color: SHIELD_THEME.gold,
+    fontWeight: '800',
+    fontSize: 12,
+  },
+  compactBadgeWrap: {
+    flexShrink: 0,
+  },
+  freeNo: {
+    color: SHIELD_THEME.dangerText,
+    fontWeight: '700',
   },
   proYes: {
     color: SHIELD_THEME.successText,

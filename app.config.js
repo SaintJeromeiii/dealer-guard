@@ -50,6 +50,7 @@ module.exports = () => {
       lotCoachDevApiUrl: process.env.LOT_COACH_DEV_API_URL ?? expo.extra.lotCoachDevApiUrl ?? '',
       lotCoachApiSecret: process.env.LOT_COACH_API_SECRET ?? expo.extra.lotCoachApiSecret ?? '',
       lotCoachUseMock: process.env.LOT_COACH_USE_MOCK === 'true' || expo.extra.lotCoachUseMock === true,
+      closedBetaFeedbackUrl: process.env.CLOSED_BETA_FEEDBACK_URL ?? expo.extra.closedBetaFeedbackUrl ?? '',
     },
   };
 };

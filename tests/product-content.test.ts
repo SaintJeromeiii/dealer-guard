@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { FREE_VS_PRO_ROWS, LIFETIME_PRO_FEATURES } from '../utils/product-content.ts';
+import { FREE_VS_PRO_ROWS, LIFETIME_PRO_FEATURES, AI_LOT_COACH_FEATURE_ROW } from '../utils/product-content.ts';
 
 test('FREE_VS_PRO_ROWS stays aligned with lifetime Pro feature titles', () => {
   const proOnlyRows = FREE_VS_PRO_ROWS.filter((row) => row.free === '—');
@@ -10,4 +10,10 @@ test('FREE_VS_PRO_ROWS stays aligned with lifetime Pro feature titles', () => {
     proOnlyRows.map((row) => row.feature),
     LIFETIME_PRO_FEATURES.map((feature) => feature.title)
   );
+});
+
+test('FREE_VS_PRO_ROWS includes explicit AI Lot Coach row', () => {
+  const row = FREE_VS_PRO_ROWS.find((entry) => entry.feature === AI_LOT_COACH_FEATURE_ROW.feature);
+  assert.equal(row?.free, 'No');
+  assert.equal(row?.pro, 'Yes');
 });

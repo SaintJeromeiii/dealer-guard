@@ -44,13 +44,19 @@ const FREE_PLAN_ROWS: FreeVsProRow[] = [
   { feature: 'Save & compare offers', free: 'Yes', pro: 'Yes' },
 ];
 
+export const AI_LOT_COACH_FEATURE_ROW: FreeVsProRow = {
+  feature: 'AI Lot Coach',
+  free: 'No',
+  pro: 'Yes',
+};
+
 const PRO_PLAN_ROWS: FreeVsProRow[] = LIFETIME_PRO_FEATURES.map((feature) => ({
   feature: feature.title,
   free: '—',
   pro: 'Yes',
 }));
 
-export const FREE_VS_PRO_ROWS: FreeVsProRow[] = [...FREE_PLAN_ROWS, ...PRO_PLAN_ROWS];
+export const FREE_VS_PRO_ROWS: FreeVsProRow[] = [...FREE_PLAN_ROWS, AI_LOT_COACH_FEATURE_ROW, ...PRO_PLAN_ROWS];
 
 export const SAMPLE_QUOTE = {
   dealershipName: 'Metro Auto Group',

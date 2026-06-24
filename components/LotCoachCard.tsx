@@ -20,9 +20,10 @@ import { getRemainingLotCoachQuestions } from '@/utils/lot-coach-usage';
 type LotCoachCardProps = {
   context: LotCoachContext;
   onTrack?: (detail: string) => void;
+  onAnswered?: () => void;
 };
 
-export default function LotCoachCard({ context, onTrack }: LotCoachCardProps) {
+export default function LotCoachCard({ context, onTrack, onAnswered }: LotCoachCardProps) {
   const [question, setQuestion] = useState('');
   const [answer, setAnswer] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -62,6 +63,7 @@ export default function LotCoachCard({ context, onTrack }: LotCoachCardProps) {
       const usage = await readLotCoachUsage();
       setRemaining(getRemainingLotCoachQuestions(usage));
       onTrack?.(nextQuestion.slice(0, 120));
+      onAnswered?.();
     } catch (error) {
       Alert.alert('Lot Coach', error instanceof Error ? error.message : 'Could not get a Lot Coach answer.');
     } finally {
