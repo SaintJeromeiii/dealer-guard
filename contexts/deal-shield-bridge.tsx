@@ -43,6 +43,9 @@ type DealShieldBridgeContextValue = {
   setBillingStoreUnavailable: (value: boolean) => void;
   promptPremiumPreview: (onEnabled?: () => void) => void;
   setPromptPremiumPreview: (fn: (onEnabled?: () => void) => void) => void;
+  drawerOpen: boolean;
+  openDrawer: () => void;
+  closeDrawer: () => void;
 };
 
 const DealShieldBridgeContext = createContext<DealShieldBridgeContextValue | null>(null);
@@ -57,6 +60,10 @@ export function DealShieldBridgeProvider({ children }: { children: React.ReactNo
   const [isPro, setIsPro] = useState(false);
   const [isPremiumPreview, setIsPremiumPreview] = useState(false);
   const [billingStoreUnavailable, setBillingStoreUnavailable] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  const openDrawer = useCallback(() => setDrawerOpen(true), []);
+  const closeDrawer = useCallback(() => setDrawerOpen(false), []);
 
   const registerNavigation = useCallback((api: DealShieldNavigationApi | null) => {
     navigationRef.current = api;
@@ -148,6 +155,9 @@ export function DealShieldBridgeProvider({ children }: { children: React.ReactNo
       setBillingStoreUnavailable,
       promptPremiumPreview,
       setPromptPremiumPreview,
+      drawerOpen,
+      openDrawer,
+      closeDrawer,
     }),
     [
       registerNavigation,
@@ -165,6 +175,9 @@ export function DealShieldBridgeProvider({ children }: { children: React.ReactNo
       billingStoreUnavailable,
       promptPremiumPreview,
       setPromptPremiumPreview,
+      drawerOpen,
+      openDrawer,
+      closeDrawer,
     ]
   );
 

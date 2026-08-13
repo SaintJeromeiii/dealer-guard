@@ -1,17 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
-import type { DrawerContentComponentProps } from '@react-navigation/drawer';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { SHIELD_THEME } from '@/constants/shield-theme';
-import { useDealShieldBridge } from '@/contexts/deal-shield-bridge';
 import {
   DEALSHIELD_DRAWER_ITEMS,
   handleDrawerItemPress,
   type DealShieldDrawerItem,
 } from '@/components/navigation/deal-shield-nav-config';
+import { SHIELD_THEME } from '@/constants/shield-theme';
+import { useDealShieldBridge } from '@/contexts/deal-shield-bridge';
 
 const SECTION_LABELS: Record<NonNullable<DealShieldDrawerItem['section']>, string> = {
   primary: 'Core tools',
@@ -19,11 +18,10 @@ const SECTION_LABELS: Record<NonNullable<DealShieldDrawerItem['section']>, strin
   account: 'Account',
 };
 
-export default function DealShieldDrawerContent(props: DrawerContentComponentProps) {
+export default function DealShieldDrawerContent() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const bridge = useDealShieldBridge();
-
   const sections: DealShieldDrawerItem['section'][] = ['primary', 'tools', 'account'];
 
   return (
@@ -44,7 +42,9 @@ export default function DealShieldDrawerContent(props: DrawerContentComponentPro
                 style={styles.menuItem}
                 activeOpacity={0.85}
                 onPress={() =>
-                  handleDrawerItemPress(item, props, {
+                  handleDrawerItemPress(item, {
+                    closeDrawer: bridge.closeDrawer,
+                    goHome: () => router.replace('/(main)'),
                     setBottomTab: bridge.setBottomTab,
                     navigate: bridge.navigate,
                     onRoute: (href) => router.push(href),

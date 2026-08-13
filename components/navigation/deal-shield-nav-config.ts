@@ -1,8 +1,7 @@
-import type { DrawerContentComponentProps } from '@react-navigation/drawer';
 import type { Href } from 'expo-router';
 
-import type { MainTab, Screen } from '@/utils/types';
 import type { BottomTab } from '@/contexts/deal-shield-bridge';
+import type { MainTab, Screen } from '@/utils/types';
 
 export type DealShieldDrawerItem = {
   id: string;
@@ -148,21 +147,22 @@ export const DEALSHIELD_DRAWER_ITEMS: DealShieldDrawerItem[] = [
 
 export function handleDrawerItemPress(
   item: DealShieldDrawerItem,
-  props: DrawerContentComponentProps,
   actions: {
+    closeDrawer: () => void;
+    goHome: () => void;
     setBottomTab: (tab: BottomTab) => void;
     navigate: (screen: Screen, tab?: MainTab) => void;
     onRoute: (href: Href) => void;
   }
 ) {
-  props.navigation.closeDrawer();
+  actions.closeDrawer();
 
   if (item.kind === 'route' && item.href) {
     actions.onRoute(item.href);
     return;
   }
 
-  props.navigation.navigate('index');
+  actions.goHome();
 
   if (item.bottomTab) {
     actions.setBottomTab(item.bottomTab);

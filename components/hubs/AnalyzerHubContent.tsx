@@ -2,9 +2,11 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import AnalyzerProSection from '@/components/AnalyzerProSection';
+import CapVsQuoteCard from '@/components/CapVsQuoteCard';
 import FeatureMenuCard from '@/components/FeatureMenuCard';
 import QuickPaymentEstimator from '@/components/QuickPaymentEstimator';
 import { SHIELD_THEME } from '@/constants/shield-theme';
+import type { CapVsQuoteRow } from '@/utils/desk-scripts';
 
 type AnalyzerHubContentProps = {
   isPro: boolean;
@@ -17,6 +19,7 @@ type AnalyzerHubContentProps = {
   onOpenFinanceDefense: () => void;
   onPaywall: () => void;
   onBudgetGate: () => void;
+  capRows?: CapVsQuoteRow[];
 };
 
 function formatOfferCount(count: number) {
@@ -35,9 +38,11 @@ export default function AnalyzerHubContent({
   onOpenFinanceDefense,
   onPaywall,
   onBudgetGate,
+  capRows = [],
 }: AnalyzerHubContentProps) {
   return (
     <View style={styles.stackGap}>
+      {capRows.length > 0 ? <CapVsQuoteCard rows={capRows} /> : null}
       <QuickPaymentEstimator
         onUseInDealReview={budgetComplete ? onUseEstimatorInDealReview : undefined}
       />

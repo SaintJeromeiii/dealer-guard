@@ -1,41 +1,37 @@
-import { Drawer } from 'expo-router/drawer';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { Stack } from 'expo-router';
+import { View } from 'react-native';
 
-import DealShieldDrawerContent from '@/components/navigation/DealShieldDrawerContent';
+import DrawerMenuButton from '@/components/navigation/DrawerMenuButton';
+import DealShieldDrawerOverlay from '@/components/navigation/DealShieldDrawerOverlay';
 import { SHIELD_THEME } from '@/constants/shield-theme';
 import { DealShieldBridgeProvider } from '@/contexts/deal-shield-bridge';
 
 export default function MainLayout() {
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <DealShieldBridgeProvider>
-        <Drawer
-          drawerContent={(props) => <DealShieldDrawerContent {...props} />}
+    <DealShieldBridgeProvider>
+      <View style={{ flex: 1 }}>
+        <Stack
           screenOptions={{
             headerShown: false,
-            drawerStyle: {
-              backgroundColor: SHIELD_THEME.bg,
-              width: 300,
-            },
-            drawerActiveTintColor: SHIELD_THEME.gold,
-            drawerInactiveTintColor: SHIELD_THEME.textMuted,
+            contentStyle: { backgroundColor: SHIELD_THEME.bg },
           }}
         >
-          <Drawer.Screen name="index" options={{ drawerItemStyle: { display: 'none' }, title: 'DealShield' }} />
-          <Drawer.Screen
+          <Stack.Screen name="index" />
+          <Stack.Screen
             name="about-legal"
             options={{
-              drawerItemStyle: { display: 'none' },
               headerShown: true,
               title: 'About & Legal',
               headerStyle: { backgroundColor: SHIELD_THEME.bg },
               headerTintColor: SHIELD_THEME.text,
               headerTitleStyle: { fontWeight: '800' },
+              headerLeft: () => <DrawerMenuButton />,
             }}
           />
-          <Drawer.Screen name="analyzer" options={{ drawerItemStyle: { display: 'none' } }} />
-        </Drawer>
-      </DealShieldBridgeProvider>
-    </GestureHandlerRootView>
+          <Stack.Screen name="analyzer" />
+        </Stack>
+        <DealShieldDrawerOverlay />
+      </View>
+    </DealShieldBridgeProvider>
   );
 }

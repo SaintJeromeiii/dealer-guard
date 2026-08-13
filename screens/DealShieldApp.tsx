@@ -1,5 +1,4 @@
 import * as ImagePicker from 'expo-image-picker';
-import { DrawerActions, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -22,7 +21,10 @@ import { getBottomTabBarHeight, getBottomTabPadding, getHeaderTopPadding } from 
 import { useDealShieldBridge, type BottomTab } from '@/contexts/deal-shield-bridge';
 
 import AppButton from '@/components/AppButton';
+import CapVsQuoteCard from '@/components/CapVsQuoteCard';
 import ClosedBetaWelcomeCard from '@/components/ClosedBetaWelcomeCard';
+import DeskHud from '@/components/DeskHud';
+import Header from '@/components/Header';
 import AnalyticsFunnelCard from '@/components/AnalyticsFunnelCard';
 import EmptyStateGuide from '@/components/EmptyStateGuide';
 import FreeVsProComparison from '@/components/FreeVsProComparison';
@@ -129,6 +131,7 @@ import {
 } from '@/utils/buyer-setup';
 import { buildAnalyticsFunnel, getFunnelCompletionRate } from '@/utils/analytics-funnel';
 import { buildNextStepGuidance } from '@/utils/next-step';
+import { buildCapVsQuote } from '@/utils/desk-scripts';
 import { LIFETIME_PRO_PURCHASE_NOTE, SAMPLE_QUOTE } from '@/utils/product-content';
 import {
   dismissClosedBetaWelcome,
@@ -421,7 +424,6 @@ type DealShieldAppProps = {
 };
 
 export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps = {}) {
-  const navigation = useNavigation();
   const bridge = useDealShieldBridge();
   const [mainTab, setMainTab] = useState<MainTab>('analyzer');
   const [bottomTab, setBottomTabState] = useState<BottomTab>('calculator');
@@ -456,6 +458,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
     dismissed: false,
   });
   const [showPremiumPreviewBanner, setShowPremiumPreviewBanner] = useState(false);
+  const [showDeskDetails, setShowDeskDetails] = useState(false);
   const [simulatorIndex, setSimulatorIndex] = useState(0);
   const [ocrConfirmedFields, setOcrConfirmedFields] = useState<Record<string, boolean>>({});
   const insets = useSafeAreaInsets();
@@ -621,6 +624,10 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
         readinessLabel,
       }),
     [actionRecommendation, appData.deal, appData.negotiationFlags, dealAnalysis, readinessLabel]
+  );
+  const capVsQuote = useMemo(
+    () => buildCapVsQuote(appData.deal, dealAnalysis, actionRecommendation),
+    [actionRecommendation, appData.deal, dealAnalysis]
   );
   const tradeInAssessment = useMemo(() => buildTradeInAssessment(appData.deal), [appData.deal]);
   const marketBenchmarkAssessment = useMemo(
@@ -1720,6 +1727,11 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
     }
   }
 
+  function logDeskTactic(flag: NegotiationFlag) {
+    if (appData.negotiationFlags.includes(flag)) return;
+    toggleNegotiationFlag(flag);
+  }
+
   function addPromiseRecord() {
     const text = promiseDraft.trim();
     if (!text) {
@@ -2051,45 +2063,17 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
           style={styles.scrollView}
           contentContainerStyle={[styles.container, { paddingBottom: bottomTabBarHeight + 16 }]}
         >
-          <View style={[styles.header, { paddingTop: headerTopPadding }]}>
-            <View style={styles.headerTitleRow}>
-              <TouchableOpacity
-                onPress={() => navigation.dispatch(DrawerActions.openDrawer())}
-                style={styles.menuButton}
-                activeOpacity={0.85}
-                accessibilityLabel="Open menu"
-              >
-                <Ionicons name="menu" size={24} color={SHIELD_THEME.text} />
-              </TouchableOpacity>
-              <View style={styles.flexOne}>
-                <Text style={styles.eyebrow}>DEALSHIELD</Text>
-                <Text style={styles.headerTitle}>{getHeaderTitle()}</Text>
-                <Text style={styles.headerSubtitle}>{TAB_HEADER_COPY[mainTab].subtitle}</Text>
-              </View>
-            </View>
-            <View style={styles.headerActions}>
-              {isPro ? (
-                <View style={styles.proActivePill}>
-                  <Text style={styles.proActivePillText}>Pro active</Text>
-                </View>
-              ) : isPremiumPreview ? (
-                <TouchableOpacity onPress={exitPremiumPreview} style={styles.previewPill} activeOpacity={0.9}>
-                  <Text style={styles.previewPillText}>PREMIUM PREVIEW</Text>
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity
-                  onPress={() => void startPaywallPurchase()}
-                  style={styles.upgradePill}
-                  activeOpacity={0.9}
-                  disabled={billingBusy}
-                >
-                  <Text style={styles.upgradePillText}>{billingBusy ? 'PROCESSING...' : '⚡ UPGRADE TO PRO'}</Text>
-                </TouchableOpacity>
-              )}
-              <TouchableOpacity onPress={confirmReset} style={styles.resetPill} activeOpacity={0.85}>
-                <Text style={styles.resetPillText}>Reset</Text>
-              </TouchableOpacity>
-            </View>
+          <View style={{ paddingTop: headerTopPadding }}>
+            <Header
+              title={getHeaderTitle()}
+              subtitle={TAB_HEADER_COPY[mainTab].subtitle}
+              planStatus={isPro ? 'pro' : isPremiumPreview ? 'preview' : 'free'}
+              billingBusy={billingBusy}
+              onMenuPress={bridge.openDrawer}
+              onUpgradePress={() => void startPaywallPurchase()}
+              onPreviewPress={exitPremiumPreview}
+              onResetPress={confirmReset}
+            />
           </View>
 
           {shouldShowClosedBetaWelcome(closedBetaChecklist) ? (
@@ -2128,6 +2112,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
               isPro={hasProAccess}
               budgetComplete={budgetStepComplete}
               savedOfferCount={appData.savedDeals.length}
+              capRows={capVsQuote}
               onUseEstimatorInDealReview={applyEstimatorToDealReview}
               onOpenDealReview={() => openDealReview('default')}
               onOpenCompare={() => openScreen('compareDeals', 'analyzer')}
@@ -2433,17 +2418,30 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
 
         {screen === 'liveMode' && hasProAccess ? (
           <Card>
-            <View style={styles.rowBetween}>
-              <Text style={styles.screenTitle}>Live dealership mode</Text>
-              <StatusBadge label={dealAnalysis.dealVerdict} tone={dealAnalysis.dealGradeTone} />
-            </View>
-            <Text style={styles.heroText}>Keep your guard up while you&apos;re sitting at the lot.</Text>
+            <DeskHud
+              action={actionRecommendation.action}
+              capRows={capVsQuote}
+              onLogTactic={logDeskTactic}
+            />
 
             <LotCoachCard
               context={lotCoachContext}
               onTrack={(detail) => trackEvent('lot_coach_question', 'Lot Coach question', detail)}
               onAnswered={() => void completeClosedBetaStep('lotCoachAsked')}
             />
+
+            <AppButton
+              label={showDeskDetails ? 'Hide extra session tools' : 'More session tools'}
+              variant="secondary"
+              onPress={() => setShowDeskDetails((prev) => !prev)}
+            />
+
+            {showDeskDetails ? (
+              <>
+            <View style={styles.rowBetween}>
+              <Text style={styles.screenTitle}>Live dealership mode</Text>
+              <StatusBadge label={dealAnalysis.dealVerdict} tone={dealAnalysis.dealGradeTone} />
+            </View>
 
               <View style={styles.statsRow}>
                 <View style={styles.statCard}>
@@ -2617,6 +2615,8 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
                 })}
               </View>
             </Card>
+              </>
+            ) : null}
           </Card>
         ) : null}
 
@@ -4565,105 +4565,6 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 40,
     gap: 16,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: 12,
-  },
-  headerTitleRow: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-  },
-  menuButton: {
-    padding: 4,
-    marginTop: 2,
-  },
-  headerSubtitle: {
-    color: theme.textMuted,
-    fontSize: 15,
-    lineHeight: 22,
-  },
-  eyebrow: {
-    fontSize: 11,
-    letterSpacing: 2,
-    color: theme.textMuted,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: theme.text,
-    marginBottom: 4,
-  },
-  headerActions: {
-    alignItems: 'flex-end',
-    gap: 8,
-    minWidth: 92,
-  },
-  upgradePill: {
-    backgroundColor: theme.gold,
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderWidth: 1,
-    borderColor: theme.gold,
-    shadowColor: theme.gold,
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
-  },
-  upgradePillText: {
-    color: theme.text,
-    fontWeight: '800',
-    fontSize: 11,
-    letterSpacing: 0.4,
-  },
-  proActivePill: {
-    backgroundColor: 'transparent',
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderWidth: 1,
-    borderColor: theme.gold,
-  },
-  proActivePillText: {
-    color: theme.gold,
-    fontWeight: '800',
-    fontSize: 11,
-    letterSpacing: 0.4,
-  },
-  previewPill: {
-    backgroundColor: theme.warnSoft,
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderWidth: 1,
-    borderColor: theme.warnText,
-  },
-  previewPillText: {
-    color: theme.warnText,
-    fontWeight: '800',
-    fontSize: 11,
-    letterSpacing: 0.4,
-  },
-  resetPill: {
-    backgroundColor: theme.surface,
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: theme.border,
-  },
-  resetPillText: {
-    color: theme.textMuted,
-    fontWeight: '600',
-    fontSize: 12,
   },
   heroTitle: {
     fontSize: 26,

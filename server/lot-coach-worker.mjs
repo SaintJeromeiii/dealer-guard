@@ -108,6 +108,15 @@ export async function handleLotCoachRequest(request, env) {
     return jsonResponse({ ok: true });
   }
 
+  if (request.method === 'GET') {
+    return jsonResponse({
+      ok: true,
+      service: 'DealShield Lot Coach',
+      status: 'live',
+      hint: 'This endpoint is working. The app sends POST with a question and deal context. Opening this URL in a browser is a health check only.',
+    });
+  }
+
   if (request.method !== 'POST') {
     return jsonResponse({ error: 'Method not allowed' }, 405);
   }

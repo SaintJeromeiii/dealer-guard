@@ -80,11 +80,11 @@ export default function LotCoachCard({ context, onTrack, onAnswered }: LotCoachC
   return (
     <Card>
       <View style={styles.headerRow}>
-        <Text style={styles.title}>Lot Coach</Text>
+        <Text style={styles.title}>Ask AI</Text>
         <ProFeatureBadge unlocked />
       </View>
       <Text style={styles.detail}>
-        Ask what to say when the salesperson goes off-script. Answers use your current deal numbers and pressure log.
+        Chips above are instant. Use AI only if the pitch is unusual.
       </Text>
       <Text style={styles.meta}>
         {configured
