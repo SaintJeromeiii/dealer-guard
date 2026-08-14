@@ -19,7 +19,6 @@
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/playstore.png"
       },
-      "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.jleonanderson.signshield"
     },
