@@ -31,8 +31,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "DealShield uses your photos so you can import a dealership quote image.",
-          "cameraPermission": "DealShield uses your camera so you can capture a dealership quote image."
+          "photosPermission": "DealShield uses your photos so you can import dealership quotes and vehicle listing ads.",
+          "cameraPermission": "DealShield uses your camera so you can capture dealership quotes and vehicle listing ads."
         }
       ],
       [

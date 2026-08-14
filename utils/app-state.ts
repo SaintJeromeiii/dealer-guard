@@ -1,6 +1,7 @@
-import type { AnalyticsEvent, BillingState, DealLineItem, DealState, DealerGuardAppData, NegotiationFlag, PressureIncident, PromiseRecord, SavedDeal, SubscriptionState, VisitTimelineEntry } from './types.ts';
+import type { AnalyticsEvent, BillingState, DealLineItem, DealState, DealerGuardAppData, NegotiationFlag, PressureIncident, PromiseRecord, SavedDeal, SubscriptionState, VisitTimelineEntry, WatchedVehicle } from './types.ts';
+import { MAX_WATCHED_VEHICLES } from './watchlist.ts';
 
-export const STORAGE_VERSION = 10;
+export const STORAGE_VERSION = 11;
 export const STORAGE_KEY = 'dealerGuard_state';
 
 export const LEGACY_STORAGE_KEYS = {
@@ -93,6 +94,7 @@ export function createInitialAppData(): DealerGuardAppData {
     promises: [],
     visitTimeline: [],
     savedDeals: [],
+    watchedVehicles: [],
     deal: createInitialDeal(),
     subscription: createInitialSubscription(),
     billing: createInitialBillingState(),
@@ -279,6 +281,53 @@ export function sanitizeSavedDeals(value: unknown): SavedDeal[] {
     .slice(0, 10);
 }
 
+export function sanitizeWatchedVehicles(value: unknown): WatchedVehicle[] {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .map((item) => {
+      if (!item || typeof item !== 'object' || Array.isArray(item)) return null;
+      const vehicle = item as WatchedVehicle & { location?: string };
+      const legacyLocation = safeString(vehicle.location);
+      let cityOrCounty = safeString(vehicle.cityOrCounty);
+      let stateCode = safeString(vehicle.stateCode).toUpperCase();
+      const milesAway = safeString(vehicle.milesAway);
+
+      if (!cityOrCounty && legacyLocation) {
+        const match = legacyLocation.match(/^(.+?),\s*([A-Za-z]{2})\b/);
+        if (match) {
+          cityOrCounty = match[1].trim();
+          stateCode = stateCode || match[2].toUpperCase();
+        } else {
+          cityOrCounty = legacyLocation;
+        }
+      }
+      if (stateCode && !/^[A-Z]{2}$/.test(stateCode)) stateCode = '';
+
+      return {
+        id: safeString(vehicle.id),
+        savedAt: safeString(vehicle.savedAt),
+        photoUri: safeString(vehicle.photoUri),
+        rawOcrText: safeString(vehicle.rawOcrText),
+        year: safeString(vehicle.year),
+        make: safeString(vehicle.make),
+        model: safeString(vehicle.model),
+        trim: safeString(vehicle.trim),
+        title: safeString(vehicle.title),
+        askingPrice: safeString(vehicle.askingPrice),
+        cityOrCounty,
+        stateCode,
+        milesAway,
+        mileage: safeString(vehicle.mileage),
+        dealerOrSeller: safeString(vehicle.dealerOrSeller),
+        listingUrl: safeString(vehicle.listingUrl),
+        notes: safeString(vehicle.notes),
+      };
+    })
+    .filter((item): item is WatchedVehicle => !!item && !!item.id && !!item.savedAt)
+    .slice(0, MAX_WATCHED_VEHICLES);
+}
+
 export function sanitizeNegotiationFlags(value: unknown): NegotiationFlag[] {
   if (!Array.isArray(value)) return [];
   return value.filter((flag): flag is NegotiationFlag => typeof flag === 'string' && VALID_FLAGS.includes(flag as NegotiationFlag));
@@ -299,6 +348,7 @@ export function sanitizeAppData(value: unknown): DealerGuardAppData {
     promises: sanitizePromises((raw as DealerGuardAppData).promises),
     visitTimeline: sanitizeVisitTimeline((raw as DealerGuardAppData).visitTimeline),
     savedDeals: sanitizeSavedDeals((raw as DealerGuardAppData).savedDeals),
+    watchedVehicles: sanitizeWatchedVehicles((raw as DealerGuardAppData).watchedVehicles),
     deal: sanitizeDeal((raw as DealerGuardAppData).deal),
     subscription: {
       tier: subscriptionRaw?.tier === 'pro' ? 'pro' : 'free',

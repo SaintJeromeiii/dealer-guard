@@ -13,6 +13,7 @@ export type Screen =
   | 'financeDefense'
   | 'tacticDecoder'
   | 'compareDeals'
+  | 'watchlist'
   | 'upgradeHub'
   | 'notes';
 
@@ -135,6 +136,30 @@ export type SavedDeal = DealState & {
   seriesId: string;
   revisionNumber: number;
   basedOnDealId: string | null;
+};
+
+/** Lightweight shopping listing (Autotrader-style), separate from financed SavedDeal offers. */
+export type WatchedVehicle = {
+  id: string;
+  savedAt: string;
+  photoUri: string;
+  rawOcrText: string;
+  year: string;
+  make: string;
+  model: string;
+  trim: string;
+  title: string;
+  askingPrice: string;
+  /** City or county label, e.g. "Detroit" or "Wayne County". */
+  cityOrCounty: string;
+  /** Two-letter state code when known, e.g. "MI". */
+  stateCode: string;
+  /** Distance from the shopper in miles, as shown on Autotrader (~miles away). */
+  milesAway: string;
+  mileage: string;
+  dealerOrSeller: string;
+  listingUrl: string;
+  notes: string;
 };
 
 export type SelectedComparePair = {
@@ -597,6 +622,7 @@ export type DealerGuardAppData = {
   promises: PromiseRecord[];
   visitTimeline: VisitTimelineEntry[];
   savedDeals: SavedDeal[];
+  watchedVehicles: WatchedVehicle[];
   deal: DealState;
   subscription: SubscriptionState;
   billing: BillingState;

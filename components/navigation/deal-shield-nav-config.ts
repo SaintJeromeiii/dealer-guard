@@ -64,6 +64,15 @@ export const DEALSHIELD_DRAWER_ITEMS: DealShieldDrawerItem[] = [
     section: 'tools',
   },
   {
+    id: 'watchlist',
+    label: "Vehicles I'm Watching",
+    icon: 'car-sport-outline',
+    kind: 'screen',
+    screen: 'watchlist',
+    tab: 'analyzer',
+    section: 'tools',
+  },
+  {
     id: 'compare-offers',
     label: 'Compare Offers',
     icon: 'git-compare-outline',

@@ -35,6 +35,7 @@ import MathDisclaimer from '@/components/MathDisclaimer';
 import OcrConfirmChips from '@/components/OcrConfirmChips';
 import PaperworkSignatureGate from '@/components/PaperworkSignatureGate';
 import TradeEquityAuditCard from '@/components/TradeEquityAuditCard';
+import WatchlistScreenContent from '@/components/WatchlistScreenContent';
 import Card from '@/components/Card';
 import FeatureMenuCard from '@/components/FeatureMenuCard';
 import ProgressBar from '@/components/ProgressBar';
@@ -134,6 +135,13 @@ import { buildNextStepGuidance } from '@/utils/next-step';
 import { buildCapVsQuote } from '@/utils/desk-scripts';
 import { LIFETIME_PRO_PURCHASE_NOTE, SAMPLE_QUOTE } from '@/utils/product-content';
 import {
+  MAX_WATCHED_VEHICLES,
+  createBlankListingImport,
+  createWatchedVehicleFromImport,
+  importListingText,
+  type ListingImportResult,
+} from '@/utils/watchlist';
+import {
   dismissClosedBetaWelcome,
   markClosedBetaStep,
   readClosedBetaChecklist,
@@ -164,6 +172,7 @@ import type {
   Tone,
   VisitTimelineEntry,
   VisitTimelineEventType,
+  WatchedVehicle,
 } from '@/utils/types';
 
 function makeId() {
@@ -194,6 +203,7 @@ const CALCULATOR_SCREENS = new Set<Screen>([
   'analyzerHub',
   'dealReview',
   'compareDeals',
+  'watchlist',
   'whatIfLab',
   'financeDefense',
 ]);
@@ -206,6 +216,7 @@ const SCREEN_TITLES: Partial<Record<Screen, string>> = {
   liveMode: 'AI Lot Coach',
   dealReview: 'Deal Calculator',
   compareDeals: 'Compare Offers',
+  watchlist: "Vehicles I'm Watching",
   whatIfLab: 'What-if Lab',
   financeDefense: 'Finance Office Defense',
   traps: 'Trap Library',
@@ -461,6 +472,11 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
   const [showDeskDetails, setShowDeskDetails] = useState(false);
   const [simulatorIndex, setSimulatorIndex] = useState(0);
   const [ocrConfirmedFields, setOcrConfirmedFields] = useState<Record<string, boolean>>({});
+  const [pendingListingImport, setPendingListingImport] = useState<ListingImportResult | null>(null);
+  const [editableListingFields, setEditableListingFields] = useState<Record<string, string>>({});
+  const [listingConfirmedFields, setListingConfirmedFields] = useState<Record<string, boolean>>({});
+  const [pendingListingPhotoUri, setPendingListingPhotoUri] = useState('');
+  const [isRunningListingOcr, setIsRunningListingOcr] = useState(false);
   const insets = useSafeAreaInsets();
   const analyzerEntryHandled = useRef(false);
 
@@ -1376,6 +1392,217 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
     }
   }
 
+  function dismissPendingListingImport() {
+    setPendingListingImport(null);
+    setEditableListingFields({});
+    setListingConfirmedFields({});
+    setPendingListingPhotoUri('');
+  }
+
+  function startManualListingEntry(photoUri = pendingListingPhotoUri) {
+    if (appData.watchedVehicles.length >= MAX_WATCHED_VEHICLES) {
+      Alert.alert('Watchlist full', `You can save up to ${MAX_WATCHED_VEHICLES} vehicles. Remove one to add another.`);
+      return;
+    }
+
+    const draft = createBlankListingImport(photoUri, photoUri ? 'manual entry with photo' : 'manual entry');
+    setPendingListingPhotoUri(photoUri);
+    setPendingListingImport(draft);
+    setEditableListingFields({
+      Year: '',
+      Make: '',
+      Model: '',
+      Trim: '',
+      'Asking price': '',
+      'City / county': '',
+      State: '',
+      'Miles away': '',
+      Mileage: '',
+      'Dealer / seller': '',
+      Notes: '',
+    });
+    setListingConfirmedFields({});
+    openScreen('watchlist', 'analyzer');
+    trackEvent('watchlist_manual', 'Manual listing entry opened', photoUri ? 'Opened blank listing form with a photo.' : 'Opened blank listing form without a photo.');
+  }
+
+  async function pickListingPhoto(source: 'camera' | 'library') {
+    if (appData.watchedVehicles.length >= MAX_WATCHED_VEHICLES) {
+      Alert.alert('Watchlist full', `You can save up to ${MAX_WATCHED_VEHICLES} vehicles. Remove one to add another.`);
+      return;
+    }
+
+    if (source === 'camera') {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Camera permission needed', 'Allow camera access to photograph an Autotrader listing.');
+        return;
+      }
+    } else {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Photo permission needed', 'Allow photo access to import an Autotrader listing screenshot.');
+        return;
+      }
+    }
+
+    const result =
+      source === 'camera'
+        ? await ImagePicker.launchCameraAsync({
+            mediaTypes: ['images'],
+            quality: 1,
+          })
+        : await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ['images'],
+            quality: 1,
+          });
+
+    if (result.canceled || !result.assets?.[0]?.uri) return;
+
+    setPendingListingImport(null);
+    setEditableListingFields({});
+    setListingConfirmedFields({});
+    setPendingListingPhotoUri(result.assets[0].uri);
+    openScreen('watchlist', 'analyzer');
+  }
+
+  async function runListingPhotoOcr() {
+    if (!pendingListingPhotoUri) {
+      Alert.alert('No photo selected', 'Take or choose a listing photo first, then run OCR.');
+      return;
+    }
+
+    setIsRunningListingOcr(true);
+
+    try {
+      const text = await extractTextFromImage(pendingListingPhotoUri);
+      if (!text) {
+        Alert.alert(
+          'OCR review',
+          'No readable text was extracted from that listing image. You can try a clearer crop, or enter the details manually and keep the photo.',
+          [
+            { text: 'Try again later', style: 'cancel' },
+            { text: 'Enter manually', onPress: () => startManualListingEntry(pendingListingPhotoUri) },
+          ]
+        );
+        return;
+      }
+
+      const draft = importListingText(
+        text,
+        pendingListingPhotoUri,
+        Platform.OS === 'web' ? 'listing photo OCR' : 'native listing photo OCR'
+      );
+      setPendingListingImport(draft);
+      setEditableListingFields({
+        Year: draft.year,
+        Make: draft.make,
+        Model: draft.model,
+        Trim: draft.trim,
+        'Asking price': draft.askingPrice,
+        'City / county': draft.cityOrCounty,
+        State: draft.stateCode,
+        'Miles away': draft.milesAway,
+        Mileage: draft.mileage,
+        'Dealer / seller': draft.dealerOrSeller,
+        Notes: '',
+      });
+      setListingConfirmedFields({});
+      trackEvent('watchlist_ocr', 'Listing OCR imported', `Captured listing fields from ${draft.sourceLabel}.`);
+    } catch (error) {
+      const expoGoBlocked = error instanceof Error && error.message === 'expo-go-contract-ocr';
+      Alert.alert(
+        'Listing OCR failed',
+        expoGoBlocked
+          ? 'Native photo OCR needs a rebuilt development client. You can still enter the listing details manually and keep this photo.'
+          : Platform.OS === 'web'
+            ? 'Could not read text from that photo right now. Enter the details manually, or try another image.'
+            : 'Could not run native OCR from that photo. Enter the details manually, or try another image in a development/store build.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Enter manually', onPress: () => startManualListingEntry(pendingListingPhotoUri) },
+        ]
+      );
+    } finally {
+      setIsRunningListingOcr(false);
+    }
+  }
+
+  function savePendingListingImport() {
+    if (!pendingListingImport) return;
+
+    const year = (editableListingFields.Year ?? pendingListingImport.year).trim();
+    const make = (editableListingFields.Make ?? pendingListingImport.make).trim();
+    const model = (editableListingFields.Model ?? pendingListingImport.model).trim();
+    const askingPrice = (editableListingFields['Asking price'] ?? pendingListingImport.askingPrice).trim();
+    if (!make && !model && !askingPrice && !year) {
+      Alert.alert('Add a few details', 'Enter at least a make, model, year, or asking price before saving.');
+      return;
+    }
+
+    const vehicle = createWatchedVehicleFromImport(
+      pendingListingImport,
+      {
+        year,
+        make,
+        model,
+        trim: editableListingFields.Trim ?? pendingListingImport.trim,
+        askingPrice,
+        cityOrCounty: editableListingFields['City / county'] ?? pendingListingImport.cityOrCounty,
+        stateCode: editableListingFields.State ?? pendingListingImport.stateCode,
+        milesAway: editableListingFields['Miles away'] ?? pendingListingImport.milesAway,
+        mileage: editableListingFields.Mileage ?? pendingListingImport.mileage,
+        dealerOrSeller: editableListingFields['Dealer / seller'] ?? pendingListingImport.dealerOrSeller,
+        notes: editableListingFields.Notes ?? '',
+        photoUri: pendingListingImport.photoUri || pendingListingPhotoUri,
+      },
+      () => `watch-${makeId()}`
+    );
+
+    setAppData((prev) => ({
+      ...prev,
+      watchedVehicles: [vehicle, ...prev.watchedVehicles].slice(0, MAX_WATCHED_VEHICLES),
+    }));
+    dismissPendingListingImport();
+    trackEvent('watchlist_saved', 'Watched vehicle saved', `Saved ${vehicle.title || 'listing'} to the watchlist.`);
+  }
+
+  function deleteWatchedVehicle(id: string) {
+    setAppData((prev) => ({
+      ...prev,
+      watchedVehicles: prev.watchedVehicles.filter((vehicle) => vehicle.id !== id),
+    }));
+  }
+
+  function useWatchedVehicleInDealReview(vehicle: WatchedVehicle) {
+    setAppData((prev) => {
+      const existingComps = prev.deal.marketComparablePricesText.trim();
+      const locationLabel = [vehicle.cityOrCounty, vehicle.stateCode].filter(Boolean).join(', ');
+      const distanceLabel = vehicle.milesAway.trim() ? `${vehicle.milesAway} mi away` : '';
+      const placeNote = [locationLabel, distanceLabel].filter(Boolean).join(' · ');
+      const nextNotes = placeNote
+        ? [prev.deal.offerNotes, `Watchlist: ${vehicle.title || 'vehicle'} in ${placeNote}`].filter(Boolean).join('\n')
+        : prev.deal.offerNotes;
+
+      return {
+        ...prev,
+        deal: {
+          ...prev.deal,
+          vehiclePrice: vehicle.askingPrice || prev.deal.vehiclePrice,
+          dealershipName: vehicle.dealerOrSeller || prev.deal.dealershipName,
+          offerNotes: nextNotes,
+          marketComparablePricesText: vehicle.askingPrice
+            ? existingComps
+              ? `${existingComps}, ${vehicle.askingPrice}`
+              : vehicle.askingPrice
+            : prev.deal.marketComparablePricesText,
+        },
+      };
+    });
+    trackEvent('watchlist_to_deal', 'Watchlist price sent to deal review', 'Copied a watched listing price into deal review.');
+    openDealReview('default', { skipBudgetGate: true });
+  }
+
   async function exportBuyerCasePdf() {
     try {
       const Print = await import('expo-print');
@@ -2112,10 +2339,12 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
               isPro={hasProAccess}
               budgetComplete={budgetStepComplete}
               savedOfferCount={appData.savedDeals.length}
+              watchedVehicleCount={appData.watchedVehicles.length}
               capRows={capVsQuote}
               onUseEstimatorInDealReview={applyEstimatorToDealReview}
               onOpenDealReview={() => openDealReview('default')}
               onOpenCompare={() => openScreen('compareDeals', 'analyzer')}
+              onOpenWatchlist={() => openScreen('watchlist', 'analyzer')}
               onOpenWhatIfLab={openWhatIfLab}
               onOpenFinanceDefense={() => openScreen('financeDefense', 'analyzer')}
               onPaywall={() => void startPaywallPurchase()}
@@ -3944,6 +4173,39 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
               )}
             </Card>
           </>
+        )}
+
+        {screen === 'watchlist' && (
+          <WatchlistScreenContent
+            vehicles={appData.watchedVehicles}
+            budgetTarget={appData.deal.targetTotalPaid}
+            pendingImport={pendingListingImport}
+            editableFields={editableListingFields}
+            confirmedFields={listingConfirmedFields}
+            pendingPhotoUri={pendingListingPhotoUri}
+            ocrBusy={isRunningListingOcr}
+            onGoHome={() => goToHub('analyzer')}
+            onChangeEditableField={(field, value) =>
+              setEditableListingFields((prev) => ({
+                ...prev,
+                [field]: value,
+              }))
+            }
+            onToggleConfirm={(field) =>
+              setListingConfirmedFields((prev) => ({
+                ...prev,
+                [field]: !prev[field],
+              }))
+            }
+            onPickCamera={() => void pickListingPhoto('camera')}
+            onPickLibrary={() => void pickListingPhoto('library')}
+            onStartManual={() => startManualListingEntry()}
+            onRunOcr={() => void runListingPhotoOcr()}
+            onSavePending={savePendingListingImport}
+            onDismissPending={dismissPendingListingImport}
+            onDeleteVehicle={deleteWatchedVehicle}
+            onUsePriceInDealReview={useWatchedVehicleInDealReview}
+          />
         )}
 
         {screen === 'compareDeals' && (

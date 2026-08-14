@@ -42,6 +42,7 @@ const FREE_PLAN_ROWS: FreeVsProRow[] = [
   { feature: 'Budget guardrails', free: 'Yes', pro: 'Yes' },
   { feature: 'Deal review & quick payment estimator', free: 'Yes', pro: 'Yes' },
   { feature: 'Save & compare offers', free: 'Yes', pro: 'Yes' },
+  { feature: 'Vehicle watchlist (photo + price/location)', free: 'Yes', pro: 'Yes' },
 ];
 
 export const AI_LOT_COACH_FEATURE_ROW: FreeVsProRow = {

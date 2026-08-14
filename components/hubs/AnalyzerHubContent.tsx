@@ -12,9 +12,11 @@ type AnalyzerHubContentProps = {
   isPro: boolean;
   budgetComplete: boolean;
   savedOfferCount: number;
+  watchedVehicleCount?: number;
   onUseEstimatorInDealReview: (loanPrice: string, apr: string, months: number) => void;
   onOpenDealReview: () => void;
   onOpenCompare: () => void;
+  onOpenWatchlist: () => void;
   onOpenWhatIfLab: () => void;
   onOpenFinanceDefense: () => void;
   onPaywall: () => void;
@@ -27,13 +29,20 @@ function formatOfferCount(count: number) {
   return `${count} offer${count === 1 ? '' : 's'}`;
 }
 
+function formatWatchCount(count: number) {
+  if (count <= 0) return undefined;
+  return `${count} saved`;
+}
+
 export default function AnalyzerHubContent({
   isPro,
   budgetComplete,
   savedOfferCount,
+  watchedVehicleCount = 0,
   onUseEstimatorInDealReview,
   onOpenDealReview,
   onOpenCompare,
+  onOpenWatchlist,
   onOpenWhatIfLab,
   onOpenFinanceDefense,
   onPaywall,
@@ -63,6 +72,14 @@ export default function AnalyzerHubContent({
             onPress={onOpenDealReview}
             onPaywall={onPaywall}
             onBudgetGate={onBudgetGate}
+          />
+          <FeatureMenuCard
+            title="Vehicles I'm watching"
+            countLabel={formatWatchCount(watchedVehicleCount)}
+            description="Photograph Autotrader-style ads, save year/make/model + asking price + location, then compare before you visit."
+            isPremium={isPro}
+            onPress={onOpenWatchlist}
+            onPaywall={onPaywall}
           />
           <FeatureMenuCard
             title="Compare dealership offers"

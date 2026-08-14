@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createInitialAppData, createInitialDeal, sanitizeAppData, sanitizeSavedDeals } from '../utils/app-state.ts';
+import { createInitialAppData, createInitialDeal, sanitizeAppData, sanitizeSavedDeals, sanitizeWatchedVehicles } from '../utils/app-state.ts';
 
 test('sanitizeAppData preserves valid records and falls back for invalid fields', () => {
   const sanitized = sanitizeAppData({
@@ -98,6 +98,56 @@ test('sanitizeSavedDeals only keeps complete saved offers', () => {
   assert.equal(deals[0]?.revisionNumber, 1);
 });
 
+test('sanitizeWatchedVehicles keeps complete listings and drops broken ones', () => {
+  const vehicles = sanitizeWatchedVehicles([
+    {
+      id: 'watch-1',
+      savedAt: '2026-04-18T12:00:00.000Z',
+      photoUri: 'file://a.jpg',
+      rawOcrText: '2021 Honda Civic',
+      year: '2021',
+      make: 'Honda',
+      model: 'Civic',
+      trim: 'EX',
+      title: '2021 Honda Civic EX',
+      askingPrice: '18995',
+      cityOrCounty: 'Detroit',
+      stateCode: 'MI',
+      milesAway: '12',
+      mileage: '42150',
+      dealerOrSeller: 'Lakeside Honda',
+      listingUrl: '',
+      notes: '',
+    },
+    {
+      title: 'Missing id',
+      askingPrice: '10000',
+    },
+  ]);
+
+  assert.equal(vehicles.length, 1);
+  assert.equal(vehicles[0]?.id, 'watch-1');
+  assert.equal(vehicles[0]?.askingPrice, '18995');
+  assert.equal(vehicles[0]?.cityOrCounty, 'Detroit');
+  assert.equal(vehicles[0]?.stateCode, 'MI');
+  assert.equal(vehicles[0]?.milesAway, '12');
+});
+
+test('sanitizeWatchedVehicles migrates legacy location strings', () => {
+  const vehicles = sanitizeWatchedVehicles([
+    {
+      id: 'watch-legacy',
+      savedAt: '2026-04-18T12:00:00.000Z',
+      location: 'Ann Arbor, MI',
+      askingPrice: '16400',
+    },
+  ]);
+
+  assert.equal(vehicles.length, 1);
+  assert.equal(vehicles[0]?.cityOrCounty, 'Ann Arbor');
+  assert.equal(vehicles[0]?.stateCode, 'MI');
+});
+
 test('createInitialAppData returns the version-safe default shape', () => {
   const initial = createInitialAppData();
   assert.deepEqual(initial.answers, {});
@@ -106,6 +156,7 @@ test('createInitialAppData returns the version-safe default shape', () => {
   assert.equal(initial.promises.length, 0);
   assert.equal(initial.visitTimeline.length, 0);
   assert.equal(initial.savedDeals.length, 0);
+  assert.equal(initial.watchedVehicles.length, 0);
   assert.equal(initial.billing.provider, 'mock');
   assert.equal(initial.billing.entitlementStatus, 'inactive');
   assert.equal(initial.subscription.usage.whatIfRuns, 0);
