@@ -1,90 +1,345 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DealShield — Stop Car Dealership Rip-offs</title>
-    <!-- Tailwind CSS for modern, clean styling -->
-    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>DealShield — Don’t get played at the dealership</title>
+  <meta name="description" content="A plain walkthrough of the car-buying process and the traps dealerships use when you are unprepared. DealShield is the buyer-side app for that visit." />
+  <meta property="og:title" content="DealShield — Don’t get played at the dealership" />
+  <meta property="og:description" content="How a car deal actually moves, the traps that show up if you are unprepared, and a buyer-side app for the desk." />
+  <meta property="og:type" content="website" />
+  <style>
+    :root {
+      --bg: #0b0f19;
+      --surface: #161f30;
+      --inset: #121a28;
+      --border: #1e293b;
+      --text: #ffffff;
+      --muted: #94a3b8;
+      --gold: #f59e0b;
+      --gold-soft: rgba(245, 158, 11, 0.14);
+      --danger: #f87171;
+      --ok: #34d399;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.55;
+    }
+    a { color: var(--gold); }
+    .wrap { max-width: 980px; margin: 0 auto; padding: 0 20px; }
+    nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      padding: 18px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .brand {
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      color: var(--text);
+      text-decoration: none;
+    }
+    .nav-links { display: flex; gap: 18px; font-size: 0.92rem; }
+    .nav-links a { color: var(--muted); text-decoration: none; }
+    .nav-links a:hover { color: var(--text); }
+    .hero { padding: 64px 0 40px; }
+    .eyebrow {
+      display: inline-block;
+      color: var(--gold);
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+    }
+    h1 {
+      font-size: clamp(2rem, 5vw, 3.4rem);
+      line-height: 1.12;
+      margin: 0 0 16px;
+      letter-spacing: -0.03em;
+    }
+    .lede {
+      max-width: 640px;
+      font-size: 1.15rem;
+      color: var(--muted);
+      margin: 0 0 28px;
+    }
+    .cta-row { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 14px 20px;
+      border-radius: 12px;
+      font-weight: 700;
+      text-decoration: none;
+      border: 1px solid transparent;
+    }
+    .btn-primary { background: var(--gold); color: #111827; }
+    .btn-primary:hover { filter: brightness(1.05); }
+    .btn-secondary {
+      background: var(--surface);
+      color: var(--text);
+      border-color: var(--border);
+    }
+    .fine { color: var(--muted); font-size: 0.85rem; }
+    section { padding: 56px 0; border-top: 1px solid var(--border); }
+    h2 { font-size: 1.7rem; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .section-copy { color: var(--muted); max-width: 640px; margin: 0 0 28px; }
+    .steps { display: grid; gap: 14px; }
+    .step {
+      display: grid;
+      grid-template-columns: 56px 1fr;
+      gap: 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 18px;
+    }
+    .step-num {
+      width: 56px;
+      height: 56px;
+      border-radius: 12px;
+      background: var(--gold-soft);
+      color: var(--gold);
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .step h3 { margin: 0 0 6px; font-size: 1.05rem; }
+    .step p { margin: 0; color: var(--muted); font-size: 0.95rem; }
+    .traps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 14px;
+    }
+    .trap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 18px;
+    }
+    .trap h3 { margin: 0 0 8px; font-size: 1.05rem; }
+    .danger { color: var(--danger); font-size: 0.92rem; margin: 0 0 10px; }
+    .why, .say { margin: 0; color: var(--muted); font-size: 0.92rem; }
+    .say { margin-top: 10px; color: var(--ok); }
+    .panel {
+      background: var(--inset);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 28px;
+    }
+    .join-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 18px;
+      margin-top: 20px;
+    }
+    .join-card h3 { margin: 0 0 8px; }
+    .join-card p { color: var(--muted); margin: 0 0 14px; font-size: 0.95rem; }
+    .note {
+      margin-top: 18px;
+      padding: 14px 16px;
+      border-radius: 12px;
+      background: var(--gold-soft);
+      color: var(--text);
+      font-size: 0.95rem;
+    }
+    ol.test-path { color: var(--muted); padding-left: 1.2rem; }
+    footer {
+      padding: 28px 0 48px;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+    footer .links { display: flex; gap: 16px; margin: 10px 0 16px; }
+    @media (max-width: 640px) {
+      .nav-links { display: none; }
+      .step { grid-template-columns: 1fr; }
+    }
+  </style>
 </head>
-<body class="bg-slate-900 text-slate-100 font-sans antialiased">
+<body>
+  <div class="wrap">
+    <nav>
+      <a class="brand" href="#">DealShield</a>
+      <div class="nav-links">
+        <a href="#process">The process</a>
+        <a href="#traps">Traps</a>
+        <a href="#app">The app</a>
+        <a href="#android">Android testers</a>
+      </div>
+      <a class="btn btn-primary" href="#process">Read the process</a>
+    </nav>
 
-    <!-- Hero Section -->
-    <header class="max-w-5xl mx-auto px-6 pt-20 pb-16 text-center">
-        <div class="inline-flex items-center gap-2 px-3 py-1 text-xs font-medium text-emerald-400 bg-emerald-500/10 rounded-full border border-emerald-500/20 mb-6">
-            🛡️ Privacy-Focused & Built by a Military Veteran
-        </div>
-        <h1 class="text-4xl sm:text-6xl font-extrabold tracking-tight text-white mb-6">
-            Your Financial Shield Inside the <span class="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-400">Car Dealership</span>
-        </h1>
-        <p class="max-w-2xl mx-auto text-lg sm:text-xl text-slate-400 mb-10 leading-relaxed">
-            DealShield strips away the smoke and mirrors of car buying. Input the dealer's finance numbers, and our calculation engine instantly exposes hidden junk fees, interest rate markups, and your true out-the-door costs.
-        </p>
-        <div class="flex flex-col sm:flex-row justify-center items-center gap-4">
-            <a href="https://play.google.com/apps/testing/com.jleonanderson.signshield" 
-               class="w-full sm:w-auto px-8 py-4 bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-bold rounded-xl shadow-lg shadow-emerald-500/20 hover:opacity-90 transition transform hover:-translate-y-0.5 text-center">
-                Join the Android Alpha Test
-            </a>
-            <a href="#how-it-works" class="w-full sm:w-auto px-8 py-4 bg-slate-800 text-slate-200 font-medium rounded-xl border border-slate-700 hover:bg-slate-750 transition text-center">
-                See How It Protects You
-            </a>
-        </div>
+    <header class="hero">
+      <div class="eyebrow">A buyer-side guide · then an app</div>
+      <h1>The dealership is a process. Most people only see the pitch.</h1>
+      <p class="lede">
+        If you walk in unprepared, the visit is designed to keep you on monthly payment, wear you down, and pack extras into the last paper you see. This page is the sequence. DealShield is the phone tool for that same visit.
+      </p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="#process">How the deal actually moves</a>
+        <a class="btn btn-secondary" href="#notify">Get notified for iPhone</a>
+      </div>
+      <p class="fine">Free to read. Not legal, tax, or lending advice. iPhone is not in public testing yet.</p>
     </header>
 
-    <!-- Core Value Features Section -->
-    <main id="how-it-works" class="max-w-5xl mx-auto px-6 py-16 border-t border-slate-800">
-        <h2 class="text-2xl sm:text-3xl font-bold text-center text-white mb-12">Designed to Keep the Power on Your Side</h2>
-        
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <!-- Feature 1 -->
-            <div class="p-6 bg-slate-800/50 rounded-2xl border border-slate-800">
-                <div class="text-emerald-400 text-3xl mb-4">🧮</div>
-                <h3 class="text-xl font-semibold text-white mb-2">Reverse-Engineered Math</h3>
-                <p class="text-slate-400 text-sm leading-relaxed">
-                    Dealerships love to hide extra costs inside a monthly payment. Input what they quote you, and our engine instantly isolates the real interest rate and add-on pricing they aren't telling you.
-                </p>
-            </div>
+    <section id="process">
+      <h2>How a car deal actually moves</h2>
+      <p class="section-copy">
+        If you only argue monthly payment, you lose the rest of the deal. Walk the visit in this order.
+      </p>
+      <div class="steps">
+        <article class="step">
+          <div class="step-num">1</div>
+          <div>
+            <h3>Before you go</h3>
+            <p>Know a walk-away out-the-door number, get a credit-union or bank pre-approval, and estimate the trade separately. Research the car’s price before you sit down.</p>
+          </div>
+        </article>
+        <article class="step">
+          <div class="step-num">2</div>
+          <div>
+            <h3>The desk</h3>
+            <p>Ask for a written out-the-door price first. Do not start on payment. Vehicle price, fees, add-ons, term, and APR should be visible as separate lines.</p>
+          </div>
+        </article>
+        <article class="step">
+          <div class="step-num">3</div>
+          <div>
+            <h3>The lot pressure</h3>
+            <p>“Today only,” “another buyer,” and long waits are there to tire you out. Fair deals survive overnight. You can leave with the worksheet.</p>
+          </div>
+        </article>
+        <article class="step">
+          <div class="step-num">4</div>
+          <div>
+            <h3>Finance office</h3>
+            <p>Warranties, GAP, nitrogen, etching, and paint packages often appear after you think you agreed. Itemize them. Remove anything optional. Compare GAP with your insurer or lender.</p>
+          </div>
+        </article>
+        <article class="step">
+          <div class="step-num">5</div>
+          <div>
+            <h3>Paperwork</h3>
+            <p>The contract can differ from the quote: price, term, add-ons, or trade. Read every line before you sign. Verbal promises that are not on paper do not count.</p>
+          </div>
+        </article>
+      </div>
+    </section>
 
-            <!-- Feature 2 -->
-            <div class="p-6 bg-slate-800/50 rounded-2xl border border-slate-800">
-                <div class="text-emerald-400 text-3xl mb-4">🔍</div>
-                <h3 class="text-xl font-semibold text-white mb-2">Junk Fee Detection</h3>
-                <p class="text-slate-400 text-sm leading-relaxed">
-                    From mandatory nitrogen tires to administrative fluff, DealShield audits contract parameters against consumer protection benchmarks to pinpoint unnecessary markups before you sign.
-                </p>
-            </div>
+    <section id="traps">
+      <h2>Traps that show up when you are unprepared</h2>
+      <p class="section-copy">
+        Save this page. If you hear the line, you already know the move. These are the same patterns DealShield tracks in the app.
+      </p>
+      <div class="traps">
+        <article class="trap">
+          <h3>Monthly payment trap</h3>
+          <p class="danger">They lock you onto a payment instead of the full price.</p>
+          <p class="why">A lower payment can hide a longer loan, a higher APR, or packed fees.</p>
+          <p class="say">Say: “I want the out-the-door price first, not the monthly.”</p>
+        </article>
+        <article class="trap">
+          <h3>Today-only pressure</h3>
+          <p class="danger">The deal is only good if you sign now.</p>
+          <p class="why">Urgency stops comparison shopping. Fair numbers still exist tomorrow.</p>
+          <p class="say">Say: “If it is fair, I can review it and come back.”</p>
+        </article>
+        <article class="trap">
+          <h3>Add-on packing</h3>
+          <p class="danger">Warranties and protection packages appear as if they are required.</p>
+          <p class="why">Optional extras can add thousands in markup.</p>
+          <p class="say">Say: “Itemize every add-on and remove anything I did not ask for.”</p>
+        </article>
+        <article class="trap">
+          <h3>Trade-in confusion</h3>
+          <p class="danger">They mix the car price, your trade, and the loan into one conversation.</p>
+          <p class="why">You cannot tell which number actually moved.</p>
+          <p class="say">Say: “Separate the vehicle, the trade, and the financing.”</p>
+        </article>
+        <article class="trap">
+          <h3>Rate markup</h3>
+          <p class="danger">In-house financing is presented as your only option.</p>
+          <p class="why">A marked-up APR costs more over the life of the loan than a slightly higher payment.</p>
+          <p class="say">Say: “Show me your best rate in writing. I have outside financing.”</p>
+        </article>
+        <article class="trap">
+          <h3>Wear-down</h3>
+          <p class="danger">Hours in the box until you just want to leave.</p>
+          <p class="why">Tired buyers accept worse paper.</p>
+          <p class="say">Say: “I’m leaving. I only decide when I can review this.”</p>
+        </article>
+      </div>
+    </section>
 
-            <!-- Feature 3 -->
-            <div class="p-6 bg-slate-800/50 rounded-2xl border border-slate-800">
-                <div class="text-emerald-400 text-3xl mb-4">🔒</div>
-                <h3 class="text-xl font-semibold text-white mb-2">100% Local & Private</h3>
-                <p class="text-slate-400 text-sm leading-relaxed">
-                    Your financial business is yours alone. DealShield runs completely on your physical phone. No registration screens, no tracking codes, and no personal data ever leaving your device.
-                </p>
-            </div>
+    <section id="app">
+      <h2>What DealShield is</h2>
+      <p class="section-copy">
+        A phone app for the visit: paste or photograph a quote, see price, fees, APR, term, trade, and down payment together, log pressure as it happens, compare two stores, and check the contract against the offer you already reviewed. Share a second-opinion summary before anyone signs.
+      </p>
+      <p class="section-copy">
+        You do not need to be at a dealership to try it. The app includes a sample deal so you can walk the flow at home.
+      </p>
+    </section>
+
+    <section id="notify">
+      <div class="panel">
+        <div class="eyebrow">iPhone</div>
+        <h2>Not on the App Store yet</h2>
+        <p class="section-copy" style="margin-bottom: 16px;">
+          iOS is still going through Apple’s requirements. There is no public TestFlight link to share. If you want a note when DealShield is available on iPhone, send a short email. That is a waitlist, not an install.
+        </p>
+        <a class="btn btn-secondary" href="mailto:jleonandersonjr@gmail.com?subject=DealShield%20iPhone%20waitlist&amp;body=Please%20email%20me%20when%20DealShield%20is%20available%20on%20iPhone.">Email me when iPhone is ready</a>
+      </div>
+    </section>
+
+    <section id="android">
+      <div class="panel">
+        <div class="eyebrow">Android testers</div>
+        <h2>Opting in is not the same as testing</h2>
+        <p class="section-copy" style="margin-bottom: 0;">
+          If you already clicked the Play test link and never opened DealShield, that does not help. Google only counts testers who stay opted in, and I need people who actually tap through the app. Please only join if you will do the five-minute path below and leave it installed for 14 days.
+        </p>
+        <div class="join-grid">
+          <div class="join-card">
+            <h3>1. Install from Play</h3>
+            <p>Use the same Gmail on the phone and in the opt-in. Install DealShield from the Play Store after you accept — not an APK from a chat.</p>
+            <a class="btn btn-primary" href="https://play.google.com/apps/testing/com.jleonanderson.signshield">Open the Android closed test</a>
+          </div>
+          <div class="join-card">
+            <h3>2. Do this in the app</h3>
+            <p>About five minutes. You do not need a real quote.</p>
+            <ol class="test-path">
+              <li>I’m buying a car → Try sample deal</li>
+              <li>Settings → DealShield Pro → Unlock lifetime Pro (license testers are not charged)</li>
+              <li>Ask AI Lot Coach one question</li>
+              <li>Log one pressure tactic in live mode</li>
+              <li>☰ → About &amp; Legal → Send closed-test feedback</li>
+            </ol>
+          </div>
         </div>
-    </main>
+        <p class="note">If you opted in and have not opened it yet: install from Play today, run the five steps, and stay opted in. Dropping out resets the tester clock.</p>
+      </div>
+    </section>
 
-    <!-- App Store Required Footer (Legal Links) -->
-    <footer class="max-w-5xl mx-auto px-6 py-12 border-t border-slate-800 text-center text-slate-500 text-xs">
-        <p class="mb-4">&copy; 2026 DealShield. All rights reserved. Built independently for consumer advocacy.</p>
-        <div class="flex justify-center gap-6 text-slate-400 font-medium">
-            <a href="#privacy" id="privacy" class="hover:text-emerald-400 transition underline">Privacy Policy</a>
-            <a href="#disclaimer" id="disclaimer" class="hover:text-emerald-400 transition underline">Legal Disclaimer</a>
-        </div>
-
-        <!-- Hidden/Inline Legal Text Content Blocks for App Reviewers -->
-        <div class="max-w-3xl mx-auto mt-12 p-6 bg-slate-950 rounded-xl border border-slate-800 text-left text-slate-400 leading-relaxed space-y-6">
-            <div>
-                <h4 class="text-slate-200 font-bold mb-2 uppercase tracking-wider text-[10px]">Privacy Policy</h4>
-                <p>DealShield (operating as SignShield on the Google Play Store) does not collect, store, transmit, or share any personal data, financial numbers, document inputs, or imagery captured via your device's camera. All computation, text extraction (OCR), and analysis are executed locally and strictly inside your device's sandboxed runtime memory environment.</p>
-            </div>
-            <div>
-                <h4 class="text-slate-200 font-bold mb-2 uppercase tracking-wider text-[10px]">Legal Disclaimer</h4>
-                <p>DealShield is an algorithmic calculating utility meant solely for informational and educational estimating purposes. It does not constitute formal legal, binding contractual, financial, or licensed professional automotive industry advice. Always cross-reference final lending disclosures with accredited financial institutions.</p>
-            </div>
-        </div>
+    <footer>
+      <p>© 2026 Jerome Anderson · DealShield</p>
+      <div class="links">
+        <a href="https://saintjeromeiii.github.io/dealshield-legal/#privacy">Privacy</a>
+        <a href="https://saintjeromeiii.github.io/dealshield-legal/#disclaimer">Disclaimer</a>
+      </div>
+      <p>DealShield is a decision-support tool for car buyers. It is not legal, tax, credit, or financial advice. Always read the contract in front of you.</p>
     </footer>
-
+  </div>
 </body>
 </html>
