@@ -867,9 +867,73 @@ export function compareSavedDeals(deals: SavedDeal[], readinessLabel: ReadinessL
     if (winner.analysis.monthlyPayment < runnerUp.analysis.monthlyPayment) {
       reasons.push(`lower estimated monthly payment (${currency(winner.analysis.monthlyPayment)} vs ${currency(runnerUp.analysis.monthlyPayment)})`);
     }
+    const winnerFees = getFeeTotal(winner.deal);
+    const runnerFees = getFeeTotal(runnerUp.deal);
+    if (winnerFees < runnerFees) {
+      reasons.push(`lower fees (${currency(winnerFees)} vs ${currency(runnerFees)})`);
+    }
+    const winnerApr = Number(winner.deal.apr || 0);
+    const runnerApr = Number(runnerUp.deal.apr || 0);
+    if (winnerApr > 0 && runnerApr > 0 && winnerApr < runnerApr) {
+      reasons.push(`lower APR (${winnerApr}% vs ${runnerApr}%)`);
+    }
+    if (!reasons.length) {
+      reasons.push('similar cost overall — check term length, add-ons, and fee line items before choosing');
+    }
   }
 
   return { winner, runnerUp, ranked, reasons };
+}
+
+/** Plain-English explanation of why one saved offer currently ranks ahead of another. */
+export function buildWhyOfferWinsExplanation(
+  winnerDeal: SavedDeal,
+  winnerAnalysis: DealAnalysis,
+  runnerUpDeal: SavedDeal | null,
+  runnerUpAnalysis: DealAnalysis | null,
+  reasons: string[]
+) {
+  const winnerName = winnerDeal.dealershipName.trim() || 'Current best offer';
+  if (!runnerUpDeal || !runnerUpAnalysis) {
+    return {
+      headline: `${winnerName} is your only saved offer so far.`,
+      summary: 'Save a second quote to see a side-by-side explanation of price, fees, APR, and risk.',
+      bullets: [
+        `Estimated monthly: ${currency(winnerAnalysis.monthlyPayment)}`,
+        `Estimated total paid: ${currency(winnerAnalysis.totalPaid)}`,
+        `Warning signs: ${winnerAnalysis.dangerScore}`,
+      ],
+    };
+  }
+
+  const runnerName = runnerUpDeal.dealershipName.trim() || 'the other offer';
+  const monthlyTrap =
+    winnerAnalysis.monthlyPayment > runnerUpAnalysis.monthlyPayment &&
+    winnerAnalysis.totalPaid < runnerUpAnalysis.totalPaid;
+  const paymentPacking =
+    winnerAnalysis.monthlyPayment < runnerUpAnalysis.monthlyPayment &&
+    winnerAnalysis.totalPaid > runnerUpAnalysis.totalPaid;
+
+  const bullets = [
+    ...reasons.map((reason) => `Wins on ${reason}.`),
+    monthlyTrap
+      ? `${winnerName} may have a higher monthly payment than ${runnerName}, but still costs less overall — watch term length.`
+      : null,
+    paymentPacking
+      ? `${runnerName} looks cheaper per month, but ${winnerName} is actually lower total paid. That often means payment packing or a longer loan.`
+      : null,
+    winnerAnalysis.flaggedFees.length > 0
+      ? `Even on the winner, review flagged fees: ${winnerAnalysis.flaggedFees.map((fee) => fee.label).join(', ')}.`
+      : null,
+  ].filter((item): item is string => !!item);
+
+  return {
+    headline: `Why ${winnerName} ranks ahead of ${runnerName}`,
+    summary: paymentPacking
+      ? 'Lower monthly does not always mean the better deal. DealShield ranks on risk + total cost, not payment alone.'
+      : 'DealShield weighs warning signs first, then estimated total paid and monthly payment.',
+    bullets: bullets.length ? bullets : [`${winnerName} currently edges ${runnerName} on the combined risk and cost score.`],
+  };
 }
 
 export function buildComparisonInsights(
@@ -2153,10 +2217,10 @@ function pushAuditItem(
     label,
     expectedValue: format(expectedRaw),
     contractValue: format(contractRaw),
-    tone: gotWorse ? 'bad' : 'warn',
+    tone: gotWorse ? 'bad' : 'good',
     detail: gotWorse
       ? 'This changed against you between the reviewed offer and the paperwork.'
-      : 'This changed from the reviewed offer. Confirm why before signing.',
+      : `Better for you than the reviewed offer (${format(expectedRaw)} → ${format(contractRaw)}). Still verify this line on the buyer’s order.`,
   });
 }
 
@@ -2183,16 +2247,21 @@ export function buildPaperworkAudit(deal: DealState): PaperworkAudit | null {
   pushAuditItem(items, 'Term', deal.months, deal.contractMonths, stringifyMonths, true);
 
   const badCount = items.filter((item) => item.tone === 'bad').length;
-  const warnCount = items.filter((item) => item.tone === 'warn').length;
+  const improvedCount = items.filter(
+    (item) => item.tone === 'good' && !item.detail.startsWith('Matches')
+  ).length;
+  const matchCount = items.filter((item) => item.detail.startsWith('Matches')).length;
 
   return {
     headline:
       badCount > 0
         ? `Stop and review ${badCount} contract change${badCount === 1 ? '' : 's'} before signing.`
-        : warnCount > 0
-          ? 'Paperwork is close, but a few numbers changed and should be confirmed.'
-          : 'Paperwork matches the reviewed offer closely.',
-    summaryTone: badCount > 0 ? 'bad' : warnCount > 0 ? 'warn' : 'good',
+        : improvedCount > 0
+          ? `Good news: the dealership’s final paperwork looks better than the reviewed offer on ${improvedCount} line${improvedCount === 1 ? '' : 's'}. Still verify every number before signing.`
+          : matchCount > 0
+            ? 'Paperwork matches the reviewed offer closely.'
+            : 'Paperwork matches the reviewed offer closely.',
+    summaryTone: badCount > 0 ? 'bad' : 'good',
     readyToSign: badCount === 0,
     items,
   };

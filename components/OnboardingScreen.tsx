@@ -1,21 +1,30 @@
-import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import React, { useState } from 'react';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import AppButton from '@/components/AppButton';
 import Card from '@/components/Card';
 import StatusBadge from '@/components/StatusBadge';
 import { SHIELD_THEME } from '@/constants/shield-theme';
+import { BUYER_SITUATIONS, type ActiveBuyerSituation, type FirstRunProfile } from '@/utils/first-run';
 import { getBottomTabPadding, getHeaderTopPadding } from '@/utils/safe-area';
 
+type OnboardingStep = 'welcome' | 'experience' | 'situation';
+
 export default function OnboardingScreen({
-  onSelectBuyer,
+  onComplete,
   onSelectDealership,
 }: {
-  onSelectBuyer: () => void;
+  onComplete: (profile: FirstRunProfile) => void;
   onSelectDealership: () => void;
 }) {
   const insets = useSafeAreaInsets();
+  const [step, setStep] = useState<OnboardingStep>('welcome');
+  const [isFirstTimeBuyer, setIsFirstTimeBuyer] = useState(true);
+
+  function finish(situation: ActiveBuyerSituation) {
+    onComplete({ situation, isFirstTimeBuyer });
+  }
 
   return (
     <View
@@ -30,23 +39,78 @@ export default function OnboardingScreen({
       <View style={styles.container}>
         <View style={styles.hero}>
           <Text style={styles.eyebrow}>DEALSHIELD</Text>
-          <Text style={styles.title}>Who is holding the phone?</Text>
-          <Text style={styles.subtitle}>
-            DealShield is built for car buyers. Tell us who you are before we open the protection tools.
-          </Text>
-          <StatusBadge label="Consumer protection zone" tone="good" />
+          {step === 'welcome' ? (
+            <>
+              <Text style={styles.title}>This app is for the person buying the car.</Text>
+              <Text style={styles.subtitle}>
+                We’ll help you set a walk-away number, check a quote, and know what to say on the lot — before anyone
+                rushes you to sign.
+              </Text>
+              <StatusBadge label="Buyer-only" tone="good" />
+            </>
+          ) : null}
+          {step === 'experience' ? (
+            <>
+              <Text style={styles.title}>Is this your first car purchase?</Text>
+              <Text style={styles.subtitle}>We’ll keep the language simple if this is new. You can change this later.</Text>
+            </>
+          ) : null}
+          {step === 'situation' ? (
+            <>
+              <Text style={styles.title}>Where are you right now?</Text>
+              <Text style={styles.subtitle}>This hides extra tools so you only see what helps in this moment.</Text>
+            </>
+          ) : null}
         </View>
 
-        <Card>
-          <Text style={styles.cardTitle}>Are you a buyer or a dealership?</Text>
-          <Text style={styles.cardText}>
-            Your answer is saved on this device only. Buyers get full access to quote review, contract scanning, and tactic coaching.
-          </Text>
+        {step === 'welcome' ? (
+          <Card>
+            <Text style={styles.cardTitle}>Start as the buyer</Text>
+            <Text style={styles.cardText}>No account. Nothing leaves this phone.</Text>
+            <View style={styles.stackGap}>
+              <AppButton label="I’m buying a car" onPress={() => setStep('experience')} />
+            </View>
+            <TouchableOpacity onPress={onSelectDealership} activeOpacity={0.85} style={styles.quietLink}>
+              <Text style={styles.quietLinkText}>I work at a dealership</Text>
+            </TouchableOpacity>
+          </Card>
+        ) : null}
+
+        {step === 'experience' ? (
+          <Card>
+            <View style={styles.stackGap}>
+              <AppButton
+                label="First time buying a car"
+                onPress={() => {
+                  setIsFirstTimeBuyer(true);
+                  setStep('situation');
+                }}
+              />
+              <AppButton
+                label="I’ve bought a car before"
+                variant="secondary"
+                onPress={() => {
+                  setIsFirstTimeBuyer(false);
+                  setStep('situation');
+                }}
+              />
+              <AppButton label="Back" variant="secondary" onPress={() => setStep('welcome')} />
+            </View>
+          </Card>
+        ) : null}
+
+        {step === 'situation' ? (
           <View style={styles.stackGap}>
-            <AppButton label="I am a buyer" onPress={onSelectBuyer} />
-            <AppButton label="I work at a dealership" variant="secondary" onPress={onSelectDealership} />
+            {BUYER_SITUATIONS.map((situation) => (
+              <Card key={situation.id}>
+                <Text style={styles.cardTitle}>{situation.title}</Text>
+                <Text style={styles.cardText}>{situation.detail}</Text>
+                <AppButton label="Continue" onPress={() => finish(situation.id)} />
+              </Card>
+            ))}
+            <AppButton label="Back" variant="secondary" onPress={() => setStep('experience')} />
           </View>
-        </Card>
+        ) : null}
 
         <Text style={styles.footer}>No account required. No data leaves your phone.</Text>
       </View>
@@ -76,9 +140,9 @@ const styles = StyleSheet.create({
   },
   title: {
     color: SHIELD_THEME.text,
-    fontSize: 32,
+    fontSize: 30,
     fontWeight: '800',
-    lineHeight: 38,
+    lineHeight: 36,
   },
   subtitle: {
     color: SHIELD_THEME.textMuted,
@@ -99,6 +163,15 @@ const styles = StyleSheet.create({
   },
   stackGap: {
     gap: 12,
+  },
+  quietLink: {
+    marginTop: 16,
+    alignItems: 'center',
+  },
+  quietLinkText: {
+    color: SHIELD_THEME.textMuted,
+    fontSize: 13,
+    fontWeight: '600',
   },
   footer: {
     color: SHIELD_THEME.textMuted,

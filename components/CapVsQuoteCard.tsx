@@ -12,12 +12,14 @@ type CapVsQuoteCardProps = {
 export default function CapVsQuoteCard({ rows }: CapVsQuoteCardProps) {
   return (
     <Card>
-      <Text style={styles.title}>Cap vs quote</Text>
-      <Text style={styles.detail}>Glance this at the desk. Red means they are over your walk-away number.</Text>
+      <Text style={styles.title}>Walk-away vs their quote</Text>
+      <Text style={styles.detail}>
+        Your walk-away limits from budget setup versus the dealer’s numbers. Red means they are over your limit.
+      </Text>
       <View style={styles.headerRow}>
         <Text style={[styles.headerCell, styles.labelCol]} />
         <Text style={styles.headerCell}>Them</Text>
-        <Text style={styles.headerCell}>Your cap</Text>
+        <Text style={styles.headerCell}>Your limit</Text>
       </View>
       {rows.map((row) => (
         <View key={row.id} style={styles.row}>

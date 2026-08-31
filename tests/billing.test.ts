@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { buildBillingSetupHints, formatBillingError } from '../utils/billing-messages.ts';
+import { buildBillingSetupHints, formatBillingError, isProductAlreadyOwnedError } from '../utils/billing-messages.ts';
 
 test('formatBillingError surfaces RevenueCat underlying error details', () => {
   const formatted = formatBillingError({
@@ -14,6 +14,18 @@ test('formatBillingError surfaces RevenueCat underlying error details', () => {
   assert.match(formatted, /configuration/i);
   assert.match(formatted, /CONFIGURATION_ERROR/);
   assert.match(formatted, /ds_premium_lifetime/);
+});
+
+test('isProductAlreadyOwnedError matches Play and RevenueCat already-owned errors', () => {
+  assert.equal(
+    isProductAlreadyOwnedError({
+      message: 'This product is already active for the user.',
+      code: 6,
+      readableErrorCode: 'PRODUCT_ALREADY_PURCHASED',
+    }),
+    true
+  );
+  assert.equal(isProductAlreadyOwnedError({ userCancelled: true, code: '1' }), false);
 });
 
 test('buildBillingSetupHints includes Play product and license tester guidance', () => {

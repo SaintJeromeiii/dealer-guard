@@ -80,7 +80,7 @@ export function createInitialDeal(): DealState {
     downPayment: '',
     tradeIn: '',
     apr: '',
-    months: '60',
+    months: '',
   };
 }
 
@@ -101,6 +101,8 @@ export function createInitialAppData(): DealerGuardAppData {
     preferences: {
       experienceMode: 'standard',
       onboardingComplete: false,
+      walkthroughComplete: false,
+      buyerSituation: 'undecided',
       buyerStage: 'undecided',
       financingNeed: 'undecided',
       creditBand: 'unknown',
@@ -377,6 +379,15 @@ export function sanitizeAppData(value: unknown): DealerGuardAppData {
     preferences: {
       experienceMode: (raw as DealerGuardAppData).preferences?.experienceMode === 'firstTimeBuyer' ? 'firstTimeBuyer' : 'standard',
       onboardingComplete: !!(raw as DealerGuardAppData).preferences?.onboardingComplete,
+      walkthroughComplete:
+        !!(raw as DealerGuardAppData).preferences?.walkthroughComplete ||
+        !!(raw as DealerGuardAppData).preferences?.onboardingComplete,
+      buyerSituation:
+        (raw as DealerGuardAppData).preferences?.buyerSituation === 'home' ||
+        (raw as DealerGuardAppData).preferences?.buyerSituation === 'lot' ||
+        (raw as DealerGuardAppData).preferences?.buyerSituation === 'signing'
+          ? (raw as DealerGuardAppData).preferences.buyerSituation
+          : 'undecided',
       buyerStage:
         (raw as DealerGuardAppData).preferences?.buyerStage === 'firstCar' ||
         (raw as DealerGuardAppData).preferences?.buyerStage === 'replacingCar' ||

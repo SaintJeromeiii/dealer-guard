@@ -22,21 +22,15 @@ export function buildNextStepGuidance(
     };
   }
 
-  if (experienceMode === 'firstTimeBuyer' && currentStepId === 'budget') {
-    return {
-      title: 'Your next step: dealership checklist',
-      detail: 'Review what to bring and verify before you visit the lot. Then set your budget guardrails.',
-      actionLabel: 'Open checklist',
-      stepId: 'checklist',
-    };
-  }
-
   switch (currentStepId) {
     case 'budget':
       return {
-        title: 'Your next step: set budget guardrails',
-        detail: 'Lock in down payment, APR, term, and total paid ceiling before a salesperson sets them for you.',
-        actionLabel: 'Set your budget',
+        title: experienceMode === 'firstTimeBuyer' ? 'Your next step: set a walk-away number' : 'Your next step: set budget guardrails',
+        detail:
+          experienceMode === 'firstTimeBuyer'
+            ? 'What’s the most you’ll pay for this car, all-in? Lock that in before a salesperson picks a number for you.'
+            : 'Lock in down payment, APR, term, and total paid ceiling before a salesperson sets them for you.',
+        actionLabel: experienceMode === 'firstTimeBuyer' ? 'Set your walk-away number' : 'Set your budget',
         stepId: 'budget',
       };
     case 'quickCheck':

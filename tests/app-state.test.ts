@@ -75,6 +75,8 @@ test('sanitizeAppData preserves valid records and falls back for invalid fields'
   assert.equal(sanitized.deal.addOnItems.length, 1);
   assert.deepEqual(sanitized.deal.importReviewNotes, []);
   assert.equal(sanitized.preferences.onboardingComplete, true);
+  assert.equal(sanitized.preferences.walkthroughComplete, true);
+  assert.equal(sanitized.preferences.buyerSituation, 'undecided');
   assert.equal(sanitized.preferences.buyerStage, 'firstCar');
   assert.equal(sanitized.analyticsEvents.length, 1);
 });
@@ -151,7 +153,7 @@ test('sanitizeWatchedVehicles migrates legacy location strings', () => {
 test('createInitialAppData returns the version-safe default shape', () => {
   const initial = createInitialAppData();
   assert.deepEqual(initial.answers, {});
-  assert.equal(initial.deal.months, '60');
+  assert.equal(initial.deal.months, '');
   assert.equal(initial.pressureIncidents.length, 0);
   assert.equal(initial.promises.length, 0);
   assert.equal(initial.visitTimeline.length, 0);
@@ -162,6 +164,8 @@ test('createInitialAppData returns the version-safe default shape', () => {
   assert.equal(initial.subscription.usage.whatIfRuns, 0);
   assert.equal(initial.subscription.usage.checkpointPasses, 0);
   assert.equal(initial.preferences.onboardingComplete, false);
+  assert.equal(initial.preferences.walkthroughComplete, false);
+  assert.equal(initial.preferences.buyerSituation, 'undecided');
   assert.equal(initial.preferences.buyerStage, 'undecided');
   assert.equal(initial.analyticsEvents.length, 0);
 });

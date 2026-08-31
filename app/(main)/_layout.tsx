@@ -1,5 +1,6 @@
+import { Ionicons } from '@expo/vector-icons';
 import { Stack } from 'expo-router';
-import { View } from 'react-native';
+import { TouchableOpacity, View } from 'react-native';
 
 import DrawerMenuButton from '@/components/navigation/DrawerMenuButton';
 import DealShieldDrawerOverlay from '@/components/navigation/DealShieldDrawerOverlay';
@@ -19,14 +20,28 @@ export default function MainLayout() {
           <Stack.Screen name="index" />
           <Stack.Screen
             name="about-legal"
-            options={{
+            options={({ navigation }) => ({
               headerShown: true,
               title: 'About & Legal',
               headerStyle: { backgroundColor: SHIELD_THEME.bg },
               headerTintColor: SHIELD_THEME.text,
               headerTitleStyle: { fontWeight: '800' },
-              headerLeft: () => <DrawerMenuButton />,
-            }}
+              headerLeft: () => (
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  {navigation.canGoBack() ? (
+                    <TouchableOpacity
+                      onPress={() => navigation.goBack()}
+                      accessibilityLabel="Go back"
+                      accessibilityRole="button"
+                      style={{ padding: 4 }}
+                    >
+                      <Ionicons name="chevron-back" size={26} color={SHIELD_THEME.text} />
+                    </TouchableOpacity>
+                  ) : null}
+                  <DrawerMenuButton />
+                </View>
+              ),
+            })}
           />
           <Stack.Screen name="analyzer" />
         </Stack>

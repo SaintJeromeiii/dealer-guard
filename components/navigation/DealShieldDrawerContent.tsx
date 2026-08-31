@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { usePathname, useRouter } from 'expo-router';
 import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -7,10 +7,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   DEALSHIELD_DRAWER_ITEMS,
   handleDrawerItemPress,
+  isMainDealShieldPath,
   type DealShieldDrawerItem,
 } from '@/components/navigation/deal-shield-nav-config';
 import { SHIELD_THEME } from '@/constants/shield-theme';
 import { useDealShieldBridge } from '@/contexts/deal-shield-bridge';
+import { ADVANCED_DRAWER_IDS } from '@/utils/first-run';
 
 const SECTION_LABELS: Record<NonNullable<DealShieldDrawerItem['section']>, string> = {
   primary: 'Core tools',
@@ -21,8 +23,18 @@ const SECTION_LABELS: Record<NonNullable<DealShieldDrawerItem['section']>, strin
 export default function DealShieldDrawerContent() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const pathname = usePathname();
   const bridge = useDealShieldBridge();
-  const sections: DealShieldDrawerItem['section'][] = ['primary', 'tools', 'account'];
+  const sections: NonNullable<DealShieldDrawerItem['section']>[] = ['primary', 'tools', 'account'];
+
+  function returnToMainApp() {
+    if (isMainDealShieldPath(pathname)) return;
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace('/(main)');
+  }
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 12 }]}>
@@ -33,10 +45,15 @@ export default function DealShieldDrawerContent() {
       </View>
 
       <ScrollView contentContainerStyle={styles.menu} showsVerticalScrollIndicator={false}>
-        {sections.map((section) => (
+        {sections.map((section) => {
+          const items = DEALSHIELD_DRAWER_ITEMS.filter((item) => item.section === section).filter(
+            (item) => bridge.showAdvancedNav || !ADVANCED_DRAWER_IDS.has(item.id)
+          );
+          if (items.length === 0) return null;
+          return (
           <View key={section} style={styles.section}>
             <Text style={styles.sectionLabel}>{SECTION_LABELS[section]}</Text>
-            {DEALSHIELD_DRAWER_ITEMS.filter((item) => item.section === section).map((item) => (
+            {items.map((item) => (
               <TouchableOpacity
                 key={item.id}
                 style={styles.menuItem}
@@ -44,20 +61,28 @@ export default function DealShieldDrawerContent() {
                 onPress={() =>
                   handleDrawerItemPress(item, {
                     closeDrawer: bridge.closeDrawer,
-                    goHome: () => router.replace('/(main)'),
-                    setBottomTab: bridge.setBottomTab,
-                    navigate: bridge.navigate,
+                    setBottomTab: (tab) => {
+                      bridge.setBottomTab(tab);
+                      returnToMainApp();
+                    },
+                    navigate: (screen, tab) => {
+                      bridge.navigate(screen, tab);
+                      returnToMainApp();
+                    },
                     onRoute: (href) => router.push(href),
                   })
                 }
               >
                 <Ionicons name={item.icon} size={22} color={SHIELD_THEME.gold} style={styles.menuIcon} />
-                <Text style={styles.menuLabel}>{item.label}</Text>
+                <Text style={styles.menuLabel} numberOfLines={2}>
+                  {item.label}
+                </Text>
                 <Ionicons name="chevron-forward" size={18} color={SHIELD_THEME.textMuted} />
               </TouchableOpacity>
             ))}
           </View>
-        ))}
+          );
+        })}
       </ScrollView>
     </View>
   );

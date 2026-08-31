@@ -75,14 +75,14 @@ export function buildCapVsQuote(
       id: 'monthly',
       label: 'Monthly',
       them: analysis.monthlyPayment > 0 ? currency(analysis.monthlyPayment) : '—',
-      cap: monthlyCap > 0 ? currency(monthlyCap) : 'Set cap',
+      cap: monthlyCap > 0 ? currency(monthlyCap) : 'Set limit',
       overCap: monthlyCap > 0 && analysis.monthlyPayment > monthlyCap + 1,
     },
     {
       id: 'otd',
       label: 'Total paid',
       them: analysis.totalPaid > 0 ? currency(analysis.totalPaid) : '—',
-      cap: otdCap > 0 ? currency(otdCap) : 'Set cap',
+      cap: otdCap > 0 ? currency(otdCap) : 'Set limit',
       overCap: otdCap > 0 && analysis.totalPaid > otdCap + 50,
     },
     {

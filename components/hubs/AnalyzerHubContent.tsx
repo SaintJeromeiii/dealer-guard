@@ -22,6 +22,7 @@ type AnalyzerHubContentProps = {
   onPaywall: () => void;
   onBudgetGate: () => void;
   capRows?: CapVsQuoteRow[];
+  showAdvancedTools?: boolean;
 };
 
 function formatOfferCount(count: number) {
@@ -48,6 +49,7 @@ export default function AnalyzerHubContent({
   onPaywall,
   onBudgetGate,
   capRows = [],
+  showAdvancedTools = true,
 }: AnalyzerHubContentProps) {
   return (
     <View style={styles.stackGap}>
@@ -63,8 +65,8 @@ export default function AnalyzerHubContent({
             title="Deal review"
             description={
               budgetComplete
-                ? 'Analyze vehicle price, fees, APR, add-ons, and total out-the-door exposure.'
-                : 'Complete Step 1: Budget on Shield before reviewing dealership quotes.'
+                ? 'Check price, fees, and interest against your walk-away number.'
+                : 'Set a walk-away number on Shield before reviewing a quote.'
             }
             requiresBudget
             budgetComplete={budgetComplete}
@@ -81,57 +83,63 @@ export default function AnalyzerHubContent({
             onPress={onOpenWatchlist}
             onPaywall={onPaywall}
           />
-          <FeatureMenuCard
-            title="Compare dealership offers"
-            countLabel={formatOfferCount(savedOfferCount)}
-            description="Save multiple offers and compare risk, monthly payment, and total cost side by side."
-            isPremium={isPro}
-            onPress={onOpenCompare}
-            onPaywall={onPaywall}
-          />
+          {showAdvancedTools ? (
+            <FeatureMenuCard
+              title="Compare dealership offers"
+              countLabel={formatOfferCount(savedOfferCount)}
+              description="Save multiple offers and compare risk, monthly payment, and total cost side by side."
+              isPremium={isPro}
+              onPress={onOpenCompare}
+              onPaywall={onPaywall}
+            />
+          ) : null}
         </View>
       </View>
 
-      <AnalyzerProSection isPremium={isPro} onPaywall={onPaywall}>
-        <FeatureMenuCard
-          title="What-if lab"
-          description="Model cleaner APR, term, fee, and down-payment structures before you counter."
-          requiresPro
-          isPremium={isPro}
-          onPress={onOpenWhatIfLab}
-          onPaywall={onPaywall}
-        />
-        <FeatureMenuCard
-          title="Finance office defense"
-          description="Prepare for warranty, GAP, and add-on pressure after the sales desk."
-          requiresPro
-          isPremium={isPro}
-          onPress={onOpenFinanceDefense}
-          onPaywall={onPaywall}
-        />
-      </AnalyzerProSection>
+      {showAdvancedTools ? (
+        <>
+          <AnalyzerProSection isPremium={isPro} onPaywall={onPaywall}>
+            <FeatureMenuCard
+              title="What-if lab"
+              description="Model cleaner APR, term, fee, and down-payment structures before you counter."
+              requiresPro
+              isPremium={isPro}
+              onPress={onOpenWhatIfLab}
+              onPaywall={onPaywall}
+            />
+            <FeatureMenuCard
+              title="Finance office defense"
+              description="Prepare for warranty, GAP, and add-on pressure after the sales desk."
+              requiresPro
+              isPremium={isPro}
+              onPress={onOpenFinanceDefense}
+              onPaywall={onPaywall}
+            />
+          </AnalyzerProSection>
 
-      <View style={styles.stackGap}>
-        <FeatureMenuCard
-          title="Shareable buyer report"
-          description="Package the verdict, negotiation plan, and key risk checks into one summary you can text or export."
-          requiresPro
-          requiresBudget
-          budgetComplete={budgetComplete}
-          isPremium={isPro}
-          onPress={onOpenDealReview}
-          onPaywall={onPaywall}
-          onBudgetGate={onBudgetGate}
-        />
-        <FeatureMenuCard
-          title="Dealer scorecards"
-          description="See how each dealership stacks up across offer quality, pressure tactics, and kept or broken promises."
-          requiresPro
-          isPremium={isPro}
-          onPress={onOpenCompare}
-          onPaywall={onPaywall}
-        />
-      </View>
+          <View style={styles.stackGap}>
+            <FeatureMenuCard
+              title="Shareable buyer report"
+              description="Package the verdict, negotiation plan, and key risk checks into one summary you can text or export."
+              requiresPro
+              requiresBudget
+              budgetComplete={budgetComplete}
+              isPremium={isPro}
+              onPress={onOpenDealReview}
+              onPaywall={onPaywall}
+              onBudgetGate={onBudgetGate}
+            />
+            <FeatureMenuCard
+              title="Dealer scorecards"
+              description="See how each dealership stacks up across offer quality, pressure tactics, and kept or broken promises."
+              requiresPro
+              isPremium={isPro}
+              onPress={onOpenCompare}
+              onPaywall={onPaywall}
+            />
+          </View>
+        </>
+      ) : null}
     </View>
   );
 }

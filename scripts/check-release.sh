@@ -16,5 +16,6 @@ fi
 
 npm run test
 npm run lint
-echo "==> All checks passed. Ready for EAS play-test build."
+echo "==> All checks passed. Ready for a store build."
 echo "    npm run build:android:play"
+echo "    npm run build:ios:testflight"

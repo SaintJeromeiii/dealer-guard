@@ -14,6 +14,7 @@ import {
   askLotCoach,
   isLotCoachConfigured,
   readLotCoachUsage,
+  type LotCoachQuickPrompt,
 } from '@/utils/lot-coach';
 import { getRemainingLotCoachQuestions } from '@/utils/lot-coach-usage';
 
@@ -21,9 +22,21 @@ type LotCoachCardProps = {
   context: LotCoachContext;
   onTrack?: (detail: string) => void;
   onAnswered?: () => void;
+  title?: string;
+  detail?: string;
+  placeholder?: string;
+  quickPrompts?: LotCoachQuickPrompt[];
 };
 
-export default function LotCoachCard({ context, onTrack, onAnswered }: LotCoachCardProps) {
+export default function LotCoachCard({
+  context,
+  onTrack,
+  onAnswered,
+  title = 'Ask AI',
+  detail = 'Chips above are instant. Use AI only if the pitch is unusual.',
+  placeholder = 'They just said...',
+  quickPrompts = LOT_COACH_QUICK_PROMPTS,
+}: LotCoachCardProps) {
   const [question, setQuestion] = useState('');
   const [answer, setAnswer] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -80,12 +93,10 @@ export default function LotCoachCard({ context, onTrack, onAnswered }: LotCoachC
   return (
     <Card>
       <View style={styles.headerRow}>
-        <Text style={styles.title}>Ask AI</Text>
+        <Text style={styles.title}>{title}</Text>
         <ProFeatureBadge unlocked />
       </View>
-      <Text style={styles.detail}>
-        Chips above are instant. Use AI only if the pitch is unusual.
-      </Text>
+      <Text style={styles.detail}>{detail}</Text>
       <Text style={styles.meta}>
         {configured
           ? `${remaining} of ${LOT_COACH_DAILY_LIMIT} questions left today`
@@ -93,7 +104,7 @@ export default function LotCoachCard({ context, onTrack, onAnswered }: LotCoachC
       </Text>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.promptRow}>
-        {LOT_COACH_QUICK_PROMPTS.map((prompt) => (
+        {quickPrompts.map((prompt) => (
           <TouchableOpacity
             key={prompt.id}
             style={styles.promptChip}
@@ -109,7 +120,7 @@ export default function LotCoachCard({ context, onTrack, onAnswered }: LotCoachC
       <TextInput
         value={question}
         onChangeText={setQuestion}
-        placeholder="They just said..."
+        placeholder={placeholder}
         placeholderTextColor={SHIELD_THEME.textMuted}
         style={styles.input}
         multiline

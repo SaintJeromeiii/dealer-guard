@@ -25,6 +25,7 @@ type ScanHubContentProps = {
   onOpenChecklist: () => void;
   onRoadmapStepPress: (stepId: RoadmapStepId) => void;
   onPaywall: () => void;
+  hideSetupCard?: boolean;
 };
 
 export default function ScanHubContent({
@@ -43,21 +44,24 @@ export default function ScanHubContent({
   onOpenChecklist,
   onRoadmapStepPress,
   onPaywall,
+  hideSetupCard = false,
 }: ScanHubContentProps) {
   return (
     <View style={styles.stackGap}>
-      <GuidedBuyerSetupCard
-        onboardingComplete={onboardingComplete}
-        experienceMode={experienceMode}
-        headline={headline}
-        detail={detail}
-        onFirstTimeBuyer={onFirstTimeBuyer}
-        onExperiencedBuyer={onExperiencedBuyer}
-        onUpdateSetup={onUpdateSetup}
-        onDisableFirstTimeMode={onDisableFirstTimeMode}
-      />
+      {hideSetupCard ? null : (
+        <GuidedBuyerSetupCard
+          onboardingComplete={onboardingComplete}
+          experienceMode={experienceMode}
+          headline={headline}
+          detail={detail}
+          onFirstTimeBuyer={onFirstTimeBuyer}
+          onExperiencedBuyer={onExperiencedBuyer}
+          onUpdateSetup={onUpdateSetup}
+          onDisableFirstTimeMode={onDisableFirstTimeMode}
+        />
+      )}
       {onboardingComplete ? <ShieldNextStepCard guidance={nextStep} onPress={onNextStep} /> : null}
-      {experienceMode === 'firstTimeBuyer' && onboardingComplete ? (
+      {experienceMode === 'firstTimeBuyer' && onboardingComplete && !hideSetupCard ? (
         <FirstTimeChecklistCard progressPercent={checklistProgress} onOpenChecklist={onOpenChecklist} />
       ) : null}
       <CarBuyingRoadmap

@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { buildBypassBillingState, resolvePremiumTier, setMockRevenueCatValidation } from '../utils/billing-config.ts';
+import { buildBypassBillingState, resolvePremiumTier, resolveSyncedPremiumTier, setMockRevenueCatValidation } from '../utils/billing-config.ts';
 import {
   hasPremiumFeatureAccess,
   isBillingStoreUnavailable,
+  isPremiumPreviewAllowed,
   setPremiumPreviewMode,
 } from '../utils/premium-preview.ts';
 import { createInitialAppData } from '../utils/app-state.ts';
@@ -17,15 +18,53 @@ test('resolvePremiumTier forces pro only when dev mock bypass is enabled', () =>
   assert.equal(resolvePremiumTier('free'), 'free');
 });
 
-test('premium preview grants feature access without changing paid tier', () => {
+test('resolveSyncedPremiumTier ignores leftover local Pro unless RevenueCat says it is active', () => {
+  setMockRevenueCatValidation(false);
+
+  assert.equal(
+    resolveSyncedPremiumTier({
+      billing: { provider: 'mock', entitlementStatus: 'active' },
+    }),
+    'free'
+  );
+
+  assert.equal(
+    resolveSyncedPremiumTier({
+      billing: { provider: 'revenuecat', entitlementStatus: 'inactive' },
+    }),
+    'free'
+  );
+
+  assert.equal(
+    resolveSyncedPremiumTier({
+      billing: { provider: 'revenuecat', entitlementStatus: 'active' },
+    }),
+    'pro'
+  );
+
+  assert.equal(
+    resolveSyncedPremiumTier({
+      billing: { provider: 'revenuecat', entitlementStatus: 'inactive' },
+      tierOverride: 'pro',
+    }),
+    'pro'
+  );
+});
+
+test('premium preview does not grant Pro on store-like runtimes', () => {
   setMockRevenueCatValidation(false);
   setPremiumPreviewMode(true);
 
-  assert.equal(hasPremiumFeatureAccess('free', false), true);
+  assert.equal(isPremiumPreviewAllowed(), false);
+  assert.equal(hasPremiumFeatureAccess('free', false), false);
   assert.equal(hasPremiumFeatureAccess('pro', false), true);
 
+  setMockRevenueCatValidation(true);
+  assert.equal(isPremiumPreviewAllowed(), true);
+  assert.equal(hasPremiumFeatureAccess('free', true), true);
+
+  setMockRevenueCatValidation(false);
   setPremiumPreviewMode(false);
-  assert.equal(hasPremiumFeatureAccess('free', false), false);
 });
 
 test('isBillingStoreUnavailable detects RevenueCat sync and missing product states', () => {

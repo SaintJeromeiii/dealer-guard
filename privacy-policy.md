@@ -1,6 +1,6 @@
 # Privacy Policy
 
-**Effective Date:** June 1, 2026
+**Effective Date:** August 23, 2026
 
 DealShield ("DealShield," "we," "our," or "us") respects your privacy. This Privacy Policy explains how we collect, use, disclose, and protect information when you use our website, mobile application, and related services (collectively, the "Services").
 
@@ -123,7 +123,7 @@ We may update this Privacy Policy from time to time. If we make material changes
 If you have questions about this Privacy Policy or our privacy practices, please contact us at:
 
 **DealShield**  
-Email: jleonandersonjr@gmail.com  
+Email: jeromegatron.labs@gmail.com  
 App URL: Coming soon
 
 ---

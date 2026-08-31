@@ -24,7 +24,7 @@ export {
   resolveLotCoachApiUrl,
 } from './lot-coach-config.ts';
 
-const LOT_COACH_USAGE_KEY = 'lot_coach_usage_v1';
+export const LOT_COACH_USAGE_KEY = 'lot_coach_usage_v1';
 
 export type LotCoachQuickPrompt = {
   id: string;
@@ -52,6 +52,24 @@ export const LOT_COACH_QUICK_PROMPTS: LotCoachQuickPrompt[] = [
     id: 'no-print',
     label: 'Won’t print breakdown',
     question: 'They will not print or text the full breakdown. What should I do next?',
+  },
+];
+
+export const LOT_COACH_COMPARE_PROMPTS: LotCoachQuickPrompt[] = [
+  {
+    id: 'which-better',
+    label: 'Which is better?',
+    question: 'Looking at Offer A and Offer B in my saved data, which deal is better overall and why?',
+  },
+  {
+    id: 'what-differs',
+    label: 'What differs?',
+    question: 'What are the biggest differences between these two offers in price, fees, APR, term, and total paid?',
+  },
+  {
+    id: 'monthly-trap',
+    label: 'Monthly vs total',
+    question: 'Is either offer using a lower monthly payment to hide a worse total cost or longer term?',
   },
 ];
 

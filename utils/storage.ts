@@ -10,12 +10,18 @@ import {
   STORAGE_KEY,
   STORAGE_VERSION,
 } from './app-state';
+import { CLOSED_BETA_CHECKLIST_KEY } from './closed-beta-checklist';
+import { FIRST_RUN_PROFILE_KEY, ONBOARDING_ROLE_KEY } from './onboarding';
+import { PREMIUM_PREVIEW_STORAGE_KEY } from './premium-preview';
+import { LOT_COACH_USAGE_KEY } from './lot-coach';
 import type { DealerGuardAppData } from './types';
 
 type PersistedEnvelope = {
   version: number;
   data: DealerGuardAppData;
 };
+
+let persistGeneration = 0;
 
 function parseEnvelope(raw: string | null): DealerGuardAppData | null {
   if (!raw) return null;
@@ -65,15 +71,21 @@ export async function loadAppData() {
 }
 
 export async function saveAppData(data: DealerGuardAppData) {
+  const generation = persistGeneration;
   const payload: PersistedEnvelope = {
     version: STORAGE_VERSION,
     data: sanitizeAppData(data),
   };
 
+  if (generation !== persistGeneration) return;
   await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+  if (generation !== persistGeneration) {
+    await resetStoredAppData();
+  }
 }
 
 export async function resetStoredAppData() {
+  persistGeneration += 1;
   await Promise.all([
     AsyncStorage.removeItem(STORAGE_KEY),
     AsyncStorage.removeItem(LEGACY_STORAGE_KEYS.answers),
@@ -82,5 +94,10 @@ export async function resetStoredAppData() {
     AsyncStorage.removeItem(LEGACY_STORAGE_KEYS.deal),
     AsyncStorage.removeItem(LEGACY_STORAGE_KEYS.savedDeals),
     AsyncStorage.removeItem(LEGACY_STORAGE_KEYS.negotiationFlags),
+    AsyncStorage.removeItem(ONBOARDING_ROLE_KEY),
+    AsyncStorage.removeItem(FIRST_RUN_PROFILE_KEY),
+    AsyncStorage.removeItem(PREMIUM_PREVIEW_STORAGE_KEY),
+    AsyncStorage.removeItem(CLOSED_BETA_CHECKLIST_KEY),
+    AsyncStorage.removeItem(LOT_COACH_USAGE_KEY),
   ]);
 }

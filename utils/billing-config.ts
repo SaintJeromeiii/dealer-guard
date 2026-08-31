@@ -18,6 +18,17 @@ export function resolvePremiumTier(tier: PremiumTier): PremiumTier {
   return mockRevenueCatValidation ? 'pro' : tier;
 }
 
+/** Paid Pro only comes from RevenueCat entitlements or an explicit purchase result — never from local mock state. */
+export function resolveSyncedPremiumTier(options: {
+  billing: Pick<BillingState, 'provider' | 'entitlementStatus'>;
+  tierOverride?: PremiumTier;
+}): PremiumTier {
+  if (isPaywallBypassed()) return 'pro';
+  if (options.tierOverride) return resolvePremiumTier(options.tierOverride);
+  if (options.billing.provider === 'revenuecat' && options.billing.entitlementStatus === 'active') return 'pro';
+  return 'free';
+}
+
 export function buildBypassBillingState(): BillingState {
   return {
     provider: 'mock',

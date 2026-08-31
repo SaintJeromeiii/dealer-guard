@@ -112,7 +112,7 @@ Purchase/restore errors now include the **underlying RevenueCat error** plus the
 | `expo run:android` (local debug) | Mock billing — no real Play purchase |
 | EAS `play-test` AAB from Play testing | Live RevenueCat + Google Play billing |
 
-Use **Unlock local Pro test** (dev builds only) to preview Pro UI without billing.
+Local debug builds (`expo run:android`) still use mock billing. Premium Preview and `MOCK_REVENUECAT_VALIDATION` stay available there. Play testers purchase `ds_premium_lifetime` through Google Play — add their Gmail as a **license tester** so the Play sheet appears without charging a real card.
 
 ---
 
@@ -124,6 +124,7 @@ Use **Unlock local Pro test** (dev builds only) to preview Pro UI without billin
 | Product not found | Wait for propagation; confirm product ID spelling |
 | Purchase works on nothing | Install from Play testing track; add license tester |
 | Mock billing message | Reinstall from a Play AAB build, not debug APK |
+| Upgrade tap does nothing / preview instead of Play sheet | Confirm this is a Play testing install with RevenueCat key; preview is disabled on store builds |
 | Pro not detected after purchase | Confirm `ds_premium_lifetime` unlocks entitlement `pro` in RevenueCat |
 
 ---

@@ -1,10 +1,15 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { isPaywallBypassed } from './billing-config.ts';
 import type { BillingState, PremiumTier } from './types.ts';
 
-const PREMIUM_PREVIEW_STORAGE_KEY = 'premium_preview_mode_v1';
+export const PREMIUM_PREVIEW_STORAGE_KEY = 'premium_preview_mode_v1';
 
 let premiumPreviewMode = false;
+
+function isDevRuntime() {
+  return typeof __DEV__ !== 'undefined' && __DEV__;
+}
 
 export function setPremiumPreviewMode(enabled: boolean) {
   premiumPreviewMode = enabled;
@@ -14,16 +19,24 @@ export function isPremiumPreviewModeEnabled() {
   return premiumPreviewMode;
 }
 
+/** Preview is a local-dev escape hatch. Play/store builds must purchase Pro. */
+export function isPremiumPreviewAllowed() {
+  return isPaywallBypassed() || isDevRuntime();
+}
+
 export function hasPremiumFeatureAccess(tier: PremiumTier, mockBypassEnabled: boolean) {
   if (mockBypassEnabled) return true;
   if (tier === 'pro') return true;
-  return premiumPreviewMode;
+  return isPremiumPreviewAllowed() && premiumPreviewMode;
 }
 
 export async function loadPremiumPreviewMode() {
   const raw = await AsyncStorage.getItem(PREMIUM_PREVIEW_STORAGE_KEY);
-  const enabled = raw === 'true';
+  const enabled = raw === 'true' && isPremiumPreviewAllowed();
   premiumPreviewMode = enabled;
+  if (raw === 'true' && !enabled) {
+    await AsyncStorage.removeItem(PREMIUM_PREVIEW_STORAGE_KEY);
+  }
   return enabled;
 }
 

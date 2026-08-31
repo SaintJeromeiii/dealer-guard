@@ -13,7 +13,9 @@
     "check:release": "bash scripts/check-release.sh",
     "build:android:pixel": "eas build --platform android --profile pixel-test",
     "build:android:play": "eas build --platform android --profile play-test",
-    "submit:android:play": "eas submit --platform android --profile play-test --latest"
+    "submit:android:play": "eas submit --platform android --profile play-test --latest",
+    "build:ios:testflight": "eas build --platform ios --profile testflight",
+    "submit:ios:testflight": "eas submit --platform ios --profile testflight --latest"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
@@ -24,6 +26,7 @@
     "@react-navigation/elements": "^2.6.3",
     "@react-navigation/native": "^7.1.8",
     "expo": "~54.0.33",
+    "expo-build-properties": "~1.0.10",
     "expo-clipboard": "~8.0.8",
     "expo-constants": "~18.0.13",
     "expo-dev-client": "~6.0.20",

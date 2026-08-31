@@ -93,7 +93,7 @@ export default function WatchlistScreenContent({
       <View style={styles.rowBetween}>
         <Text style={styles.screenTitle}>Vehicles I&apos;m watching</Text>
         <TouchableOpacity onPress={onGoHome}>
-          <Text style={styles.linkText}>Home</Text>
+          <Text style={styles.linkText}>Back</Text>
         </TouchableOpacity>
       </View>
 

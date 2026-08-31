@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { buildLotCoachContext, formatLotCoachContextForPrompt } from '../utils/lot-coach-context.ts';
+import { buildLotCoachContext, buildCompareLotCoachContext, formatLotCoachContextForPrompt } from '../utils/lot-coach-context.ts';
 import {
   getLotCoachLocalDevApiUrl,
   LOT_COACH_DEPLOYED_DEV_FALLBACK_URL,
@@ -40,6 +40,7 @@ test('buildLotCoachContext includes verdict, budget, and active pressure tactics
     readinessLabel: 'Almost Ready',
   });
 
+  assert.equal(context.mode, 'live');
   assert.equal(context.verdict, analysis.dealVerdict);
   assert.equal(context.targetTotalPaid, '32000');
   assert.deepEqual(context.activePressureTactics, ['Today-only urgency', 'Won’t print breakdown']);
@@ -47,6 +48,51 @@ test('buildLotCoachContext includes verdict, budget, and active pressure tactics
   const prompt = formatLotCoachContextForPrompt(context);
   assert.match(prompt, /Verdict:/);
   assert.match(prompt, /Today-only urgency/);
+});
+
+test('buildCompareLotCoachContext asks the model to explain offer differences', () => {
+  const left = {
+    ...createInitialDeal(),
+    id: 'left',
+    savedAt: '2026-04-18T12:00:00.000Z',
+    seriesId: 'left',
+    revisionNumber: 1,
+    basedOnDealId: null,
+    dealershipName: 'Alpha Auto',
+    vehiclePrice: '24000',
+    apr: '6.9',
+    months: '60',
+  };
+  const right = {
+    ...createInitialDeal(),
+    id: 'right',
+    savedAt: '2026-04-18T12:05:00.000Z',
+    seriesId: 'right',
+    revisionNumber: 1,
+    basedOnDealId: null,
+    dealershipName: 'Beta Motors',
+    vehiclePrice: '25500',
+    apr: '8.9',
+    months: '72',
+  };
+
+  const context = buildCompareLotCoachContext({
+    leftDeal: left,
+    rightDeal: right,
+    leftAnalysis: buildDealAnalysis(left),
+    rightAnalysis: buildDealAnalysis(right),
+    whyWinsHeadline: 'Why Alpha Auto ranks ahead of Beta Motors',
+    whyWinsBullets: ['Wins on lower estimated total paid.'],
+    readinessLabel: 'Strong',
+    targetTotalPaid: '30000',
+  });
+
+  assert.equal(context.mode, 'compare');
+  const prompt = formatLotCoachContextForPrompt(context);
+  assert.match(prompt, /Mode: compare saved offers/);
+  assert.match(prompt, /Offer A:/);
+  assert.match(prompt, /Offer B:/);
+  assert.match(prompt, /Do not default to generic/);
 });
 
 test('resolveLotCoachApiUrl prefers explicit config and dev fallbacks', () => {

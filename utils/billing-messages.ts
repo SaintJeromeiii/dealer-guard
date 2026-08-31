@@ -8,6 +8,24 @@ type PurchasesErrorLike = {
   userCancelled?: boolean;
 };
 
+export function isProductAlreadyOwnedError(error: unknown, purchasesErrorCode?: string) {
+  if (!error || typeof error !== 'object') return false;
+
+  const candidate = error as PurchasesErrorLike;
+  const code = candidate.code !== undefined ? String(candidate.code) : '';
+  const readable = (candidate.readableErrorCode ?? '').toLowerCase();
+  const text = [candidate.message, candidate.underlyingErrorMessage].filter(Boolean).join(' ').toLowerCase();
+
+  if (purchasesErrorCode && code === String(purchasesErrorCode)) return true;
+  if (code === '6') return true;
+  if (readable.includes('already_purchased') || readable.includes('product_already_purchased')) return true;
+  if (text.includes('already active for the user')) return true;
+  if (text.includes('already own')) return true;
+  if (text.includes('item already owned')) return true;
+
+  return false;
+}
+
 export function formatBillingError(error: unknown): string {
   if (!error) return 'Unknown error';
   if (typeof error === 'string') return error;

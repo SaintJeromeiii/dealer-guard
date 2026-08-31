@@ -4,7 +4,8 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import OnboardingScreen from '@/components/OnboardingScreen';
-import { getStoredUserRole, saveUserRole } from '@/utils/onboarding';
+import { getStoredUserRole, saveFirstRunProfile, saveUserRole } from '@/utils/onboarding';
+import type { FirstRunProfile } from '@/utils/first-run';
 import { getBottomTabPadding, getHeaderTopPadding } from '@/utils/safe-area';
 
 export default function GateScreen() {
@@ -40,7 +41,8 @@ export default function GateScreen() {
     };
   }, []);
 
-  async function handleBuyer() {
+  async function handleBuyer(profile: FirstRunProfile) {
+    await saveFirstRunProfile(profile);
     await saveUserRole('buyer');
     router.replace('/(main)');
   }
@@ -66,7 +68,7 @@ export default function GateScreen() {
     );
   }
 
-  return <OnboardingScreen onSelectBuyer={() => void handleBuyer()} onSelectDealership={() => void handleDealership()} />;
+  return <OnboardingScreen onComplete={(profile) => void handleBuyer(profile)} onSelectDealership={() => void handleDealership()} />;
 }
 
 const styles = StyleSheet.create({

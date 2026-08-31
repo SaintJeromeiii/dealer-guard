@@ -12,6 +12,7 @@ type HeaderProps = {
   planStatus?: PlanStatus;
   billingBusy?: boolean;
   onMenuPress?: () => void;
+  onBackPress?: () => void;
   onUpgradePress?: () => void;
   onPreviewPress?: () => void;
   onResetPress?: () => void;
@@ -23,6 +24,7 @@ export default function Header({
   planStatus = 'free',
   billingBusy = false,
   onMenuPress,
+  onBackPress,
   onUpgradePress,
   onPreviewPress,
   onResetPress,
@@ -30,6 +32,17 @@ export default function Header({
   return (
     <View style={styles.header}>
       <View style={styles.titleRow}>
+        {onBackPress ? (
+          <TouchableOpacity
+            onPress={onBackPress}
+            style={styles.menuButton}
+            activeOpacity={0.85}
+            accessibilityLabel="Go back"
+            accessibilityRole="button"
+          >
+            <Ionicons name="chevron-back" size={26} color={SHIELD_THEME.text} />
+          </TouchableOpacity>
+        ) : null}
         <TouchableOpacity
           onPress={onMenuPress}
           style={styles.menuButton}
@@ -41,21 +54,30 @@ export default function Header({
         </TouchableOpacity>
         <View style={styles.titleCopy}>
           <Text style={styles.eyebrow}>DEALSHIELD</Text>
-          <Text style={styles.title} numberOfLines={1}>
+          <Text
+            style={[styles.title, onBackPress ? styles.titleCompact : null]}
+            numberOfLines={2}
+            adjustsFontSizeToFit
+            minimumFontScale={0.72}
+          >
             {title}
           </Text>
-          {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+          {subtitle ? (
+            <Text style={styles.subtitle} numberOfLines={3}>
+              {subtitle}
+            </Text>
+          ) : null}
         </View>
       </View>
 
       <View style={styles.actions}>
         {planStatus === 'pro' ? (
           <View style={styles.proActivePill}>
-            <Text style={styles.proActivePillText}>Pro active</Text>
+            <Text style={styles.proActivePillText}>Pro</Text>
           </View>
         ) : planStatus === 'preview' ? (
           <TouchableOpacity onPress={onPreviewPress} style={styles.previewPill} activeOpacity={0.9}>
-            <Text style={styles.previewPillText}>PREMIUM PREVIEW</Text>
+            <Text style={styles.previewPillText}>Preview</Text>
           </TouchableOpacity>
         ) : (
           <TouchableOpacity
@@ -64,7 +86,7 @@ export default function Header({
             activeOpacity={0.9}
             disabled={billingBusy}
           >
-            <Text style={styles.upgradePillText}>{billingBusy ? 'PROCESSING...' : '⚡ UPGRADE TO PRO'}</Text>
+            <Text style={styles.upgradePillText}>{billingBusy ? 'Wait...' : 'Upgrade'}</Text>
           </TouchableOpacity>
         )}
         {onResetPress ? (
@@ -107,10 +129,15 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   title: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: '800',
     color: SHIELD_THEME.text,
     marginBottom: 4,
+    flexShrink: 1,
+  },
+  titleCompact: {
+    fontSize: 22,
+    lineHeight: 26,
   },
   subtitle: {
     color: SHIELD_THEME.textMuted,
@@ -120,12 +147,12 @@ const styles = StyleSheet.create({
   actions: {
     alignItems: 'flex-end',
     gap: 8,
-    minWidth: 92,
+    flexShrink: 0,
   },
   upgradePill: {
     backgroundColor: SHIELD_THEME.gold,
     borderRadius: 20,
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     paddingVertical: 10,
     borderWidth: 1,
     borderColor: SHIELD_THEME.gold,

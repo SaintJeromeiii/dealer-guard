@@ -154,11 +154,15 @@ export const DEALSHIELD_DRAWER_ITEMS: DealShieldDrawerItem[] = [
   },
 ];
 
+export function isMainDealShieldPath(pathname: string) {
+  const path = pathname.split('?')[0].replace(/\/+$/, '') || '/';
+  return path === '/' || path === '/(main)' || path === '/(main)/index' || path.endsWith('/(main)');
+}
+
 export function handleDrawerItemPress(
   item: DealShieldDrawerItem,
   actions: {
     closeDrawer: () => void;
-    goHome: () => void;
     setBottomTab: (tab: BottomTab) => void;
     navigate: (screen: Screen, tab?: MainTab) => void;
     onRoute: (href: Href) => void;
@@ -171,13 +175,12 @@ export function handleDrawerItemPress(
     return;
   }
 
-  actions.goHome();
+  if (item.screen) {
+    actions.navigate(item.screen, item.tab);
+    return;
+  }
 
   if (item.bottomTab) {
     actions.setBottomTab(item.bottomTab);
-  }
-
-  if (item.screen) {
-    actions.navigate(item.screen, item.tab);
   }
 }

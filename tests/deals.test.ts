@@ -41,6 +41,7 @@ import {
   buildWhatIfComparison,
   buildSessionPlaybook,
   buildTradeInAssessment,
+  buildWhyOfferWinsExplanation,
   compareSavedDeals,
   detectSuspiciousFees,
   estimateMonthlyPayment,
@@ -816,6 +817,78 @@ test('buildSessionPlaybook creates an ordered in-session action plan', () => {
   assert.ok(playbook.steps.length >= 4);
   assert.equal(playbook.steps[0]?.title, 'Start with the anchor');
   assert.ok(playbook.steps.some((step) => step.title.includes('Before signing')));
+});
+
+test('buildPaperworkAudit celebrates better final paperwork instead of flagging it as a problem', () => {
+  const deal = {
+    ...createInitialDeal(),
+    dealershipName: 'Better Close Auto',
+    vehiclePrice: '25000',
+    dealerFees: '995',
+    addOns: '500',
+    downPayment: '3000',
+    tradeIn: '4000',
+    apr: '6.9',
+    months: '60',
+    contractVehiclePrice: '24500',
+    contractFees: '795',
+    contractAddOns: '0',
+    contractDownPayment: '3500',
+    contractTradeIn: '4500',
+    contractApr: '5.9',
+    contractMonths: '60',
+  };
+
+  const audit = buildPaperworkAudit(deal);
+  assert.ok(audit);
+  assert.equal(audit?.readyToSign, true);
+  assert.equal(audit?.summaryTone, 'good');
+  assert.match(audit?.headline ?? '', /better than the reviewed offer/i);
+  assert.ok(audit?.items.some((item) => item.label === 'Vehicle price' && item.tone === 'good' && /Better for you/i.test(item.detail)));
+  assert.ok(audit?.items.every((item) => item.tone !== 'warn'));
+});
+
+test('buildWhyOfferWinsExplanation explains payment packing and ranking reasons', () => {
+  const cheaperOverall = {
+    ...createInitialDeal(),
+    id: 'a',
+    savedAt: '2026-04-18T12:00:00.000Z',
+    seriesId: 'a',
+    revisionNumber: 1,
+    basedOnDealId: null,
+    dealershipName: 'Lower Total Motors',
+    vehiclePrice: '24000',
+    dealerFees: '499',
+    apr: '6.9',
+    months: '60',
+    downPayment: '2000',
+  };
+  const lowerMonthly = {
+    ...createInitialDeal(),
+    id: 'b',
+    savedAt: '2026-04-18T12:05:00.000Z',
+    seriesId: 'b',
+    revisionNumber: 1,
+    basedOnDealId: null,
+    dealershipName: 'Lower Payment Motors',
+    vehiclePrice: '25000',
+    dealerFees: '1495',
+    apr: '8.9',
+    months: '84',
+    downPayment: '1000',
+  };
+
+  const comparison = compareSavedDeals([cheaperOverall, lowerMonthly], 'Strong');
+  assert.ok(comparison);
+  const explanation = buildWhyOfferWinsExplanation(
+    comparison!.winner.deal,
+    comparison!.winner.analysis,
+    comparison!.runnerUp!.deal,
+    comparison!.runnerUp!.analysis,
+    comparison!.reasons
+  );
+  assert.match(explanation.headline, /ranks ahead|only saved offer/i);
+  assert.ok(explanation.bullets.length > 0);
 });
 
 test('buildPaperworkAudit catches late contract changes', () => {

@@ -15,12 +15,14 @@ export type Screen =
   | 'compareDeals'
   | 'watchlist'
   | 'upgradeHub'
-  | 'notes';
+  | 'notes'
+  | 'firstRunWalkthrough';
 
 export type MainTab = 'scan' | 'analyzer' | 'tactics' | 'settings';
 export type Tone = 'good' | 'warn' | 'bad';
 export type PremiumTier = 'free' | 'pro';
 export type ExperienceMode = 'standard' | 'firstTimeBuyer';
+export type BuyerSituation = 'home' | 'lot' | 'signing' | 'undecided';
 export type BillingProvider = 'mock' | 'revenuecat';
 export type BillingEntitlementStatus = 'inactive' | 'trial' | 'active';
 export type ReadinessLabel = 'Strong' | 'Almost Ready' | 'Not Ready';
@@ -567,6 +569,8 @@ export type ReferralLoop = {
 export type AppPreferences = {
   experienceMode: ExperienceMode;
   onboardingComplete: boolean;
+  walkthroughComplete: boolean;
+  buyerSituation: BuyerSituation;
   buyerStage: BuyerStage;
   financingNeed: FinancingNeed;
   creditBand: CreditBand;

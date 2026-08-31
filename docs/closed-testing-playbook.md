@@ -31,8 +31,9 @@ Hi — I’m running a 14-day closed test for DealShield, an Android app that he
 1. Open this opt-in link on your Android phone: `[YOUR CLOSED TEST OPT-IN URL]`
 2. Accept the test using the **same Gmail** you’ll use in the Play Store.
 3. Install **from the Play Store** (not an APK sideload).
-4. Complete the in-app **5-minute tester path**:
+4. Complete the in-app **tester path**:
    - Tap **Try sample deal**
+   - Open **Settings → DealShield Pro → Unlock lifetime Pro** and complete the Play purchase sheet (license testers are not charged)
    - Ask **AI Lot Coach** one question
    - Log one **pressure tactic** in live mode
 5. Send feedback from **☰ → About & Legal → Send closed-test feedback**
@@ -44,8 +45,8 @@ Thanks — this directly helps me launch on Google Play.
 
 | Day | Suggested action |
 |-----|------------------|
-| Day 1 | Complete the 5-minute welcome checklist |
-| Day 3 | Compare two offers or run What-if lab (Premium Preview if not Pro) |
+| Day 1 | Complete the welcome checklist, then purchase lifetime Pro (license testers are not charged) |
+| Day 3 | Compare two offers or run What-if lab |
 | Day 7 | Open Incident Logs after logging a tactic |
 | Day 14 | Send final feedback via About & Legal |
 
@@ -59,9 +60,19 @@ Prepare answers that mention:
 
 - How you recruited testers (friends, car-buying communities, coworkers).
 - The **sample deal** path for users not at a dealership.
-- **Premium Preview** for billing-sync edge cases.
+- License testers completing a real Play purchase of `ds_premium_lifetime`.
 - Specific bugs found and fixed (e.g. Lot Coach truncation, billing diagnostics).
 - Feedback received via GitHub issues / Google Form.
+
+## License testers (required for TestCircle / swap groups)
+
+TestCircle testers install from Play, so they will see the real purchase sheet. Add their Gmail addresses in **Play Console → Setup → License testing** or they will be charged the real price.
+
+1. Play Console → **Setup → License testing**
+2. Add the Google account on each test phone
+3. Save, then have them tap **Unlock lifetime Pro**
+
+The Play product ID is `ds_premium_lifetime` (one-time, not a subscription).
 
 ## Feedback URL configuration
 
@@ -79,6 +90,6 @@ Rebuild the app after changing EAS env vars.
 - [ ] 15–16 testers invited
 - [ ] 12+ show as **opted in** before starting the 14-day clock
 - [ ] Privacy policy URL on store listing
-- [ ] License testers added for billing QA
+- [ ] License testers added (the Google accounts that will tap Unlock lifetime Pro)
 - [ ] RevenueCat + Play product `ds_premium_lifetime` active
 - [ ] Monitor tester count daily in Play Console

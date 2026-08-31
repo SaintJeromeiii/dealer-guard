@@ -47,7 +47,7 @@ export default function FreeVsProComparison({
             <View style={[styles.featureCol, styles.featureNameCell]}>
               <Text
                 style={[styles.featureNameText, isAiLotCoach && styles.highlightFeature]}
-                numberOfLines={1}
+                numberOfLines={2}
               >
                 {row.feature}
               </Text>

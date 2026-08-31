@@ -20,7 +20,7 @@ export default function AppButton({
     <TouchableOpacity
       activeOpacity={0.88}
       disabled={disabled}
-      onPress={onPress}
+      onPress={() => onPress()}
       style={[
         styles.button,
         variant === 'primary' ? styles.primary : null,

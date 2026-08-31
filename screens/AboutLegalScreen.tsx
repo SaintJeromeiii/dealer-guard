@@ -70,6 +70,13 @@ export default function AboutLegalScreen() {
       </View>
 
       <Card>
+        <Text style={styles.title}>For dealership staff</Text>
+        <Text style={styles.detail}>
+          Nice try, finance manager. DealShield is a buyer-only bunker. Hand the phone back to the person buying the car.
+        </Text>
+      </Card>
+
+      <Card>
         <Text style={styles.title}>Closed-test feedback</Text>
         <Text style={styles.detail}>
           Help improve DealShield before production. Share what you tested, what confused you, and any bugs you hit during the 14-day Play closed test.

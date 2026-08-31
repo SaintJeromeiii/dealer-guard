@@ -41,6 +41,8 @@ type DealShieldBridgeContextValue = {
   setIsPremiumPreview: (value: boolean) => void;
   billingStoreUnavailable: boolean;
   setBillingStoreUnavailable: (value: boolean) => void;
+  showAdvancedNav: boolean;
+  setShowAdvancedNav: (value: boolean) => void;
   promptPremiumPreview: (onEnabled?: () => void) => void;
   setPromptPremiumPreview: (fn: (onEnabled?: () => void) => void) => void;
   drawerOpen: boolean;
@@ -50,8 +52,26 @@ type DealShieldBridgeContextValue = {
 
 const DealShieldBridgeContext = createContext<DealShieldBridgeContextValue | null>(null);
 
+type PendingNavigation =
+  | { kind: 'screen'; screen: Screen; tab?: MainTab }
+  | { kind: 'hub'; tab?: MainTab }
+  | { kind: 'bottomTab'; tab: BottomTab };
+
+function applyPendingNavigation(api: DealShieldNavigationApi, pending: PendingNavigation) {
+  if (pending.kind === 'screen') {
+    api.openScreen(pending.screen, pending.tab);
+    return;
+  }
+  if (pending.kind === 'hub') {
+    api.goToHub(pending.tab);
+    return;
+  }
+  api.setBottomTab(pending.tab);
+}
+
 export function DealShieldBridgeProvider({ children }: { children: React.ReactNode }) {
   const navigationRef = useRef<DealShieldNavigationApi | null>(null);
+  const pendingNavigationRef = useRef<PendingNavigation | null>(null);
   const promptPremiumPreviewRef = useRef<(onEnabled?: () => void) => void>(() => undefined);
 
   const [headerTitle, setHeaderTitle] = useState('DealShield');
@@ -60,6 +80,7 @@ export function DealShieldBridgeProvider({ children }: { children: React.ReactNo
   const [isPro, setIsPro] = useState(false);
   const [isPremiumPreview, setIsPremiumPreview] = useState(false);
   const [billingStoreUnavailable, setBillingStoreUnavailable] = useState(false);
+  const [showAdvancedNav, setShowAdvancedNav] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const openDrawer = useCallback(() => setDrawerOpen(true), []);
@@ -67,27 +88,45 @@ export function DealShieldBridgeProvider({ children }: { children: React.ReactNo
 
   const registerNavigation = useCallback((api: DealShieldNavigationApi | null) => {
     navigationRef.current = api;
-    if (api) {
-      setHeaderTitle(api.getHeaderTitle());
-      setBillingDiagnostics(api.getBillingDiagnostics());
-      setBillingDiagnosticsBusy(api.getBillingDiagnosticsBusy());
-      setIsPro(api.isPro());
-      setIsPremiumPreview(api.isPremiumPreview());
-      setBillingStoreUnavailable(api.billingStoreUnavailable());
-      promptPremiumPreviewRef.current = api.promptPremiumPreview;
+    if (!api) return;
+
+    setHeaderTitle(api.getHeaderTitle());
+    setBillingDiagnostics(api.getBillingDiagnostics());
+    setBillingDiagnosticsBusy(api.getBillingDiagnosticsBusy());
+    setIsPro(api.isPro());
+    setIsPremiumPreview(api.isPremiumPreview());
+    setBillingStoreUnavailable(api.billingStoreUnavailable());
+    promptPremiumPreviewRef.current = api.promptPremiumPreview;
+
+    const pending = pendingNavigationRef.current;
+    if (pending) {
+      pendingNavigationRef.current = null;
+      applyPendingNavigation(api, pending);
     }
   }, []);
 
   const navigate = useCallback((screen: Screen, tab?: MainTab) => {
-    navigationRef.current?.openScreen(screen, tab);
+    pendingNavigationRef.current = { kind: 'screen', screen, tab };
+    const api = navigationRef.current;
+    if (!api) return;
+    api.openScreen(screen, tab);
+    pendingNavigationRef.current = null;
   }, []);
 
   const goToHub = useCallback((tab?: MainTab) => {
-    navigationRef.current?.goToHub(tab);
+    pendingNavigationRef.current = { kind: 'hub', tab };
+    const api = navigationRef.current;
+    if (!api) return;
+    api.goToHub(tab);
+    pendingNavigationRef.current = null;
   }, []);
 
   const setBottomTab = useCallback((tab: BottomTab) => {
-    navigationRef.current?.setBottomTab(tab);
+    pendingNavigationRef.current = { kind: 'bottomTab', tab };
+    const api = navigationRef.current;
+    if (!api) return;
+    api.setBottomTab(tab);
+    pendingNavigationRef.current = null;
   }, []);
 
   const refreshBillingDiagnostics = useCallback(async () => {
@@ -153,6 +192,8 @@ export function DealShieldBridgeProvider({ children }: { children: React.ReactNo
       setIsPremiumPreview,
       billingStoreUnavailable,
       setBillingStoreUnavailable,
+      showAdvancedNav,
+      setShowAdvancedNav,
       promptPremiumPreview,
       setPromptPremiumPreview,
       drawerOpen,
@@ -175,6 +216,7 @@ export function DealShieldBridgeProvider({ children }: { children: React.ReactNo
       billingStoreUnavailable,
       promptPremiumPreview,
       setPromptPremiumPreview,
+      showAdvancedNav,
       drawerOpen,
       openDrawer,
       closeDrawer,

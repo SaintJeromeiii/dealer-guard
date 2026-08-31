@@ -6,7 +6,9 @@ import {
   buildBillingSetupHints,
   formatBillingError,
   getDefaultAndroidPackageName,
+  isProductAlreadyOwnedError,
 } from './billing-messages.ts';
+import { inferPremiumTierFromCustomerInfo } from './billing-entitlements.ts';
 import { buildBypassBillingState, isPaywallBypassed, resolvePremiumTier } from './billing-config.ts';
 import type { BillingProvider, BillingState, PremiumTier } from './types.ts';
 
@@ -14,18 +16,20 @@ export {
   isMockRevenueCatValidationEnabled,
   isPaywallBypassed,
   resolvePremiumTier,
+  resolveSyncedPremiumTier,
   setMockRevenueCatValidation,
 } from './billing-config.ts';
 export {
   hasPremiumFeatureAccess,
   isBillingStoreUnavailable,
+  isPremiumPreviewAllowed,
   isPremiumPreviewModeEnabled,
   loadPremiumPreviewMode,
   PREMIUM_PREVIEW_DISCLAIMER,
   savePremiumPreviewMode,
   setPremiumPreviewMode,
 } from './premium-preview.ts';
-export { formatBillingError, buildBillingSetupHints } from './billing-messages.ts';
+export { formatBillingError, buildBillingSetupHints, isProductAlreadyOwnedError } from './billing-messages.ts';
 
 type RuntimeConfig = {
   revenueCatApiKey?: string;
@@ -46,6 +50,7 @@ type PurchasesSdk = {
     purchaseStoreProduct: (product: StoreProduct) => Promise<PurchaseResult>;
     purchasePackage: (pkg: PurchasesPackage) => Promise<PurchaseResult>;
     restorePurchases: () => Promise<CustomerInfo>;
+    syncPurchases?: () => Promise<void>;
     addCustomerInfoUpdateListener: (listener: (customerInfo: CustomerInfo) => void) => void;
     removeCustomerInfoUpdateListener: (listener: (customerInfo: CustomerInfo) => void) => void;
   };
@@ -55,6 +60,7 @@ type PurchasesSdk = {
   };
   PURCHASES_ERROR_CODE: {
     PURCHASE_CANCELLED_ERROR: string;
+    PRODUCT_ALREADY_PURCHASED_ERROR: string;
   };
 };
 
@@ -63,7 +69,10 @@ type CustomerInfo = {
   appUserID?: string;
   entitlements: {
     active: Record<string, { isActive?: boolean } | undefined>;
+    all?: Record<string, { isActive?: boolean } | undefined>;
   };
+  allPurchasedProductIdentifiers?: string[];
+  nonSubscriptionTransactions?: Array<{ productIdentifier?: string }>;
 };
 
 type StoreProduct = {
@@ -107,6 +116,23 @@ export type BillingDiagnostics = {
 };
 
 let purchasesConfigured = false;
+let storeConfirmedLifetimePro = false;
+
+function markStoreConfirmedLifetimePro() {
+  storeConfirmedLifetimePro = true;
+}
+
+function inferTierFromCustomerInfo(customerInfo: CustomerInfo, entitlementId: string, lifetimeProductId?: string): PremiumTier {
+  if (storeConfirmedLifetimePro) return 'pro';
+  return inferPremiumTierFromCustomerInfo(customerInfo, entitlementId, lifetimeProductId);
+}
+
+async function refreshPurchasesFromStore(sdk: PurchasesSdk) {
+  if (typeof sdk.Purchases.syncPurchases === 'function') {
+    await sdk.Purchases.syncPurchases().catch(() => undefined);
+  }
+  return sdk.Purchases.restorePurchases();
+}
 
 function getAndroidPackageName() {
   return Constants.expoConfig?.android?.package ?? getDefaultAndroidPackageName();
@@ -137,11 +163,6 @@ function getLifetimeProductId(config: RuntimeConfig) {
 
 function usesRevenueCat(config: RuntimeConfig) {
   return getRevenueCatApiKey(config).length > 0;
-}
-
-function inferTierFromCustomerInfo(customerInfo: CustomerInfo, entitlementId: string): PremiumTier {
-  const entitlement = customerInfo.entitlements.active[entitlementId];
-  return entitlement?.isActive ? 'pro' : 'free';
 }
 
 function formatStoreProductLabel(product: StoreProduct) {
@@ -233,7 +254,7 @@ async function syncRevenueCatBillingState(currentTier: PremiumTier): Promise<Bil
       sdk.Purchases.getOfferings().catch(() => ({ current: null })),
     ]);
 
-    const tier = inferTierFromCustomerInfo(customerInfo, entitlementId);
+    const tier = inferTierFromCustomerInfo(customerInfo, entitlementId, lifetimeProductId);
     const offeringPackage = resolveOfferingPackage(offerings, config);
     const activeProduct = lifetimeProduct ?? offeringPackage?.product ?? null;
 
@@ -296,14 +317,19 @@ async function purchaseLifetimeProduct(
   if (!product) return null;
 
   const purchaseResult = await sdk.Purchases.purchaseStoreProduct(product);
-  const tier = inferTierFromCustomerInfo(purchaseResult.customerInfo, entitlementId);
+  markStoreConfirmedLifetimePro();
+  let tier = inferTierFromCustomerInfo(purchaseResult.customerInfo, entitlementId, productId);
+  if (tier !== 'pro') {
+    const restoredInfo = await refreshPurchasesFromStore(sdk).catch(() => purchaseResult.customerInfo);
+    tier = inferTierFromCustomerInfo(restoredInfo, entitlementId, productId);
+  }
 
   return {
-    tier,
+    tier: 'pro',
     note:
       tier === 'pro'
         ? 'Lifetime purchase completed. DealShield Pro is now active on this account.'
-        : 'Purchase finished, but Pro access was not detected yet. Check that `ds_premium_lifetime` unlocks your RevenueCat entitlement.',
+        : 'Purchase completed. DealShield Pro is unlocked on this device while the store finishes syncing.',
   };
 }
 
@@ -317,14 +343,19 @@ async function purchaseOfferingPackage(
   if (!selectedPackage) return null;
 
   const purchaseResult = await sdk.Purchases.purchasePackage(selectedPackage);
-  const tier = inferTierFromCustomerInfo(purchaseResult.customerInfo, entitlementId);
+  markStoreConfirmedLifetimePro();
+  let tier = inferTierFromCustomerInfo(purchaseResult.customerInfo, entitlementId, selectedPackage.product.identifier);
+  if (tier !== 'pro') {
+    const restoredInfo = await refreshPurchasesFromStore(sdk).catch(() => purchaseResult.customerInfo);
+    tier = inferTierFromCustomerInfo(restoredInfo, entitlementId, selectedPackage.product.identifier);
+  }
 
   return {
-    tier,
+    tier: 'pro',
     note:
       tier === 'pro'
         ? 'Purchase completed and DealShield Pro is now active.'
-        : 'Purchase finished, but no active Pro entitlement was returned. Check your RevenueCat offering configuration.',
+        : 'Purchase completed. DealShield Pro is unlocked on this device while the store finishes syncing.',
   };
 }
 
@@ -336,6 +367,15 @@ export async function initializeBilling(currentTier: PremiumTier): Promise<Billi
   const config = getRuntimeConfig();
   if (!usesRevenueCat(config)) {
     return buildMockBillingState(resolvePremiumTier(currentTier));
+  }
+
+  try {
+    const sdk = await ensurePurchasesConfigured(getRevenueCatApiKey(config));
+    if (sdk) {
+      await refreshPurchasesFromStore(sdk);
+    }
+  } catch {
+    // Fall through to a normal customer-info sync if Play restore is unavailable.
   }
 
   return syncRevenueCatBillingState(resolvePremiumTier(currentTier));
@@ -453,8 +493,8 @@ export async function purchaseProEntitlement(): Promise<{ tier: PremiumTier; not
 
   if (!apiKey) {
     return {
-      tier: 'pro',
-      note: 'Mock paywall purchase completed locally. Add your RevenueCat API key to enable live Google Play billing.',
+      tier: 'free',
+      note: 'Google Play billing is not available in this build. Install DealShield from the Play Store closed test to purchase lifetime Pro.',
     };
   }
 
@@ -472,6 +512,15 @@ export async function purchaseProEntitlement(): Promise<{ tier: PremiumTier; not
     const entitlementId = getEntitlementId(config);
     const lifetimeProductId = getLifetimeProductId(config);
     const packageName = getAndroidPackageName();
+    const existingInfo = await sdk.Purchases.getCustomerInfo();
+    if (inferTierFromCustomerInfo(existingInfo, entitlementId, lifetimeProductId) === 'pro') {
+      markStoreConfirmedLifetimePro();
+      return {
+        tier: 'pro',
+        note: 'Lifetime Pro is already active on this Google account.',
+      };
+    }
+
     const lifetimeProduct = await resolveLifetimeStoreProduct(sdk, lifetimeProductId);
 
     if (!lifetimeProduct) {
@@ -523,6 +572,21 @@ export async function purchaseProEntitlement(): Promise<{ tier: PremiumTier; not
       };
     }
 
+    if (sdk && isProductAlreadyOwnedError(error, sdk.PURCHASES_ERROR_CODE.PRODUCT_ALREADY_PURCHASED_ERROR)) {
+      markStoreConfirmedLifetimePro();
+      try {
+        const customerInfo = await refreshPurchasesFromStore(sdk);
+        inferTierFromCustomerInfo(customerInfo, getEntitlementId(config), getLifetimeProductId(config));
+      } catch {
+        // Play already confirmed ownership; unlock even if RevenueCat is late.
+      }
+
+      return {
+        tier: 'pro',
+        note: 'Lifetime Pro is already on this Google account. It is unlocked on this device.',
+      };
+    }
+
     const formatted = formatBillingError(error);
     const hints = buildBillingSetupHints({
       productId: getLifetimeProductId(config),
@@ -560,7 +624,7 @@ export function subscribeToBillingUpdates(onUpdate: (billing: BillingState) => v
 
     sdkRef = sdk;
     activeListener = (customerInfo) => {
-      const tier = inferTierFromCustomerInfo(customerInfo, getEntitlementId(config));
+      const tier = inferTierFromCustomerInfo(customerInfo, getEntitlementId(config), getLifetimeProductId(config));
       void syncRevenueCatBillingState(tier).then((billing) => {
         if (!cancelled) onUpdate(billing);
       });
@@ -611,8 +675,11 @@ export async function restoreProEntitlement(currentTier: PremiumTier): Promise<{
       };
     }
 
-    const customerInfo = await sdk.Purchases.restorePurchases();
-    const tier = inferTierFromCustomerInfo(customerInfo, getEntitlementId(config));
+    const customerInfo = await refreshPurchasesFromStore(sdk);
+    const tier = inferTierFromCustomerInfo(customerInfo, getEntitlementId(config), getLifetimeProductId(config));
+    if (tier === 'pro') {
+      markStoreConfirmedLifetimePro();
+    }
 
     return {
       tier,

@@ -4,6 +4,7 @@ Use this flow to upload DealShield to Google Play **internal**, **closed**, or *
 
 ## App identity
 - Package name: `com.jleonanderson.signshield`
+- Public contact: `jeromegatron.labs@gmail.com`
 - Privacy policy: https://saintjeromeiii.github.io/dealshield-legal/#privacy
 - Legal disclaimer: https://saintjeromeiii.github.io/dealshield-legal/#disclaimer
 - Lifetime product ID: `ds_premium_lifetime`

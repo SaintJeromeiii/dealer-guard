@@ -28,8 +28,7 @@ export default function DealershipDeniedScreen({ onSwitchToBuyer }: { onSwitchTo
         <Card>
           <Text style={styles.cardTitle}>Nice try, finance manager.</Text>
           <Text style={styles.cardText}>
-            DealShield is a buyer-only bunker. We reverse-engineer payment tricks, audit junk fees, and hand the buyer talking points
-            before anyone signs.
+            DealShield is only for the person buying the car. If you tapped this by mistake, switch back to buyer and we’ll open the protection tools.
           </Text>
           <Text style={styles.cardText}>
             This app does not negotiate on behalf of the desk. Please return the phone to the person buying the car.

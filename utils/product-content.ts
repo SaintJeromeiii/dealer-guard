@@ -37,6 +37,22 @@ export const LIFETIME_PRO_PURCHASE_NOTE = 'One-time purchase · No subscription 
 
 export const LIFETIME_PRO_ACTIVE_NOTE = 'Lifetime Pro is active on this account. All features below are unlocked.';
 
+export function extractStorePrice(packageLabel?: string | null) {
+  if (!packageLabel) return null;
+  const parts = packageLabel.split('—');
+  if (parts.length < 2) return null;
+  const price = parts[parts.length - 1]?.trim() ?? '';
+  if (!price || !/\d/.test(price)) return null;
+  if (/active|preview|mock/i.test(price)) return null;
+  return price;
+}
+
+export function getLifetimeUpgradeCtaLabel(busy: boolean, packageLabel?: string | null) {
+  if (busy) return 'Processing...';
+  const price = extractStorePrice(packageLabel);
+  return price ? `Unlock lifetime Pro · ${price}` : 'Unlock lifetime Pro';
+}
+
 const FREE_PLAN_ROWS: FreeVsProRow[] = [
   { feature: 'Guided buyer setup & roadmap', free: 'Yes', pro: 'Yes' },
   { feature: 'Budget guardrails', free: 'Yes', pro: 'Yes' },
