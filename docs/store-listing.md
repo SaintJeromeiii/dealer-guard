@@ -1,7 +1,7 @@
-# DealShield Store Listing
+# Sign Check Store Listing
 
 ## Positioning
-DealShield helps car buyers spot bad deal structure, compare offers, and slow down dealership pressure before they sign.
+Sign Check helps car buyers spot bad deal structure, compare offers, and slow down dealership pressure before they sign.
 
 ## One-line Pitch
 Catch padded fees, compare quotes, and get a second opinion before you sign a car deal.
@@ -10,9 +10,9 @@ Catch padded fees, compare quotes, and get a second opinion before you sign a ca
 Spot risky car deals fast. Review quotes, compare offers, catch pressure tactics, and share a second opinion before signing.
 
 ## Full Description
-DealShield is built for car buyers who want clarity before they agree to a dealership deal.
+Sign Check is built for car buyers who want clarity before they agree to a dealership deal.
 
-Use DealShield to:
+Use Sign Check to:
 - import a quote from pasted text or photo OCR
 - break down vehicle price, fees, add-ons, APR, term, trade, and down payment
 - see whether the deal looks fair, risky, or worth walking away from
@@ -21,7 +21,9 @@ Use DealShield to:
 - audit the final paperwork against the reviewed deal
 - share a second-opinion summary with someone you trust before signing
 
-DealShield focuses on the written numbers, not the sales pitch. That means buyers can spot stretched loan terms, suspicious fees, late add-ons, weak trade handling, and paperwork changes before a rushed signature.
+Sign Check focuses on the written numbers, not the sales pitch. That means buyers can spot stretched loan terms, suspicious fees, late add-ons, weak trade handling, and paperwork changes before a rushed signature.
+
+Sign Check is free to download. Core quote review is included. Sign Check Pro is an optional one-time In-App Purchase (not a subscription). Pro unlocks live dealership mode, AI Lot Coach, What-if lab, Finance office defense, shareable buyer reports, and dealer scorecards. Restore purchases from Settings → Sign Check Pro.
 
 ## Keywords
 - car buying

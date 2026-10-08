@@ -35,7 +35,7 @@ export default function CarBuyingRoadmap({
       Alert.alert(
         'Complete the prior milestone first',
         priorStep
-          ? `Finish "${priorStep.title}" before unlocking ${step.title}. DealShield keeps the buying process in order so nothing gets missed.`
+          ? `Finish "${priorStep.title}" before unlocking ${step.title}. Sign Check keeps the buying process in order so nothing gets missed.`
           : 'Finish the earlier milestones before moving forward.'
       );
       return;
@@ -136,7 +136,7 @@ export default function CarBuyingRoadmap({
                     <AppButton
                       label={
                         step.isProLocked
-                          ? 'Unlock with DealShield Pro'
+                          ? 'Unlock with Sign Check Pro'
                           : step.status === 'completed'
                             ? `Review ${step.title.toLowerCase()}`
                             : step.actionLabel

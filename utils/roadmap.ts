@@ -1,5 +1,5 @@
 import { currency } from './finance.ts';
-import type { DealState, DealerGuardAppData } from './types.ts';
+import type { DealState, DealerGuardAppData, NegotiationFlag, PressureIncident, VisitTimelineEntry } from './types.ts';
 
 export type RoadmapStepId = 'budget' | 'quickCheck' | 'lotInspection' | 'contractScan';
 
@@ -33,7 +33,7 @@ export const ROADMAP_STEPS: RoadmapStepDefinition[] = [
     id: 'quickCheck',
     stepNumber: 2,
     title: 'Quick Check',
-    description: 'Enter or import a quote and let DealShield flag risky fees, APR, and add-ons early.',
+    description: 'Enter or import a quote and let Sign Check flag risky fees, APR, and add-ons early.',
     actionLabel: 'Run quick quote check',
   },
   {
@@ -78,7 +78,47 @@ function isQuickCheckStepComplete(appData: DealerGuardAppData) {
   return appData.savedDeals.some(dealHasQuickCheckData);
 }
 
+function pressureLogMatchesFlag(entry: VisitTimelineEntry, flag: NegotiationFlag) {
+  return entry.type === 'pressureLogged' && entry.detail.startsWith(`${flag} `);
+}
+
+export function addLotNegotiationFlag(
+  appData: DealerGuardAppData,
+  flag: NegotiationFlag,
+  incident: PressureIncident,
+  timelineEntry: VisitTimelineEntry
+): DealerGuardAppData {
+  if (appData.negotiationFlags.includes(flag)) return appData;
+  return {
+    ...appData,
+    lotCheckClear: false,
+    negotiationFlags: [...appData.negotiationFlags, flag],
+    pressureIncidents: [incident, ...appData.pressureIncidents].slice(0, 50),
+    visitTimeline: [timelineEntry, ...appData.visitTimeline].slice(0, 120),
+  };
+}
+
+export function removeLotNegotiationFlag(appData: DealerGuardAppData, flag: NegotiationFlag): DealerGuardAppData {
+  return {
+    ...appData,
+    negotiationFlags: appData.negotiationFlags.filter((item) => item !== flag),
+    pressureIncidents: appData.pressureIncidents.filter((incident) => incident.flag !== flag),
+    visitTimeline: appData.visitTimeline.filter((entry) => !pressureLogMatchesFlag(entry, flag)),
+  };
+}
+
+export function markLotCheckClear(appData: DealerGuardAppData): DealerGuardAppData {
+  return {
+    ...appData,
+    lotCheckClear: true,
+    negotiationFlags: [],
+    pressureIncidents: [],
+    visitTimeline: appData.visitTimeline.filter((entry) => entry.type !== 'pressureLogged'),
+  };
+}
+
 function isLotInspectionStepComplete(appData: DealerGuardAppData) {
+  if (appData.lotCheckClear) return true;
   return (
     appData.negotiationFlags.length > 0 ||
     appData.pressureIncidents.length > 0 ||
@@ -129,6 +169,9 @@ function buildStepSummary(stepId: RoadmapStepId, appData: DealerGuardAppData): s
       return `${dealer}: ${price}${apr}`;
     }
     case 'lotInspection':
+      if (appData.lotCheckClear) {
+        return 'No red flags on this visit';
+      }
       if (appData.pressureIncidents.length > 0) {
         return `${appData.pressureIncidents.length} pressure incident${appData.pressureIncidents.length === 1 ? '' : 's'} logged`;
       }

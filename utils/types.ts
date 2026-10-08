@@ -623,6 +623,7 @@ export type DealerGuardAppData = {
   notes: string;
   negotiationFlags: NegotiationFlag[];
   pressureIncidents: PressureIncident[];
+  lotCheckClear: boolean;
   promises: PromiseRecord[];
   visitTimeline: VisitTimelineEntry[];
   savedDeals: SavedDeal[];

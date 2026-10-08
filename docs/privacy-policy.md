@@ -1,15 +1,15 @@
-# DealShield Privacy Policy Draft
+# Sign Check Privacy Policy Draft
 
-## What DealShield stores
+## What Sign Check stores
 - Deal inputs such as vehicle price, fees, APR, term, trade, notes, and contract review fields.
 - Photos or photo-derived OCR results only on the user's device unless a future cloud feature is added.
 - Local product signals such as imports, offer saves, what-if runs, and signing-checkpoint completions.
 
-## What DealShield is for
-DealShield is a buyer-protection and decision-support tool. It helps users review deal structure, paperwork, pressure tactics, and negotiation scenarios before signing.
+## What Sign Check is for
+Sign Check is a buyer-protection and decision-support tool. It helps users review deal structure, paperwork, pressure tactics, and negotiation scenarios before signing.
 
-## What DealShield is not
-DealShield is not legal advice, tax advice, credit advice, or financial advice. Users should still review all binding documents carefully and seek licensed professional advice when needed.
+## What Sign Check is not
+Sign Check is not legal advice, tax advice, credit advice, or financial advice. Users should still review all binding documents carefully and seek licensed professional advice when needed.
 
 ## Data handling draft
 - Current app data is stored locally on the device.

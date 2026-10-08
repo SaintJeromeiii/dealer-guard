@@ -53,7 +53,7 @@ export default function Header({
           <Ionicons name="menu" size={24} color={SHIELD_THEME.text} />
         </TouchableOpacity>
         <View style={styles.titleCopy}>
-          <Text style={styles.eyebrow}>DEALSHIELD</Text>
+          <Text style={styles.eyebrow}>SIGN CHECK</Text>
           <Text
             style={[styles.title, onBackPress ? styles.titleCompact : null]}
             numberOfLines={2}

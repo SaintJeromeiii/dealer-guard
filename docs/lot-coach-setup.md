@@ -1,6 +1,6 @@
 # Lot Coach setup
 
-Lot Coach is DealShield Pro's on-the-lot AI helper. It answers custom buyer questions using the current deal context (verdict, payment structure, pressure tactics, and budget guardrails).
+Lot Coach is Sign Check Pro's on-the-lot AI helper. It answers custom buyer questions using the current deal context (verdict, payment structure, pressure tactics, and budget guardrails).
 
 ## Architecture
 
@@ -53,7 +53,7 @@ npm run build:android:play
 
 - **20 questions per day** per device (local rate limit)
 - Deal context sent to the worker excludes photos and free-form notes
-- Responses include the standard DealShield estimate disclaimer
+- Responses include the standard Sign Check estimate disclaimer
 
 ## Troubleshooting
 

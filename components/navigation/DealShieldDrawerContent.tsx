@@ -39,7 +39,7 @@ export default function DealShieldDrawerContent() {
   return (
     <View style={[styles.container, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 12 }]}>
       <View style={styles.brandBlock}>
-        <Text style={styles.brandEyebrow}>DEALSHIELD</Text>
+        <Text style={styles.brandEyebrow}>SIGN CHECK</Text>
         <Text style={styles.brandTitle}>Buyer defense on the lot</Text>
         <Text style={styles.brandSubtitle}>Fast tools for calculators, coaching, and pressure logs.</Text>
       </View>

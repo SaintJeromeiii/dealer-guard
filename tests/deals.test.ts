@@ -203,10 +203,10 @@ test('summary builders include decision context', () => {
   assert.match(buyerReport, /Recommendation/);
   const secondOpinionShare = buildSecondOpinionShare(secondDeal, secondAnalysis, recommendation, negotiationPlan);
   assert.match(secondOpinionShare, /sanity-check this car deal/i);
-  assert.match(secondOpinionShare, /DealShield/i);
+  assert.match(secondOpinionShare, /Sign Check/i);
   const referralLoop = buildReferralLoop(secondDeal, secondAnalysis, recommendation, secondOpinionShare);
   assert.match(referralLoop.headline, /before you sign/i);
-  assert.match(referralLoop.inviteMessage, /DealShield/i);
+  assert.match(referralLoop.inviteMessage, /Sign Check/i);
   const visitCaseSummary = buildVisitCaseSummary(
     [
       {
@@ -503,7 +503,7 @@ test('buildMonetizationSummary highlights premium value around existing usage', 
     [{ id: 'promise-1', dealershipName: 'Metro Auto', text: 'We will remove the prep fee.', status: 'open', notedAt: '2026-04-20T10:06:00.000Z', resolvedAt: null }]
   );
 
-  assert.match(summary.headline, /DealShield Free/i);
+  assert.match(summary.headline, /Sign Check Free/i);
   assert.equal(summary.featureCards.length, 5);
   assert.equal(summary.featureCards[0]?.title, 'Live dealership mode');
   assert.ok(summary.reasons.some((reason) => reason.includes('saved offer')));

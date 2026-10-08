@@ -1,7 +1,7 @@
 # RevenueCat + Google Play Setup
 
 ## Goal
-Unlock **DealShield Pro** through the Google Play one-time product `ds_premium_lifetime`.
+Unlock **Sign Check Pro** through the Google Play one-time product `ds_premium_lifetime`.
 
 ## Product model
 - Google Play one-time product ID: `ds_premium_lifetime`
@@ -13,11 +13,11 @@ Unlock **DealShield Pro** through the Google Play one-time product `ds_premium_l
 ## Step-by-step: Google Play Console
 
 ### 1. Create the in-app product
-1. Open [Google Play Console](https://play.google.com/console) → **DealShield**
+1. Open [Google Play Console](https://play.google.com/console) → **Sign Check**
 2. Go to **Monetize with Play** → **Products** → **In-app products**
 3. Click **Create product**
 4. Set **Product ID** to exactly: `ds_premium_lifetime`
-5. Add title (e.g. `DealShield Pro Lifetime`) and description
+5. Add title (e.g. `Sign Check Pro Lifetime`) and description
 6. Set your price
 7. Click **Save**, then set status to **Active**
 
@@ -39,7 +39,7 @@ Upload the `.aab` to **Internal testing** (or Closed testing).
 
 ### 4. Install from Play — not sideload
 1. Join the internal/closed test via the opt-in link Play gives you
-2. Install **DealShield from the Play Store**
+2. Install **Sign Check from the Play Store**
 3. Do **not** test purchases on a debug APK sideloaded with `expo run:android`
 
 ---

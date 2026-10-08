@@ -16,7 +16,7 @@ export function buildNextStepGuidance(
   if (!onboardingComplete) {
     return {
       title: 'Finish guided setup',
-      detail: 'Tell DealShield whether this is your first purchase so we can unlock the right checklist and roadmap.',
+      detail: 'Tell Sign Check whether this is your first purchase so we can unlock the right checklist and roadmap.',
       actionLabel: 'Start setup',
       stepId: 'budget',
     };
@@ -36,7 +36,7 @@ export function buildNextStepGuidance(
     case 'quickCheck':
       return {
         title: 'Your next step: quick quote check',
-        detail: 'Paste or import a dealership quote so DealShield can flag risky fees, APR, and add-ons early.',
+        detail: 'Paste or import a dealership quote so Sign Check can flag risky fees, APR, and add-ons early.',
         actionLabel: 'Run quick quote check',
         stepId: 'quickCheck',
       };

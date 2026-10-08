@@ -8,6 +8,8 @@ type LegalExtra = {
 
 const LIVE_LEGAL_SITE_URL = 'https://saintjeromeiii.github.io/dealshield-legal/#disclaimer';
 const LIVE_PRIVACY_POLICY_URL = 'https://saintjeromeiii.github.io/dealshield-legal/#privacy';
+const LIVE_SUPPORT_URL = 'https://saintjeromeiii.github.io/dealshield-legal/support.html';
+export const SUPPORT_EMAIL = 'jeromegatron.labs@gmail.com';
 
 function getExtra(): LegalExtra {
   return (Constants.expoConfig?.extra ?? {}) as LegalExtra;
@@ -21,6 +23,14 @@ export function getPrivacyPolicyUrl() {
 export function getLegalDisclaimerUrl() {
   const configured = getExtra().legalDisclaimerUrl?.trim();
   return configured || LIVE_LEGAL_SITE_URL;
+}
+
+export function getSupportUrl() {
+  return LIVE_SUPPORT_URL;
+}
+
+export function getSupportMailtoUrl(subject = 'Sign Check support') {
+  return `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(subject)}`;
 }
 
 export function getManageSubscriptionsUrl() {

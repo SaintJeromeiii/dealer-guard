@@ -100,7 +100,7 @@ export function buildCompareLotCoachContext(options: {
   const compareSummary = [
     summarizeOffer('Offer A', leftDeal, leftAnalysis),
     summarizeOffer('Offer B', rightDeal, rightAnalysis),
-    whyWinsHeadline ? `DealShield ranking note: ${whyWinsHeadline}` : null,
+    whyWinsHeadline ? `Sign Check ranking note: ${whyWinsHeadline}` : null,
     ...(whyWinsBullets ?? []).map((bullet) => `• ${bullet}`),
   ]
     .filter(Boolean)

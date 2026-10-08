@@ -17,7 +17,7 @@ export function buildAnalyticsFunnel(appData: DealerGuardAppData): FunnelStep[] 
       id: 'setup',
       label: 'Setup complete',
       complete: preferences.onboardingComplete,
-      detail: preferences.onboardingComplete ? 'Buyer profile saved' : 'Finish guided setup on Shield',
+      detail: preferences.onboardingComplete ? 'Buyer profile saved' : 'Finish guided setup in Sign Check',
     },
     {
       id: 'budget',

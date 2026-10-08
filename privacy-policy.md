@@ -2,7 +2,7 @@
 
 **Effective Date:** August 23, 2026
 
-DealShield ("DealShield," "we," "our," or "us") respects your privacy. This Privacy Policy explains how we collect, use, disclose, and protect information when you use our website, mobile application, and related services (collectively, the "Services").
+Sign Check ("Sign Check," "we," "our," or "us") respects your privacy. This Privacy Policy explains how we collect, use, disclose, and protect information when you use our website, mobile application, and related services (collectively, the "Services").
 
 ## 1. Information We Collect
 
@@ -59,7 +59,7 @@ We may share information in the following circumstances:
 
 - **Service Providers:** With vendors and contractors who help us operate the Services
 - **Legal Compliance:** When required by law, regulation, legal process, or governmental request
-- **Protection of Rights:** To protect the rights, property, and safety of DealShield, our users, or others
+- **Protection of Rights:** To protect the rights, property, and safety of Sign Check, our users, or others
 - **Business Transfers:** In connection with a merger, sale, financing, acquisition, or other transfer of assets
 - **With Your Consent:** When you direct us or consent to the sharing
 
@@ -122,10 +122,10 @@ We may update this Privacy Policy from time to time. If we make material changes
 
 If you have questions about this Privacy Policy or our privacy practices, please contact us at:
 
-**DealShield**  
+**Sign Check**  
 Email: jeromegatron.labs@gmail.com  
 App URL: Coming soon
 
 ---
 
-**Important Notice:** DealShield is intended to provide informational tools to help consumers evaluate vehicle deals. DealShield does not provide legal, tax, credit, or financial advice. Users should independently verify all dealership, vehicle, financing, and contract terms before making purchasing decisions.
+**Important Notice:** Sign Check is intended to provide informational tools to help consumers evaluate vehicle deals. Sign Check does not provide legal, tax, credit, or financial advice. Users should independently verify all dealership, vehicle, financing, and contract terms before making purchasing decisions.

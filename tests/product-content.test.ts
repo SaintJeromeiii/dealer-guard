@@ -19,10 +19,10 @@ test('FREE_VS_PRO_ROWS includes explicit AI Lot Coach row', () => {
 });
 
 test('extractStorePrice reads the Play price from a RevenueCat product label', () => {
-  assert.equal(extractStorePrice('DealShield Pro Lifetime — $19.99'), '$19.99');
-  assert.equal(extractStorePrice('DealShield Pro Active'), null);
-  assert.equal(extractStorePrice('DealShield Pro Active (dev bypass)'), null);
-  assert.equal(getLifetimeUpgradeCtaLabel(true, 'DealShield Pro Lifetime — $19.99'), 'Processing...');
-  assert.equal(getLifetimeUpgradeCtaLabel(false, 'DealShield Pro Lifetime — $19.99'), 'Unlock lifetime Pro · $19.99');
-  assert.equal(getLifetimeUpgradeCtaLabel(false, 'DealShield Pro Lifetime'), 'Unlock lifetime Pro');
+  assert.equal(extractStorePrice('Sign Check Pro Lifetime — $19.99'), '$19.99');
+  assert.equal(extractStorePrice('Sign Check Pro Active'), null);
+  assert.equal(extractStorePrice('Sign Check Pro Active (dev bypass)'), null);
+  assert.equal(getLifetimeUpgradeCtaLabel(true, 'Sign Check Pro Lifetime — $19.99'), 'Processing...');
+  assert.equal(getLifetimeUpgradeCtaLabel(false, 'Sign Check Pro Lifetime — $19.99'), 'Unlock lifetime Pro · $19.99');
+  assert.equal(getLifetimeUpgradeCtaLabel(false, 'Sign Check Pro Lifetime'), 'Unlock lifetime Pro');
 });

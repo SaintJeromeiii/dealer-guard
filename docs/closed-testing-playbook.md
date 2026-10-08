@@ -1,4 +1,4 @@
-# DealShield closed testing playbook
+# Sign Check closed testing playbook
 
 Use this guide to pass Google Play’s **12 testers / 14 consecutive days** requirement for personal developer accounts, and to collect useful feedback before production.
 
@@ -23,9 +23,9 @@ Upload the `.aab` to **Play Console → Testing → Closed testing**.
 
 ## Tester email (copy/paste)
 
-**Subject:** DealShield closed test — 5 minutes to help
+**Subject:** Sign Check closed test — 5 minutes to help
 
-Hi — I’m running a 14-day closed test for DealShield, an Android app that helps car buyers review quotes, spot pressure tactics, and get AI coaching at the dealership.
+Hi — I’m running a 14-day closed test for Sign Check, an Android app that helps car buyers review quotes, spot pressure tactics, and get AI coaching at the dealership.
 
 **Please:**
 1. Open this opt-in link on your Android phone: `[YOUR CLOSED TEST OPT-IN URL]`
@@ -33,7 +33,7 @@ Hi — I’m running a 14-day closed test for DealShield, an Android app that he
 3. Install **from the Play Store** (not an APK sideload).
 4. Complete the in-app **tester path**:
    - Tap **Try sample deal**
-   - Open **Settings → DealShield Pro → Unlock lifetime Pro** and complete the Play purchase sheet (license testers are not charged)
+   - Open **Settings → Sign Check Pro → Unlock lifetime Pro** and complete the Play purchase sheet (license testers are not charged)
    - Ask **AI Lot Coach** one question
    - Log one **pressure tactic** in live mode
 5. Send feedback from **☰ → About & Legal → Send closed-test feedback**

@@ -18,8 +18,8 @@ export type DealShieldDrawerItem = {
 export const DEALSHIELD_DRAWER_ITEMS: DealShieldDrawerItem[] = [
   {
     id: 'shield',
-    label: 'The Shield',
-    icon: 'shield-checkmark-outline',
+    label: 'The Golden Check',
+    icon: 'checkmark-circle-outline',
     kind: 'screen',
     screen: 'scanHub',
     tab: 'scan',

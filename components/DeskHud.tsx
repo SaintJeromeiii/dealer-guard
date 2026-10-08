@@ -35,7 +35,7 @@ export default function DeskHud({ action, capRows, onLogTactic }: DeskHudProps) 
   }, [action, overCap]);
 
   function handleChip(flag: NegotiationFlag) {
-    setActiveFlag(flag);
+    setActiveFlag((current) => (current === flag ? null : flag));
     onLogTactic(flag);
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
   }

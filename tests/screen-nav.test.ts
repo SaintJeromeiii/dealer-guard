@@ -18,7 +18,7 @@ test('press events are not treated as a main tab', () => {
   assert.equal(coerceMainTab('scan'), 'scan');
 });
 
-test('lot coach opened from Shield returns to Shield instead of Tactician Guide', () => {
+test('lot coach opened from the golden check returns there instead of Tactician Guide', () => {
   const history = pushNavFrame([], { screen: 'scanHub', tab: 'scan' }, 'liveMode');
   const { previous, remaining } = popNavFrame(history);
 

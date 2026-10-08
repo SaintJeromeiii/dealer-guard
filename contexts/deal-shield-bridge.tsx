@@ -74,7 +74,7 @@ export function DealShieldBridgeProvider({ children }: { children: React.ReactNo
   const pendingNavigationRef = useRef<PendingNavigation | null>(null);
   const promptPremiumPreviewRef = useRef<(onEnabled?: () => void) => void>(() => undefined);
 
-  const [headerTitle, setHeaderTitle] = useState('DealShield');
+  const [headerTitle, setHeaderTitle] = useState('Sign Check');
   const [billingDiagnostics, setBillingDiagnostics] = useState<BillingDiagnostics | null>(null);
   const [billingDiagnosticsBusy, setBillingDiagnosticsBusy] = useState(false);
   const [isPro, setIsPro] = useState(false);

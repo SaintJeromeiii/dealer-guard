@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import AppButton from '@/components/AppButton';
@@ -35,6 +35,7 @@ export default function ClosedBetaWelcomeCard({
   onSendFeedback,
   onDismiss,
 }: ClosedBetaWelcomeCardProps) {
+  const [expanded, setExpanded] = useState(false);
   const { completed, total } = getClosedBetaChecklistProgress(checklist);
 
   const steps: StepConfig[] = [
@@ -63,15 +64,29 @@ export default function ClosedBetaWelcomeCard({
 
   return (
     <Card>
-      <View style={styles.headerRow}>
-        <View style={styles.headerCopy}>
-          <Text style={styles.eyebrow}>CLOSED TEST WELCOME</Text>
-          <Text style={styles.title}>5-minute tester path</Text>
+      <TouchableOpacity
+        onPress={() => setExpanded((open) => !open)}
+        activeOpacity={0.85}
+        accessibilityRole="button"
+        accessibilityState={{ expanded }}
+        accessibilityLabel={expanded ? 'Collapse closed-test welcome' : 'Open closed-test welcome'}
+      >
+        <View style={styles.headerRow}>
+          <View style={styles.headerCopy}>
+            <Text style={styles.eyebrow}>CLOSED TEST WELCOME</Text>
+            <Text style={styles.title}>5-minute tester path</Text>
+            {expanded ? null : <Text style={styles.collapsedHint}>Tap to open the tester steps</Text>}
+          </View>
+          <View style={styles.headerMeta}>
+            <StatusBadge label={`${completed}/${total} done`} tone={completed === total ? 'good' : 'warn'} />
+            <Text style={styles.chevron}>{expanded ? 'Hide' : 'Open'}</Text>
+          </View>
         </View>
-        <StatusBadge label={`${completed}/${total} done`} tone={completed === total ? 'good' : 'warn'} />
-      </View>
+      </TouchableOpacity>
+      {expanded ? (
+        <>
       <Text style={styles.detail}>
-        New to DealShield? Complete these three steps once. Premium Preview unlocks Pro tools for this walkthrough when billing is still syncing.
+        New to Sign Check? Complete these three steps once. Premium Preview unlocks Pro tools for this walkthrough when billing is still syncing.
       </Text>
 
       <View style={styles.stepList}>
@@ -98,6 +113,8 @@ export default function ClosedBetaWelcomeCard({
           <Text style={styles.dismissText}>Hide for now</Text>
         </TouchableOpacity>
       </View>
+        </>
+      ) : null}
     </Card>
   );
 }
@@ -113,6 +130,20 @@ const styles = StyleSheet.create({
   headerCopy: {
     flex: 1,
     gap: 4,
+  },
+  headerMeta: {
+    alignItems: 'flex-end',
+    gap: 6,
+  },
+  collapsedHint: {
+    color: SHIELD_THEME.textMuted,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  chevron: {
+    color: SHIELD_THEME.gold,
+    fontSize: 12,
+    fontWeight: '800',
   },
   eyebrow: {
     color: SHIELD_THEME.gold,

@@ -38,7 +38,7 @@ export default function OnboardingScreen({
     >
       <View style={styles.container}>
         <View style={styles.hero}>
-          <Text style={styles.eyebrow}>DEALSHIELD</Text>
+          <Text style={styles.eyebrow}>SIGN CHECK</Text>
           {step === 'welcome' ? (
             <>
               <Text style={styles.title}>This app is for the person buying the car.</Text>

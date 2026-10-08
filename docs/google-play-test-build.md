@@ -1,6 +1,6 @@
 # Google Play Test Build
 
-Use this flow to upload DealShield to Google Play **internal**, **closed**, or **open** testing.
+Use this flow to upload Sign Check to Google Play **internal**, **closed**, or **open** testing.
 
 ## App identity
 - Package name: `com.jleonanderson.signshield`

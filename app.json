@@ -1,26 +1,28 @@
 {
   "expo": {
-    "name": "DealShield",
+    "name": "Sign Check",
     "slug": "dealshield",
-    "description": "Spot bad car deals, compare offers, and protect yourself from dealership pressure tactics before you sign with DealShield.",
-    "version": "1.0.1",
+    "description": "Spot bad car deals, compare offers, and protect yourself from dealership pressure tactics before you sign with Sign Check.",
+    "version": "1.0.4",
     "orientation": "portrait",
-    "icon": "./assets/images/playstore.png",
+    "icon": "./assets/images/ios-icon-1024.png",
     "scheme": "dealshield",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.jleonanderson.signshield",
+      "buildNumber": "9",
+      "icon": "./assets/images/ios-icon-1024.png",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
-      "versionCode": 6,
+      "versionCode": 43,
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/playstore.png"
+        "backgroundColor": "#0B0F19",
+        "foregroundImage": "./assets/images/ios-icon-1024.png"
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.jleonanderson.signshield"
@@ -30,35 +32,40 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
+      "./plugins/withAndroidGradleMemory",
       "expo-router",
       [
         "expo-build-properties",
         {
           "ios": {
             "deploymentTarget": "15.5"
+          },
+          "android": {
+            "enableMinifyInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true
           }
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "DealShield uses your photos so you can import dealership quotes and vehicle listing ads.",
-          "cameraPermission": "DealShield uses your camera so you can capture dealership quotes and vehicle listing ads."
+          "photosPermission": "Sign Check uses your photos so you can import dealership quotes and vehicle listing ads.",
+          "cameraPermission": "Sign Check uses your camera so you can capture dealership quotes and vehicle listing ads."
         }
       ],
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/playstore.png",
+          "image": "./assets/images/ios-icon-1024.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#0B0F19",
           "dark": {
-            "image": "./assets/images/playstore.png",
+            "image": "./assets/images/ios-icon-1024.png",
             "backgroundColor": "#0B0F19"
           },
           "android": {
-            "image": "./assets/images/playstore.png",
+            "image": "./assets/images/ios-icon-1024.png",
             "backgroundColor": "#0B0F19"
           }
         }

@@ -1,6 +1,6 @@
-# DealShield
+# Sign Check
 
-DealShield is an Expo / React Native app for car buyers who want help preparing for dealership negotiations, reviewing financing offers, spotting pressure tactics, and comparing saved offers side by side.
+Sign Check is an Expo / React Native app for car buyers who want help preparing for dealership negotiations, reviewing financing offers, spotting pressure tactics, and comparing saved offers side by side.
 
 ## What the app does
 

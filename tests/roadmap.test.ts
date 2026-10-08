@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { createInitialAppData } from '../utils/app-state.ts';
-import { buildCarBuyingRoadmap, isRoadmapBudgetComplete } from '../utils/roadmap.ts';
+import { addLotNegotiationFlag, buildCarBuyingRoadmap, isRoadmapBudgetComplete, markLotCheckClear, removeLotNegotiationFlag } from '../utils/roadmap.ts';
 
 test('buildCarBuyingRoadmap starts on budget and locks later milestones', () => {
   const roadmap = buildCarBuyingRoadmap(createInitialAppData(), false);
@@ -77,6 +77,85 @@ test('buildCarBuyingRoadmap marks quick check complete when offers are saved eve
   assert.equal(roadmap.steps[1]?.status, 'completed');
   assert.equal(roadmap.currentStepId, 'lotInspection');
   assert.match(roadmap.steps[1]?.summary ?? '', /2 quotes saved/i);
+});
+
+test('buildCarBuyingRoadmap completes physical lot check when the visit has no red flags', () => {
+  const appData = createInitialAppData();
+  appData.deal.targetTotalPaid = '32000';
+  appData.deal.vehiclePrice = '25995';
+  appData.deal.apr = '8.9';
+  appData.lotCheckClear = true;
+
+  const roadmap = buildCarBuyingRoadmap(appData, true);
+
+  assert.equal(roadmap.steps[2]?.status, 'completed');
+  assert.equal(roadmap.currentStepId, 'contractScan');
+  assert.match(roadmap.steps[2]?.summary ?? '', /No red flags/i);
+});
+
+test('removing a lot flag drops it from the physical lot check count', () => {
+  const appData = createInitialAppData();
+  appData.deal.targetTotalPaid = '32000';
+  appData.deal.vehiclePrice = '25995';
+  appData.deal.apr = '8.9';
+  const flagged = addLotNegotiationFlag(
+    appData,
+    'paymentShift',
+    {
+      id: 'incident-1',
+      flag: 'paymentShift',
+      dealershipName: 'Metro Auto',
+      notedAt: '2026-10-08T12:00:00.000Z',
+    },
+    {
+      id: 'timeline-1',
+      dealershipName: 'Metro Auto',
+      type: 'pressureLogged',
+      title: 'Pressure tactic logged',
+      detail: 'paymentShift was marked during the dealership session.',
+      createdAt: '2026-10-08T12:00:00.000Z',
+    }
+  );
+  const cleared = removeLotNegotiationFlag(flagged, 'paymentShift');
+  const roadmap = buildCarBuyingRoadmap(cleared, true);
+
+  assert.equal(cleared.negotiationFlags.length, 0);
+  assert.equal(cleared.pressureIncidents.length, 0);
+  assert.equal(cleared.visitTimeline.length, 0);
+  assert.equal(roadmap.steps[2]?.status, 'active');
+  assert.equal(roadmap.currentStepId, 'lotInspection');
+});
+
+test('no red flags replaces flags that were logged earlier', () => {
+  const appData = createInitialAppData();
+  appData.deal.targetTotalPaid = '32000';
+  appData.deal.vehiclePrice = '25995';
+  appData.deal.apr = '8.9';
+  appData.negotiationFlags = ['todayOnly', 'managerTrip'];
+  appData.pressureIncidents = [
+    { id: 'incident-1', flag: 'todayOnly', dealershipName: 'Metro Auto', notedAt: '2026-10-08T12:00:00.000Z' },
+    { id: 'incident-2', flag: 'managerTrip', dealershipName: 'Metro Auto', notedAt: '2026-10-08T12:05:00.000Z' },
+  ];
+  appData.visitTimeline = [
+    {
+      id: 'timeline-1',
+      dealershipName: 'Metro Auto',
+      type: 'pressureLogged',
+      title: 'Pressure tactic logged',
+      detail: 'todayOnly was marked during the dealership session.',
+      createdAt: '2026-10-08T12:00:00.000Z',
+    },
+  ];
+
+  const cleared = markLotCheckClear(appData);
+  const roadmap = buildCarBuyingRoadmap(cleared, true);
+
+  assert.equal(cleared.lotCheckClear, true);
+  assert.equal(cleared.negotiationFlags.length, 0);
+  assert.equal(cleared.pressureIncidents.length, 0);
+  assert.equal(cleared.visitTimeline.length, 0);
+  assert.equal(roadmap.steps[2]?.status, 'completed');
+  assert.match(roadmap.steps[2]?.summary ?? '', /No red flags/i);
 });
 
 test('buildCarBuyingRoadmap unlocks physical lot check for premium users', () => {

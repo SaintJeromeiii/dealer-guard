@@ -66,7 +66,7 @@ export default function AnalyzerHubContent({
             description={
               budgetComplete
                 ? 'Check price, fees, and interest against your walk-away number.'
-                : 'Set a walk-away number on Shield before reviewing a quote.'
+                : 'Set a walk-away number in Sign Check before reviewing a quote.'
             }
             requiresBudget
             budgetComplete={budgetComplete}

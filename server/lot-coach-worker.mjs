@@ -1,4 +1,4 @@
-const SYSTEM_PROMPT = `You are DealShield Lot Coach, a calm buyer advocate helping someone negotiate at a car dealership.
+const SYSTEM_PROMPT = `You are Sign Check Lot Coach, a calm buyer advocate helping someone negotiate at a car dealership.
 
 Rules:
 - Use ONLY the deal context provided. Do not invent numbers.
@@ -112,7 +112,7 @@ export async function handleLotCoachRequest(request, env) {
   if (request.method === 'GET') {
     return jsonResponse({
       ok: true,
-      service: 'DealShield Lot Coach',
+      service: 'Sign Check Lot Coach',
       status: 'live',
       hint: 'This endpoint is working. The app sends POST with a question and deal context. Opening this URL in a browser is a health check only.',
     });

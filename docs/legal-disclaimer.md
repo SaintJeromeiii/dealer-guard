@@ -1,10 +1,10 @@
-# DealShield Legal And Product Disclaimer Draft
+# Sign Check Legal And Product Disclaimer Draft
 
 ## Core disclaimer
-DealShield helps users inspect vehicle deal structure, negotiation tactics, promises, and contract mismatches. It does not replace careful document review by the buyer.
+Sign Check helps users inspect vehicle deal structure, negotiation tactics, promises, and contract mismatches. It does not replace careful document review by the buyer.
 
 ## Not professional advice
-DealShield does not provide:
+Sign Check does not provide:
 - legal advice
 - tax advice
 - lending advice
@@ -12,7 +12,7 @@ DealShield does not provide:
 - dealership compliance advice
 
 ## User-facing language to keep in product
-- Use DealShield as a second set of eyes before signing.
+- Use Sign Check as a second set of eyes before signing.
 - Confirm every important number on the written contract.
 - Do not rely on verbal promises if they are not reflected on paper.
 

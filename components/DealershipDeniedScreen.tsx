@@ -28,7 +28,7 @@ export default function DealershipDeniedScreen({ onSwitchToBuyer }: { onSwitchTo
         <Card>
           <Text style={styles.cardTitle}>Nice try, finance manager.</Text>
           <Text style={styles.cardText}>
-            DealShield is only for the person buying the car. If you tapped this by mistake, switch back to buyer and we’ll open the protection tools.
+            Sign Check is only for the person buying the car. If you tapped this by mistake, switch back to buyer and we’ll open the protection tools.
           </Text>
           <Text style={styles.cardText}>
             This app does not negotiate on behalf of the desk. Please return the phone to the person buying the car.
@@ -38,7 +38,7 @@ export default function DealershipDeniedScreen({ onSwitchToBuyer }: { onSwitchTo
           </View>
         </Card>
 
-        <Text style={styles.footer}>DealShield • Hand the phone back • #BuyerSideOnly</Text>
+        <Text style={styles.footer}>Sign Check • Hand the phone back • #BuyerSideOnly</Text>
       </View>
     </View>
   );

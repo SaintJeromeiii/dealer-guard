@@ -59,7 +59,7 @@ export default function GuidedBuyerSetupCard({
       ) : (
         <>
           <Text style={styles.hero}>
-            Tell DealShield whether this is your first car purchase so we can put the right checklist and roadmap in front of you.
+            Tell Sign Check whether this is your first car purchase so we can put the right checklist and roadmap in front of you.
           </Text>
           <View style={styles.stackGap}>
             <AppButton label="First-time buyer" onPress={onFirstTimeBuyer} />

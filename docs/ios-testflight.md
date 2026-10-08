@@ -1,6 +1,6 @@
 # iOS TestFlight Build
 
-Use this flow to upload DealShield to App Store Connect. You do **not** need Xcode, Transporter, or `altool`. EAS Build produces the `.ipa` and EAS Submit uploads it.
+Use this flow to upload Sign Check to App Store Connect. You do **not** need Xcode, Transporter, or `altool`. EAS Build produces the `.ipa` and EAS Submit uploads it.
 
 ## App identity
 - Bundle ID: `com.jleonanderson.signshield`
@@ -26,7 +26,7 @@ The app’s minimum iOS version is **15.5** because photo OCR (`@react-native-ml
 ## One-time setup
 
 ### 1. Confirm the App Store Connect app exists
-App Store Connect → Apps → DealShield. Bundle ID must be `com.jleonanderson.signshield`.
+App Store Connect → Apps → Sign Check. Bundle ID must be `com.jleonanderson.signshield`.
 
 Optional: copy the numeric **Apple ID** from **App Information** and later add it to `eas.json` as `submit.testflight.ios.ascAppId`. EAS can also match the app by bundle ID on the first submit.
 
@@ -73,7 +73,7 @@ EAS Submit is the Transporter step. After Apple processes the binary (often 10�
 
 1. App Store Connect → TestFlight → Internal Testing
 2. Add your Apple ID as a tester if it is not already on the team
-3. Install **TestFlight** from the App Store, then install DealShield from the TestFlight invite
+3. Install **TestFlight** from the App Store, then install Sign Check from the TestFlight invite
 
 Internal testers do not need Beta App Review. External testers do, for the first build of a version.
 

@@ -930,8 +930,8 @@ export function buildWhyOfferWinsExplanation(
   return {
     headline: `Why ${winnerName} ranks ahead of ${runnerName}`,
     summary: paymentPacking
-      ? 'Lower monthly does not always mean the better deal. DealShield ranks on risk + total cost, not payment alone.'
-      : 'DealShield weighs warning signs first, then estimated total paid and monthly payment.',
+      ? 'Lower monthly does not always mean the better deal. Sign Check ranks on risk + total cost, not payment alone.'
+      : 'Sign Check weighs warning signs first, then estimated total paid and monthly payment.',
     bullets: bullets.length ? bullets : [`${winnerName} currently edges ${runnerName} on the combined risk and cost score.`],
   };
 }
@@ -1808,8 +1808,8 @@ export function buildPersonalizedInsight(
   return {
     headline: normalizedDealer ? 'What your history says about this dealership' : 'What your recent deal history suggests',
     detail: normalizedDealer
-      ? 'DealShield is starting to build memory across revisions, promises, and pressure tactics so you do not have to rely on instinct alone.'
-      : 'DealShield is starting to learn where your negotiation friction tends to happen.',
+      ? 'Sign Check is starting to build memory across revisions, promises, and pressure tactics so you do not have to rely on instinct alone.'
+      : 'Sign Check is starting to learn where your negotiation friction tends to happen.',
     bullets: bullets.slice(0, 4),
   };
 }
@@ -1978,7 +1978,7 @@ export function buildMonetizationSummary(
   }
 
   return {
-    headline: tier === 'pro' ? 'DealShield Pro is active' : 'You are on DealShield Free',
+    headline: tier === 'pro' ? 'Sign Check Pro is active' : 'You are on Sign Check Free',
     detail:
       tier === 'pro'
         ? 'Premium tools are unlocked: live dealership mode, what-if lab, finance office defense, shareable buyer report, and dealer scorecards.'
@@ -2039,8 +2039,8 @@ export function buildSavingsProof(
   return {
     headline:
       totalProtectedEstimate > 0
-        ? `DealShield is currently helping protect about ${currency(totalProtectedEstimate)} in visible deal value.`
-        : 'DealShield is helping turn hidden risk into something you can actually inspect before you sign.',
+        ? `Sign Check is currently helping protect about ${currency(totalProtectedEstimate)} in visible deal value.`
+        : 'Sign Check is helping turn hidden risk into something you can actually inspect before you sign.',
     detail:
       totalProtectedEstimate > 0
         ? 'This is not a guaranteed savings number. It is a simple estimate of the dollars you can now see, question, and negotiate because the structure is clearer.'
@@ -2097,7 +2097,7 @@ export function buildOnboardingSummary(preferences: {
 
   return {
     headline: preferences.onboardingComplete ? 'Your guided setup is active.' : 'Finish this 30-second setup for sharper guidance.',
-    detail: `DealShield is currently tuned for a ${buyerStageLabel}, ${financingLabel}, ${creditLabel}${preferences.hasTrade ? ', and a trade-in' : ''}.`,
+    detail: `Sign Check is currently tuned for a ${buyerStageLabel}, ${financingLabel}, ${creditLabel}${preferences.hasTrade ? ', and a trade-in' : ''}.`,
   };
 }
 
@@ -2148,9 +2148,9 @@ export function buildReferralLoop(
 
   return {
     headline: 'Bring another person into the decision before you sign.',
-    detail: `People naturally ask a spouse, friend, or advisor to sanity-check a big purchase. Give them a quick summary first, then invite them into DealShield if they want the deeper breakdown.`,
-    inviteMessage: `${secondOpinionShare}\n\nIf you want the same kind of breakdown for your own car deal, I used DealShield to catch the structure fast.`,
-    followUpMessage: `I just ran ${dealerLabel} through DealShield and it came back as ${analysis.dealVerdict}. The app says my best move is ${recommendation.action.toLowerCase()}. If you want, I can send you the quick summary I shared.`,
+    detail: `People naturally ask a spouse, friend, or advisor to sanity-check a big purchase. Give them a quick summary first, then invite them into Sign Check if they want the deeper breakdown.`,
+    inviteMessage: `${secondOpinionShare}\n\nIf you want the same kind of breakdown for your own car deal, I used Sign Check to catch the structure fast.`,
+    followUpMessage: `I just ran ${dealerLabel} through Sign Check and it came back as ${analysis.dealVerdict}. The app says my best move is ${recommendation.action.toLowerCase()}. If you want, I can send you the quick summary I shared.`,
   };
 }
 
@@ -2170,7 +2170,7 @@ export function buildVisitCaseSummary(entries: VisitTimelineEntry[], dealershipN
     .slice(0, 8);
 
   return [
-    `DealShield visit case file${dealershipName ? `: ${dealershipName}` : ''}`,
+    `Sign Check visit case file${dealershipName ? `: ${dealershipName}` : ''}`,
     '',
     ...ordered.map((entry) => `- ${new Date(entry.createdAt).toLocaleString()}: ${entry.title}. ${entry.detail}`),
   ].join('\n');
@@ -2269,7 +2269,7 @@ export function buildPaperworkAudit(deal: DealState): PaperworkAudit | null {
 
 export function buildPaperworkAuditSummary(deal: DealState, audit: PaperworkAudit) {
   return [
-    `DealShield paperwork audit${deal.dealershipName ? `: ${deal.dealershipName}` : ''}`,
+    `Sign Check paperwork audit${deal.dealershipName ? `: ${deal.dealershipName}` : ''}`,
     '',
     audit.headline,
     '',
@@ -2379,7 +2379,7 @@ export function buildComparisonSummary(firstDeal: SavedDeal, secondDeal: SavedDe
         : secondDeal.dealershipName || 'Offer 2';
 
   return [
-    'DealShield comparison summary',
+    'Sign Check comparison summary',
     '',
     `${firstDeal.dealershipName || 'Offer 1'}`,
     `- State context: ${getStateName(firstDeal.buyerStateCode)}`,
@@ -2403,7 +2403,7 @@ export function buildComparisonSummary(firstDeal: SavedDeal, secondDeal: SavedDe
 
 export function buildCurrentDealSummary(deal: DealState, analysis: DealAnalysis) {
   return [
-    `DealShield offer review${deal.dealershipName ? `: ${deal.dealershipName}` : ''}`,
+    `Sign Check offer review${deal.dealershipName ? `: ${deal.dealershipName}` : ''}`,
     '',
     `State context: ${getStateName(deal.buyerStateCode)}`,
     `Verdict: ${analysis.dealVerdict}`,
@@ -2425,7 +2425,7 @@ export function buildCurrentDealSummary(deal: DealState, analysis: DealAnalysis)
 
 export function buildNegotiationPlanSummary(deal: DealState, analysis: DealAnalysis, plan: NegotiationPlan) {
   return [
-    `DealShield negotiation blueprint${deal.dealershipName ? `: ${deal.dealershipName}` : ''}`,
+    `Sign Check negotiation blueprint${deal.dealershipName ? `: ${deal.dealershipName}` : ''}`,
     '',
     `Verdict: ${analysis.dealVerdict}`,
     plan.headline,
@@ -2454,7 +2454,7 @@ export function buildBuyerReport(
   paperworkAudit: PaperworkAudit | null
 ) {
   return [
-    `DealShield buyer report${deal.dealershipName ? `: ${deal.dealershipName}` : ''}`,
+    `Sign Check buyer report${deal.dealershipName ? `: ${deal.dealershipName}` : ''}`,
     '',
     'Snapshot',
     `- State context: ${getStateName(deal.buyerStateCode)}`,
@@ -2511,7 +2511,7 @@ export function buildSecondOpinionShare(
   return [
     `Can you sanity-check this car deal with me${deal.dealershipName ? ` from ${deal.dealershipName}` : ''}?`,
     '',
-    `DealShield flagged it as: ${analysis.dealVerdict}`,
+    `Sign Check flagged it as: ${analysis.dealVerdict}`,
     `Recommended move: ${recommendation.action}`,
     `Estimated monthly: ${currency(analysis.monthlyPayment)}`,
     `Estimated total paid: ${currency(analysis.totalPaid)}`,
@@ -2520,6 +2520,6 @@ export function buildSecondOpinionShare(
     `Biggest concern: ${firstWarning}`,
     `Best next move: ${negotiationPlan.strongestMove}`,
     '',
-    'I ran this through DealShield before signing. Want me to send you the full breakdown too?',
+    'I ran this through Sign Check before signing. Want me to send you the full breakdown too?',
   ].join('\n');
 }

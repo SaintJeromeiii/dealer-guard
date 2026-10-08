@@ -239,7 +239,7 @@ async function syncRevenueCatBillingState(currentTier: PremiumTier): Promise<Bil
         provider: 'revenuecat',
         isConfigured: true,
         offeringsLoaded: false,
-        packageLabel: currentTier === 'pro' ? 'DealShield Pro Active' : 'DealShield Pro',
+        packageLabel: currentTier === 'pro' ? 'Sign Check Pro Active' : 'Sign Check Pro',
         entitlementStatus: currentTier === 'pro' ? 'active' : 'inactive',
         offeringId: config.revenueCatOfferingId ?? null,
         packageId: lifetimeProductId,
@@ -264,10 +264,10 @@ async function syncRevenueCatBillingState(currentTier: PremiumTier): Promise<Bil
       offeringsLoaded: !!lifetimeProduct || !!offeringPackage,
       packageLabel:
         tier === 'pro'
-          ? 'DealShield Pro Active'
+          ? 'Sign Check Pro Active'
           : activeProduct
             ? formatStoreProductLabel(activeProduct)
-            : 'DealShield Pro Lifetime',
+            : 'Sign Check Pro Lifetime',
       entitlementStatus: tier === 'pro' ? 'active' : 'inactive',
       offeringId: offerings.current?.identifier ?? config.revenueCatOfferingId ?? null,
       packageId: activeProduct?.identifier ?? lifetimeProductId,
@@ -284,7 +284,7 @@ async function syncRevenueCatBillingState(currentTier: PremiumTier): Promise<Bil
       provider: 'revenuecat',
       isConfigured: true,
       offeringsLoaded: false,
-      packageLabel: currentTier === 'pro' ? 'DealShield Pro Active' : 'DealShield Pro Lifetime',
+      packageLabel: currentTier === 'pro' ? 'Sign Check Pro Active' : 'Sign Check Pro Lifetime',
       entitlementStatus: currentTier === 'pro' ? 'active' : 'inactive',
       offeringId: config.revenueCatOfferingId ?? null,
       packageId: lifetimeProductId,
@@ -299,7 +299,7 @@ function buildMockBillingState(currentTier: PremiumTier): BillingState {
     provider: 'mock',
     isConfigured: false,
     offeringsLoaded: true,
-    packageLabel: currentTier === 'pro' ? 'DealShield Pro Active' : 'DealShield Pro Lifetime',
+    packageLabel: currentTier === 'pro' ? 'Sign Check Pro Active' : 'Sign Check Pro Lifetime',
     entitlementStatus: currentTier === 'pro' ? 'active' : 'inactive',
     offeringId: null,
     packageId: getLifetimeProductId(getRuntimeConfig()),
@@ -328,8 +328,8 @@ async function purchaseLifetimeProduct(
     tier: 'pro',
     note:
       tier === 'pro'
-        ? 'Lifetime purchase completed. DealShield Pro is now active on this account.'
-        : 'Purchase completed. DealShield Pro is unlocked on this device while the store finishes syncing.',
+        ? 'Lifetime purchase completed. Sign Check Pro is now active on this account.'
+        : 'Purchase completed. Sign Check Pro is unlocked on this device while the store finishes syncing.',
   };
 }
 
@@ -354,8 +354,8 @@ async function purchaseOfferingPackage(
     tier: 'pro',
     note:
       tier === 'pro'
-        ? 'Purchase completed and DealShield Pro is now active.'
-        : 'Purchase completed. DealShield Pro is unlocked on this device while the store finishes syncing.',
+        ? 'Purchase completed and Sign Check Pro is now active.'
+        : 'Purchase completed. Sign Check Pro is unlocked on this device while the store finishes syncing.',
   };
 }
 
@@ -397,7 +397,7 @@ export async function getBillingDiagnostics(currentTier: PremiumTier = 'free'): 
       packageName,
       offeringsLoaded: true,
       productResolved: true,
-      productLabel: 'DealShield Pro Active (dev bypass)',
+      productLabel: 'Sign Check Pro Active (dev bypass)',
       appUserId: null,
       syncNote: buildBypassBillingState().customerInfoNote,
       setupHints: [
@@ -484,7 +484,7 @@ export async function purchaseProEntitlement(): Promise<{ tier: PremiumTier; not
   if (isPaywallBypassed()) {
     return {
       tier: 'pro',
-      note: 'MOCK_REVENUECAT_VALIDATION is enabled. DealShield Pro is already unlocked on this device for local testing.',
+      note: 'MOCK_REVENUECAT_VALIDATION is enabled. Sign Check Pro is already unlocked on this device for local testing.',
     };
   }
 
@@ -494,7 +494,7 @@ export async function purchaseProEntitlement(): Promise<{ tier: PremiumTier; not
   if (!apiKey) {
     return {
       tier: 'free',
-      note: 'Google Play billing is not available in this build. Install DealShield from the Play Store closed test to purchase lifetime Pro.',
+      note: 'Google Play billing is not available in this build. Install Sign Check from the Play Store closed test to purchase lifetime Pro.',
     };
   }
 
@@ -645,7 +645,7 @@ export async function restoreProEntitlement(currentTier: PremiumTier): Promise<{
   if (isPaywallBypassed()) {
     return {
       tier: 'pro',
-      note: 'MOCK_REVENUECAT_VALIDATION is enabled. DealShield Pro is already active on this device.',
+      note: 'MOCK_REVENUECAT_VALIDATION is enabled. Sign Check Pro is already active on this device.',
     };
   }
 

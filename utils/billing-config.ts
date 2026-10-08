@@ -34,7 +34,7 @@ export function buildBypassBillingState(): BillingState {
     provider: 'mock',
     isConfigured: true,
     offeringsLoaded: true,
-    packageLabel: 'DealShield Pro Active (dev bypass)',
+    packageLabel: 'Sign Check Pro Active (dev bypass)',
     entitlementStatus: 'active',
     offeringId: null,
     packageId: 'ds_premium_lifetime',

@@ -177,7 +177,7 @@ import {
   buildSampleDealState,
   SAMPLE_DEAL_PRESSURE_FLAGS,
 } from '@/utils/sample-deal';
-import { buildCarBuyingRoadmap, isRoadmapBudgetComplete, type RoadmapStepId } from '@/utils/roadmap';
+import { addLotNegotiationFlag, buildCarBuyingRoadmap, isRoadmapBudgetComplete, markLotCheckClear, removeLotNegotiationFlag, type RoadmapStepId } from '@/utils/roadmap';
 import { loadAppData, resetStoredAppData, saveAppData } from '@/utils/storage';
 import type {
   AnalyticsEvent,
@@ -233,7 +233,7 @@ const CALCULATOR_SCREENS = new Set<Screen>([
 ]);
 
 const SCREEN_TITLES: Partial<Record<Screen, string>> = {
-  scanHub: 'The Shield',
+  scanHub: 'The Golden Check',
   analyzerHub: 'Deal Calculator',
   tacticsHub: 'Tactician Guide',
   settingsHub: 'Settings',
@@ -289,7 +289,7 @@ function resolveBottomTabForScreen(screen: Screen, tab?: MainTab): BottomTab | n
 
 const TAB_HEADER_COPY: Record<MainTab, { title: string; subtitle: string }> = {
   scan: {
-    title: 'The Shield',
+    title: 'The Golden Check',
     subtitle: 'Start with guided buyer setup, then follow the car buying roadmap from budget to contract scan.',
   },
   analyzer: {
@@ -366,7 +366,7 @@ function PremiumPreviewCard({
         {showPreviewOption && onPreview ? (
           <AppButton label="Preview Pro tools" variant="secondary" onPress={onPreview} />
         ) : null}
-        <AppButton label={showPreviewOption ? 'Try purchase again' : 'Unlock with DealShield Pro'} onPress={onPaywall} />
+        <AppButton label={showPreviewOption ? 'Try purchase again' : 'Unlock with Sign Check Pro'} onPress={onPaywall} />
       </Card>
     </TouchableOpacity>
   );
@@ -523,7 +523,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
     dismissed: false,
   });
   const [showPremiumPreviewBanner, setShowPremiumPreviewBanner] = useState(false);
-  const [showDeskDetails, setShowDeskDetails] = useState(false);
+  const [deskSection, setDeskSection] = useState<'flags' | 'coaching' | 'score' | 'visit' | null>(null);
   const [simulatorIndex, setSimulatorIndex] = useState(0);
   const [ocrConfirmedFields, setOcrConfirmedFields] = useState<Record<string, boolean>>({});
   const [pendingListingImport, setPendingListingImport] = useState<ListingImportResult | null>(null);
@@ -544,7 +544,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
           ? {
               ...billing,
               entitlementStatus: 'active',
-              packageLabel: 'DealShield Pro Active (mock validation)',
+              packageLabel: 'Sign Check Pro Active (mock validation)',
               customerInfoNote:
                 'MOCK_REVENUECAT_VALIDATION is enabled for local development only. Disable before store submission.',
             }
@@ -651,7 +651,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
   }
 
   function openClosedBetaFeedback() {
-    void openExternalLink(getClosedBetaFeedbackUrl(), 'Closed-test feedback');
+    void openExternalLink(getClosedBetaFeedbackUrl(), 'Feedback');
   }
 
   useEffect(() => {
@@ -1223,13 +1223,13 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
       },
     }));
     startQuestionFlow('scan');
-    trackEvent('first_time_mode_enabled', 'First-time mode enabled', 'Started the guided first-time buyer setup flow from Shield.');
+    trackEvent('first_time_mode_enabled', 'First-time mode enabled', 'Started the guided first-time buyer setup flow from Sign Check.');
   }
 
   function startExperiencedBuyerSetup() {
     setExperienceMode('standard');
     startQuestionFlow('scan');
-    trackEvent('experienced_buyer_setup_started', 'Experienced buyer setup started', 'Started guided setup for a returning buyer from Shield.');
+    trackEvent('experienced_buyer_setup_started', 'Experienced buyer setup started', 'Started guided setup for a returning buyer from Sign Check.');
   }
 
   function disableFirstTimeBuyerMode() {
@@ -1239,7 +1239,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
 
   function startGuidedBuyerSetup() {
     startQuestionFlow('scan');
-    trackEvent('guided_setup_started', 'Guided setup started', 'Reopened the readiness questionnaire from Shield.');
+    trackEvent('guided_setup_started', 'Guided setup started', 'Reopened the readiness questionnaire from Sign Check.');
   }
 
   function routeAfterQuestionFlow() {
@@ -1252,7 +1252,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
 
     setMainTab('scan');
     setScreen('scanHub');
-    trackEvent('experienced_buyer_routed_roadmap', 'Experienced buyer routed to roadmap', 'Returned a returning buyer to the Shield roadmap after setup.');
+    trackEvent('experienced_buyer_routed_roadmap', 'Experienced buyer routed to roadmap', 'Returned a returning buyer to the Sign Check roadmap after setup.');
   }
 
   function completeQuestionFlow() {
@@ -1313,31 +1313,31 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
       const result = await purchaseProEntitlement();
       const billing = await initializeBilling(result.tier);
       applyBillingState(billing, result.tier);
-      trackEvent('purchase_started', 'DealShield Pro purchase', result.note);
+      trackEvent('purchase_started', 'Sign Check Pro purchase', result.note);
       if (result.tier === 'pro') {
-        Alert.alert('DealShield Pro', result.note);
+        Alert.alert('Sign Check Pro', result.note);
         setShowProActivatedBanner(true);
         onSuccess?.();
       } else if (result.note === 'Purchase cancelled.') {
-        Alert.alert('DealShield Pro', result.note);
+        Alert.alert('Sign Check Pro', result.note);
       } else if (isPremiumPreviewAllowed() && (billingStoreUnavailable || isBillingStoreUnavailable(billing))) {
-        Alert.alert('DealShield Pro', `${result.note}\n\nBilling is still syncing. You can preview Pro tools instead.`, [
+        Alert.alert('Sign Check Pro', `${result.note}\n\nBilling is still syncing. You can preview Pro tools instead.`, [
           { text: 'OK', style: 'cancel' },
           { text: 'Preview Pro tools', onPress: () => void enablePremiumPreview(onSuccess) },
         ]);
       } else {
-        Alert.alert('DealShield Pro', result.note);
+        Alert.alert('Sign Check Pro', result.note);
       }
       await refreshBillingDiagnostics(result.tier);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Purchase could not start.';
       if (isPremiumPreviewAllowed()) {
-        Alert.alert('DealShield Pro', `${message}\n\nYou can preview Pro tools while billing sync completes.`, [
+        Alert.alert('Sign Check Pro', `${message}\n\nYou can preview Pro tools while billing sync completes.`, [
           { text: 'OK', style: 'cancel' },
           { text: 'Preview Pro tools', onPress: () => void enablePremiumPreview(onSuccess) },
         ]);
       } else {
-        Alert.alert('DealShield Pro', message);
+        Alert.alert('Sign Check Pro', message);
       }
     } finally {
       setBillingBusy(false);
@@ -1805,7 +1805,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
       const html = `
         <html>
           <body style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; padding: 24px;">
-            <h1>DealShield Buyer Case File</h1>
+            <h1>Sign Check Buyer Case File</h1>
             <pre style="white-space: pre-wrap; font-size: 13px;">${buyerReport.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</pre>
             <hr />
             <pre style="white-space: pre-wrap; font-size: 12px;">${visitCaseSummary.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</pre>
@@ -1931,7 +1931,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
   function promptBudgetGate() {
     Alert.alert(
       'Set your budget first',
-      'Complete Step 1: Budget on Shield before reviewing dealership quotes. This locks in your walk-away numbers.',
+      'Complete Step 1: Budget in Sign Check before reviewing dealership quotes. This locks in your walk-away numbers.',
       [
         { text: 'Not now', style: 'cancel' },
         { text: 'Set budget', onPress: openBudgetSetup },
@@ -2152,13 +2152,13 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
 
   function exportLocalBackup() {
     const backup = JSON.stringify(appData, null, 2);
-    void copyText('DealShield backup', backup);
+    void copyText('Sign Check backup', backup);
     trackEvent('backup_exported', 'Local backup exported', 'Copied a full local backup of the current app state.');
   }
 
   function importLocalBackup() {
     if (!backupDraft.trim()) {
-      Alert.alert('Paste a backup first', 'Paste the exported DealShield backup JSON before trying to import it.');
+      Alert.alert('Paste a backup first', 'Paste the exported Sign Check backup JSON before trying to import it.');
       return;
     }
 
@@ -2198,32 +2198,28 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
   }
 
   function toggleNegotiationFlag(flag: NegotiationFlag) {
-    setAppData((prev) => ({
-      ...prev,
-      negotiationFlags: prev.negotiationFlags.includes(flag)
-        ? prev.negotiationFlags.filter((item) => item !== flag)
-        : [...prev.negotiationFlags, flag],
-      pressureIncidents: prev.negotiationFlags.includes(flag)
-        ? prev.pressureIncidents
-        : [
-            {
-              id: makeId(),
-              flag,
-              dealershipName: prev.deal.dealershipName.trim() || 'Unnamed dealership',
-              notedAt: new Date().toISOString(),
-            },
-            ...prev.pressureIncidents,
-          ].slice(0, 50),
-    }));
-    if (!appData.negotiationFlags.includes(flag)) {
+    const adding = !appData.negotiationFlags.includes(flag);
+    setAppData((prev) => {
+      if (prev.negotiationFlags.includes(flag)) return removeLotNegotiationFlag(prev, flag);
+      return addLotNegotiationFlag(
+        prev,
+        flag,
+        {
+          id: makeId(),
+          flag,
+          dealershipName: prev.deal.dealershipName.trim() || 'Unnamed dealership',
+          notedAt: new Date().toISOString(),
+        },
+        createTimelineEntry('pressureLogged', prev.deal.dealershipName, 'Pressure tactic logged', `${flag} was marked during the dealership session.`)
+      );
+    });
+    if (adding) {
       incrementUsage('tacticsLogged');
-      appendTimelineEntry('pressureLogged', 'Pressure tactic logged', `${flag} was marked during the dealership session.`);
       void completeClosedBetaStep('pressureLogged');
     }
   }
 
   function logDeskTactic(flag: NegotiationFlag) {
-    if (appData.negotiationFlags.includes(flag)) return;
     toggleNegotiationFlag(flag);
   }
 
@@ -2564,7 +2560,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
   const paperworkAuditSummary = paperworkAudit ? buildPaperworkAuditSummary(appData.deal, paperworkAudit) : '';
   const dealInputGuidance = buildDealInputGuidance(appData.deal, dealConfidence);
   const whatIfSummary = [
-    `DealShield what-if lab${appData.deal.dealershipName ? `: ${appData.deal.dealershipName}` : ''}`,
+    `Sign Check what-if lab${appData.deal.dealershipName ? `: ${appData.deal.dealershipName}` : ''}`,
     '',
     whatIfComparison.headline,
     whatIfComparison.detail,
@@ -2777,7 +2773,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
 
             <Card>
               <View style={styles.rowBetween}>
-                <Text style={styles.menuTitle}>DealShield Pro</Text>
+                <Text style={styles.menuTitle}>Sign Check Pro</Text>
                 <StatusBadge
                   label={isPro ? 'Pro active' : isPremiumPreview ? 'Premium Preview' : 'Free plan'}
                   tone={isPro ? 'good' : isPremiumPreview ? 'warn' : 'warn'}
@@ -3019,23 +3015,45 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
             />
 
             <AppButton
-              label={showDeskDetails ? 'Hide extra session tools' : 'More session tools'}
-              variant="secondary"
-              onPress={() => setShowDeskDetails((prev) => !prev)}
+              label={appData.lotCheckClear ? 'No red flags saved' : 'No red flags'}
+              variant={appData.lotCheckClear ? 'secondary' : 'primary'}
+              onPress={() => {
+                setAppData((prev) => markLotCheckClear(prev));
+                trackEvent('lot_check_clear', 'No red flags', 'Physical lot check completed with no dealer red flags.');
+                goToHub('scan');
+              }}
             />
 
-            {showDeskDetails ? (
-              <>
-            <View style={styles.rowBetween}>
-              <Text style={styles.screenTitle}>Live dealership mode</Text>
-              <StatusBadge label={dealAnalysis.dealVerdict} tone={dealAnalysis.dealGradeTone} />
+            <View style={styles.deskSectionRow}>
+              {(
+                [
+                  ['flags', 'Flags'],
+                  ['coaching', 'Coaching'],
+                  ['score', 'Score'],
+                  ['visit', 'Visit'],
+                ] as const
+              ).map(([id, label]) => {
+                const selected = deskSection === id;
+                return (
+                  <TouchableOpacity
+                    key={id}
+                    style={[styles.deskSectionChip, selected && styles.deskSectionChipSelected]}
+                    onPress={() => setDeskSection((current) => (current === id ? null : id))}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={[styles.deskSectionChipText, selected && styles.deskSectionChipTextSelected]}>{label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
 
-              <View style={styles.statsRow}>
-                <View style={styles.statCard}>
-                  <Text style={styles.statLabel}>Readiness</Text>
-                  <Text style={styles.statValue}>{readinessLabel}</Text>
-                </View>
+            {deskSection === 'score' ? (
+              <>
+            <View style={styles.statsRow}>
+              <View style={styles.statCard}>
+                <Text style={styles.statLabel}>Readiness</Text>
+                <Text style={styles.statValue}>{readinessLabel}</Text>
+              </View>
               <View style={styles.statCard}>
                 <Text style={styles.statLabel}>Checklist done</Text>
                 <Text style={styles.statValue}>{checklistProgress}%</Text>
@@ -3062,7 +3080,11 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
               <Text style={styles.menuTitle}>Why the honesty score moved</Text>
               <ScoreBreakdown items={honestyScore.breakdown.map((item) => ({ ...item, tone: item.delta >= 0 ? 'good' : Math.abs(item.delta) >= 10 ? 'bad' : 'warn' }))} />
             </Card>
+              </>
+            ) : null}
 
+            {deskSection === 'visit' ? (
+              <>
             <Card>
               <Text style={styles.menuTitle}>Dealer pressure log</Text>
               <Text style={styles.detailText}>{pressureSummary.headline}</Text>
@@ -3084,7 +3106,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
                     </View>
                   ))
                 ) : (
-                  <Text style={styles.detailText}>No incidents logged yet. Tap the tactics below when they happen and the session record will build automatically.</Text>
+                  <Text style={styles.detailText}>No incidents logged yet. Open Flags when a tactic happens and this record will build automatically.</Text>
                 )}
               </View>
             </Card>
@@ -3108,6 +3130,38 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
               </View>
             </Card>
 
+            {hasProAccess ? (
+              <Card>
+                <View style={styles.proFeatureHeader}>
+                  <Text style={styles.menuTitle}>Session playbook</Text>
+                  <ProFeatureBadge unlocked />
+                </View>
+                <Text style={styles.detailText}>{sessionPlaybook.headline}</Text>
+                <View style={styles.stackGapSmall}>
+                  {sessionPlaybook.steps.map((step, index) => (
+                    <View key={`${step.title}-${index}`} style={styles.infoBox}>
+                      <Text style={styles.bold}>
+                        Step {index + 1}: {step.title}
+                      </Text>
+                      <Text style={styles.infoBoxText}>{step.detail}</Text>
+                    </View>
+                  ))}
+                </View>
+              </Card>
+            ) : (
+              <PremiumPreviewCard
+                title="Session playbook"
+                detail="At the lot, pressure moves fast and it's easy to forget what to ask next. Sign Check Pro turns your deal into a step-by-step visit plan—what to say first, which numbers to push, the questions to ask, and what to verify before you sign."
+                showPreviewOption={canOfferPremiumPreview && billingStoreUnavailable}
+                onPreview={() => promptPremiumPreview(() => openLiveDealershipMode())}
+                onPaywall={() => void startPaywallPurchase()}
+              />
+            )}
+              </>
+            ) : null}
+
+            {deskSection === 'coaching' ? (
+              <>
             <Card>
               <Text style={styles.menuTitle}>Live coaching</Text>
               <Text style={styles.detailText}>{liveCoachingPlan.headline}</Text>
@@ -3148,35 +3202,10 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
                 ))}
               </View>
             </Card>
+              </>
+            ) : null}
 
-            {hasProAccess ? (
-              <Card>
-                <View style={styles.proFeatureHeader}>
-                  <Text style={styles.menuTitle}>Session playbook</Text>
-                  <ProFeatureBadge unlocked />
-                </View>
-                <Text style={styles.detailText}>{sessionPlaybook.headline}</Text>
-                <View style={styles.stackGapSmall}>
-                  {sessionPlaybook.steps.map((step, index) => (
-                    <View key={`${step.title}-${index}`} style={styles.infoBox}>
-                      <Text style={styles.bold}>
-                        Step {index + 1}: {step.title}
-                      </Text>
-                      <Text style={styles.infoBoxText}>{step.detail}</Text>
-                    </View>
-                  ))}
-                </View>
-              </Card>
-            ) : (
-              <PremiumPreviewCard
-                title="Session playbook"
-                detail="At the lot, pressure moves fast and it's easy to forget what to ask next. DealShield Pro turns your deal into a step-by-step visit plan—what to say first, which numbers to push, the questions to ask, and what to verify before you sign."
-                showPreviewOption={canOfferPremiumPreview && billingStoreUnavailable}
-                onPreview={() => promptPremiumPreview(() => openLiveDealershipMode())}
-                onPaywall={() => void startPaywallPurchase()}
-              />
-            )}
-
+            {deskSection === 'flags' ? (
             <Card>
               <Text style={styles.menuTitle}>Pressure tactic tracker</Text>
               <View style={styles.stackGapSmall}>
@@ -3200,7 +3229,6 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
                 })}
               </View>
             </Card>
-              </>
             ) : null}
           </Card>
         ) : null}
@@ -3235,10 +3263,10 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
             {showProActivatedBanner ? (
               <Card>
                 <View style={styles.rowBetween}>
-                  <Text style={styles.menuTitle}>DealShield Pro active</Text>
+                  <Text style={styles.menuTitle}>Sign Check Pro active</Text>
                   <StatusBadge label="Unlocked" tone="good" />
                 </View>
-                <Text style={styles.detailText}>DealShield Pro tools are unlocked on this device.</Text>
+                <Text style={styles.detailText}>Sign Check Pro tools are unlocked on this device.</Text>
                 <AppButton label="Continue" variant="secondary" onPress={() => setShowProActivatedBanner(false)} />
               </Card>
             ) : null}
@@ -3257,7 +3285,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
                   onChangeText={(text) => updateDeal('targetTotalPaid', text)}
                   placeholder="28500"
                 />
-                <Text style={styles.fieldHint}>This is your personal ceiling — not DealShield’s suggested counter.</Text>
+                <Text style={styles.fieldHint}>This is your personal ceiling — not Sign Check’s suggested counter.</Text>
                 <DealInput label="Down payment" value={appData.deal.downPayment} onChangeText={(text) => updateDeal('downPayment', text)} placeholder="3000" />
                 <DealInput
                   label={experienceMode === 'firstTimeBuyer' ? 'The rate your bank or credit union offered' : 'Outside lender APR'}
@@ -3316,7 +3344,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
                 <StatusBadge label="Step 1 required" tone="warn" />
                 <Text style={styles.menuTitle}>Set your budget first</Text>
                 <Text style={styles.heroText}>
-                  Complete Step 1: Budget on Shield before reviewing dealership quotes. Your budget guardrails keep every quote check anchored to what you can actually afford.
+                  Complete Step 1: Budget in Sign Check before reviewing dealership quotes. Your budget guardrails keep every quote check anchored to what you can actually afford.
                 </Text>
                 <View style={styles.stackGap}>
                   <AppButton label="Set your budget" onPress={openBudgetSetup} />
@@ -3334,7 +3362,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
               <Card>
                 <Text style={styles.menuTitle}>Quick manual quote check</Text>
                 <Text style={styles.heroText}>
-                  Enter the numbers from your quote below. DealShield will analyze price, fees, APR, and total exposure without opening the camera.
+                  Enter the numbers from your quote below. Sign Check will analyze price, fees, APR, and total exposure without opening the camera.
                 </Text>
               </Card>
             ) : null}
@@ -3344,8 +3372,8 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
                 <Text style={styles.menuTitle}>Paste quote text</Text>
                 <Text style={styles.heroText}>
                   {experienceMode === 'firstTimeBuyer'
-                    ? 'Paste a text message or email quote, or take a photo. DealShield will pull out the important numbers.'
-                    : 'Paste a worksheet, text message, or email quote. DealShield will try to pull out price, APR, term, trade, and fee/add-on lines.'}
+                    ? 'Paste a text message or email quote, or take a photo. Sign Check will pull out the important numbers.'
+                    : 'Paste a worksheet, text message, or email quote. Sign Check will try to pull out price, APR, term, trade, and fee/add-on lines.'}
                 </Text>
                 <View style={styles.infoBox}>
                   <Text style={styles.bold}>Best results</Text>
@@ -3609,7 +3637,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
                       if (!estimate) {
                         Alert.alert(
                           'Need a vehicle price',
-                          'Enter the vehicle price first, then DealShield can estimate sales tax from your selected state.'
+                          'Enter the vehicle price first, then Sign Check can estimate sales tax from your selected state.'
                         );
                         return;
                       }
@@ -3654,7 +3682,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
                 onChangeText={(text) => updateDeal('targetTotalPaid', text)}
                 placeholder="28500"
               />
-              <Text style={styles.fieldHint}>Your personal ceiling from budget setup. DealShield may also suggest a separate negotiate-toward number on the verdict screen.</Text>
+              <Text style={styles.fieldHint}>Your personal ceiling from budget setup. Sign Check may also suggest a separate negotiate-toward number on the verdict screen.</Text>
               <LineItemEditor
                 title="Fee line items"
                 items={appData.deal.feeItems}
@@ -3722,7 +3750,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
 
             <Card>
               <Text style={styles.menuTitle}>Contract photo audit</Text>
-              <Text style={styles.detailText}>Choose a buyer&apos;s order or contract photo and let DealShield prefill the paperwork audit from OCR before you sign.</Text>
+              <Text style={styles.detailText}>Choose a buyer&apos;s order or contract photo and let Sign Check prefill the paperwork audit from OCR before you sign.</Text>
               <View style={styles.doubleButtons}>
                 <View style={styles.flexOne}>
                   <AppButton label="Choose contract photo" variant="secondary" onPress={() => void pickContractPhoto()} />
@@ -3758,11 +3786,11 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
                 <View style={styles.auditDashboardShell}>
                   <Card>
                     <View style={styles.auditDashboardHeader}>
-                      <Text style={styles.auditDashboardTitle}>⚠️ DEALSHIELD AUDIT: AUDITED ITEMS</Text>
+                      <Text style={styles.auditDashboardTitle}>⚠️ SIGN CHECK AUDIT: AUDITED ITEMS</Text>
                       <ProFeatureBadge unlocked />
                     </View>
                     <Text style={styles.auditDashboardSubtitle}>
-                      DealShield flagged {dealShieldAuditDashboard.flaggedCount} common dealership markup
+                      Sign Check flagged {dealShieldAuditDashboard.flaggedCount} common dealership markup
                       {dealShieldAuditDashboard.flaggedCount === 1 ? '' : 's'} in your scanned contract text.
                     </Text>
                     <View style={styles.stackGapSmall}>
@@ -3784,7 +3812,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
                 </View>
               ) : (
                 <PremiumPreviewCard
-                  title="DealShield Audit Dashboard"
+                  title="Sign Check Audit Dashboard"
                   detail={`We detected ${dealShieldAuditDashboard.flaggedCount} common dealership markup${dealShieldAuditDashboard.flaggedCount === 1 ? '' : 's'} in your contract scan—including items like etching, nitrogen, prep fees, or protection plans. Unlock Pro to see each fee, what it really is, and exactly how to request removal before signing.`}
                   onPaywall={() => void startPaywallPurchase()}
                 />
@@ -3830,7 +3858,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
 
             <Card>
               <Text style={styles.menuTitle}>Final paperwork audit</Text>
-              <Text style={styles.detailText}>Before signing, enter the numbers from the buyer&apos;s order or finance contract here. DealShield will compare them against the reviewed offer and flag late changes.</Text>
+              <Text style={styles.detailText}>Before signing, enter the numbers from the buyer&apos;s order or finance contract here. Sign Check will compare them against the reviewed offer and flag late changes.</Text>
               <Text style={styles.detailText}>If OCR misses something, the manual fields below are still the source of truth for the audit.</Text>
               <DealInput label="Contract vehicle price" value={appData.deal.contractVehiclePrice} onChangeText={(text) => updateDeal('contractVehiclePrice', text)} placeholder="25000" />
               <DealInput label="Contract fees" value={appData.deal.contractFees} onChangeText={(text) => updateDeal('contractFees', text)} placeholder="995" />
@@ -3885,7 +3913,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
                       label="Share paperwork audit"
                       onPress={() => {
                         appendTimelineEntry('paperworkChecked', 'Paperwork audit shared', 'Shared the paperwork audit summary.');
-                        void shareText('DealShield paperwork audit', paperworkAuditSummary);
+                        void shareText('Sign Check paperwork audit', paperworkAuditSummary);
                       }}
                     />
                   </View>
@@ -3899,7 +3927,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
               readiness={signingReadiness}
               onShareAudit={() => {
                 appendTimelineEntry('paperworkChecked', 'Paperwork audit shared', 'Shared the paperwork audit summary.');
-                void shareText('DealShield paperwork audit', paperworkAuditSummary);
+                void shareText('Sign Check paperwork audit', paperworkAuditSummary);
               }}
               onCheckpoint={completeSigningCheckpoint}
             />
@@ -3975,7 +4003,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
                   <View style={styles.stackGap}>
                     <AppButton
                       label="Share offer summary"
-                      onPress={() => void shareText('DealShield offer review', currentDealSummary)}
+                      onPress={() => void shareText('Sign Check offer review', currentDealSummary)}
                     />
                     {hasProAccess ? (
                       <AppButton
@@ -3983,7 +4011,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
                         variant="secondary"
                         onPress={() => {
                           incrementUsage('reportsShared');
-                          void shareText('DealShield buyer report', buyerReport);
+                          void shareText('Sign Check buyer report', buyerReport);
                         }}
                       />
                     ) : (
@@ -4040,7 +4068,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
                   />
                 </View>
                 <AppButton label="Copy offer summary" variant="secondary" onPress={() => void copyText('Offer summary', currentDealSummary)} />
-                <AppButton label="Share offer summary" variant="secondary" onPress={() => void shareText('DealShield offer review', currentDealSummary)} />
+                <AppButton label="Share offer summary" variant="secondary" onPress={() => void shareText('Sign Check offer review', currentDealSummary)} />
               </View>
             </Card>
 
@@ -4065,7 +4093,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
                     onPress={() => {
                       incrementUsage('reportsShared');
                       appendTimelineEntry('reportShared', 'Buyer report shared', 'Shared the full buyer report with someone else.');
-                      void shareText('DealShield buyer report', buyerReport);
+                      void shareText('Sign Check buyer report', buyerReport);
                     }}
                   />
                   <AppButton label="Export buyer case file PDF" variant="secondary" onPress={() => void exportBuyerCasePdf()} />
@@ -4074,7 +4102,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
             ) : (
               <PremiumPreviewCard
                 title="Shareable buyer report"
-                detail="The free second-opinion text is a quick heads-up. DealShield Pro packages the full picture—verdict, recommended move, negotiation plan, market and trade checks, and paperwork gaps—into one report you can text, share, or export as a PDF before anyone signs."
+                detail="The free second-opinion text is a quick heads-up. Sign Check Pro packages the full picture—verdict, recommended move, negotiation plan, market and trade checks, and paperwork gaps—into one report you can text, share, or export as a PDF before anyone signs."
                 onPaywall={() => void startPaywallPurchase()}
               />
             )}
@@ -4110,7 +4138,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
             </Card>
 
             <Card>
-              <Text style={styles.menuTitle}>Invite someone else into DealShield</Text>
+              <Text style={styles.menuTitle}>Invite someone else into Sign Check</Text>
               <Text style={styles.detailText}>{referralLoop.headline}</Text>
               <Text style={styles.detailText}>{referralLoop.detail}</Text>
               <View style={styles.stackGap}>
@@ -4119,8 +4147,8 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
                   variant="secondary"
                   onPress={() => {
                     incrementUsage('referralShares');
-                    appendTimelineEntry('referralShared', 'Invite message shared', 'Shared a DealShield invite after the second-opinion flow.');
-                    void shareText('Try DealShield', referralLoop.inviteMessage);
+                    appendTimelineEntry('referralShared', 'Invite message shared', 'Shared a Sign Check invite after the second-opinion flow.');
+                    void shareText('Try Sign Check', referralLoop.inviteMessage);
                   }}
                 />
               </View>
@@ -4352,7 +4380,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
 
               <View style={styles.stackGap}>
                 <AppButton label="Copy negotiation blueprint" variant="secondary" onPress={() => void copyText('Negotiation blueprint', negotiationPlanSummary)} />
-                <AppButton label="Share negotiation blueprint" onPress={() => void shareText('DealShield negotiation blueprint', negotiationPlanSummary)} />
+                <AppButton label="Share negotiation blueprint" onPress={() => void shareText('Sign Check negotiation blueprint', negotiationPlanSummary)} />
               </View>
             </Card>
 
@@ -4533,7 +4561,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
                   <AppButton label="Copy scenario" variant="secondary" onPress={() => void copyText('What-if summary', whatIfSummary)} />
                 </View>
                 <View style={styles.flexOne}>
-                  <AppButton label="Share scenario" onPress={() => void shareText('DealShield what-if lab', whatIfSummary)} />
+                  <AppButton label="Share scenario" onPress={() => void shareText('Sign Check what-if lab', whatIfSummary)} />
                 </View>
               </View>
             </Card>
@@ -4885,7 +4913,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
                           onPress={() => {
                             if (!selectedDealsForCompare.first || !selectedDealsForCompare.second || !manualCompareAnalyses.first || !manualCompareAnalyses.second) return;
                             void shareText(
-                              'DealShield comparison summary',
+                              'Sign Check comparison summary',
                               buildComparisonSummary(
                                 selectedDealsForCompare.first,
                                 selectedDealsForCompare.second,
@@ -5087,7 +5115,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
                   </Text>
                 </View>
               </View>
-              <Text style={styles.detailText}>One-time purchase unlocks DealShield Pro on this account. Restore purchases if you reinstall or switch devices.</Text>
+              <Text style={styles.detailText}>One-time purchase unlocks Sign Check Pro on this account. Restore purchases if you reinstall or switch devices.</Text>
               <View style={styles.stackGap}>
                 {!isPro ? (
                   <AppButton label={upgradeCtaLabel} onPress={() => void startPaywallPurchase()} disabled={billingBusy} />
@@ -5140,7 +5168,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
             </Card>
             <Card>
               <Text style={styles.menuTitle}>Backup and move your data</Text>
-              <Text style={styles.detailText}>Until full account sync exists, you can copy a local backup from one device and paste it into another DealShield install.</Text>
+              <Text style={styles.detailText}>Until full account sync exists, you can copy a local backup from one device and paste it into another Sign Check install.</Text>
               <View style={styles.stackGap}>
                 <AppButton label="Copy local backup" variant="secondary" onPress={exportLocalBackup} />
               </View>
@@ -5148,7 +5176,7 @@ export default function DealShieldApp({ entryAnalyzerMode }: DealShieldAppProps 
                 style={styles.notesInput}
                 value={backupDraft}
                 onChangeText={setBackupDraft}
-                placeholder="Paste a DealShield backup JSON here to import it on this device."
+                placeholder="Paste a Sign Check backup JSON here to import it on this device."
                 placeholderTextColor="#94a3b8"
                 multiline
                 textAlignVertical="top"
@@ -5551,6 +5579,31 @@ const styles = StyleSheet.create({
   doubleButtons: {
     flexDirection: 'row',
     gap: 12,
+  },
+  deskSectionRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  deskSectionChip: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: theme.border,
+    backgroundColor: theme.surfaceInset,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+  },
+  deskSectionChipSelected: {
+    backgroundColor: theme.goldSoft,
+    borderColor: theme.gold,
+  },
+  deskSectionChipText: {
+    color: theme.textMuted,
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  deskSectionChipTextSelected: {
+    color: theme.gold,
   },
   flexOne: {
     flex: 1,
