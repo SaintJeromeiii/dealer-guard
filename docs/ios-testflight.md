@@ -5,8 +5,8 @@ Use this flow to upload Sign Check to App Store Connect. You do **not** need Xco
 ## App identity
 - Bundle ID: `com.jleonanderson.signshield`
 - Public contact: `jeromegatron.labs@gmail.com`
-- Privacy policy: https://getsigncheck.com/#privacy
-- Legal disclaimer: https://getsigncheck.com/#disclaimer
+- Privacy policy: https://saintjeromeiii.github.io/dealshield-legal/#privacy
+- Legal disclaimer: https://saintjeromeiii.github.io/dealshield-legal/#disclaimer
 - Lifetime product ID: `ds_premium_lifetime` (App Store non-consumable)
 
 ## Skip Apple’s Xcode / Transporter instructions
