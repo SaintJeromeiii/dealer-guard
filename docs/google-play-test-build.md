@@ -5,8 +5,8 @@ Use this flow to upload Sign Check to Google Play **internal**, **closed**, or *
 ## App identity
 - Package name: `com.jleonanderson.signshield`
 - Public contact: `jeromegatron.labs@gmail.com`
-- Privacy policy: https://saintjeromeiii.github.io/dealshield-legal/#privacy
-- Legal disclaimer: https://saintjeromeiii.github.io/dealshield-legal/#disclaimer
+- Privacy policy: https://getsigncheck.com/#privacy
+- Legal disclaimer: https://getsigncheck.com/#disclaimer
 - Lifetime product ID: `ds_premium_lifetime`
 
 ## One-time setup

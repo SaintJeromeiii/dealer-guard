@@ -137,5 +137,5 @@ Local debug builds (`expo run:android`) still use mock billing. Premium Preview 
 - [ ] Cancelled purchase leaves tier unchanged
 
 ## Legal URLs (store review)
-- Privacy policy: https://saintjeromeiii.github.io/dealshield-legal/#privacy
-- Legal disclaimer: https://saintjeromeiii.github.io/dealshield-legal/#disclaimer
+- Privacy policy: https://getsigncheck.com/#privacy
+- Legal disclaimer: https://getsigncheck.com/#disclaimer

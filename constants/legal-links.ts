@@ -6,9 +6,9 @@ type LegalExtra = {
   legalDisclaimerUrl?: string;
 };
 
-const LIVE_LEGAL_SITE_URL = 'https://saintjeromeiii.github.io/dealshield-legal/#disclaimer';
-const LIVE_PRIVACY_POLICY_URL = 'https://saintjeromeiii.github.io/dealshield-legal/#privacy';
-const LIVE_SUPPORT_URL = 'https://saintjeromeiii.github.io/dealshield-legal/support.html';
+const LIVE_LEGAL_SITE_URL = 'https://getsigncheck.com/#disclaimer';
+const LIVE_PRIVACY_POLICY_URL = 'https://getsigncheck.com/#privacy';
+const LIVE_SUPPORT_URL = 'https://getsigncheck.com/support/';
 export const SUPPORT_EMAIL = 'jeromegatron.labs@gmail.com';
 
 function getExtra(): LegalExtra {
