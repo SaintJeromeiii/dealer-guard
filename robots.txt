@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://saintjeromeiii.github.io/dealshield-legal/sitemap.xml
+Sitemap: https://getsigncheck.com/sitemap.xml
